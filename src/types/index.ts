@@ -1,0 +1,278 @@
+/**
+ * ChronoFlow Type Definitions
+ * Single source of truth for all data structures
+ */
+
+// ── AI Provider Configuration ──────────────────────────────
+export interface AIProvider {
+  name: string;
+  endpoint: string;
+  model: string;
+  apiKeyEnv: string;
+  priority: number;
+  headers: Record<string, string>;
+  bodyModifier?: (body: any) => any;
+}
+
+// ── Entry Type Classification ──────────────────────────────
+export type EntryType =
+  | "TV"
+  | "OVA"
+  | "Movie"
+  | "Special"
+  | "ONA"
+  | "Spin-off"
+  | "Recap"
+  | "Side-story";
+
+export type EntryTier = "essential" | "recommended" | "optional" | "skip";
+
+export type FillerType =
+  | "none"
+  | "recap"
+  | "side-story"
+  | "character-intro"
+  | "world-building"
+  | "fanservice"
+  | "transition"
+  | "mixed";
+
+export type ContentTag =
+  | "Action"
+  | "Adventure"
+  | "Comedy"
+  | "Drama"
+  | "Fantasy"
+  | "Horror"
+  | "Mystery"
+  | "Psychological"
+  | "Romance"
+  | "Sci-Fi"
+  | "Slice of Life"
+  | "Sports"
+  | "Supernatural"
+  | "Thriller"
+  | "Mecha"
+  | "Isekai"
+  | "Shounen"
+  | "Seinen"
+  | "Shoujo"
+  | "Josei";
+
+// ── Watch Order Entry ──────────────────────────────────────
+export interface WatchOrderEntry {
+  id: string;
+  malId?: number;
+  anilistId?: number;
+  title: string;
+  titleJapanese?: string;
+  type: EntryType;
+  tier: EntryTier;
+  episodeCount?: number;
+  durationMinutes?: number;
+  timeEstimate: string;
+  position: number;
+  prerequisites: string[];
+  unlocks: string[];
+  contentTags: ContentTag[];
+  arcName?: string;
+  isFiller: boolean;
+  fillerClassification?: FillerType;
+  fillerReason?: string;
+  whyWatch: string;
+  skipWarning?: string;
+  watchIf: string[];
+  imageUrl?: string;
+  bannerUrl?: string;
+  malScore?: number;
+  anilistScore?: number;
+  popularity?: number;
+  memberCount?: number;
+  synopsis?: string;
+  genres?: string[];
+  aired?: string;
+  status?: string;
+  watched?: boolean;
+  progress?: number;
+  userRating?: number;
+  notes?: string;
+}
+
+// ── Watch Path (Alternative Orderings) ─────────────────────
+export interface WatchPath {
+  name: string;
+  description: string;
+  entries: string[];
+  totalTime: string;
+  bestFor: string[];
+}
+
+// ── Watch Order Result ─────────────────────────────────────
+export interface WatchOrderResult {
+  franchise: string;
+  franchiseId: string;
+  description: string;
+  totalEntries: number;
+  totalEpisodes: number;
+  totalDuration: string;
+  entries: WatchOrderEntry[];
+  paths: WatchPath[];
+  generatedAt: string;
+  aiProvider: string;
+  confidence: number;
+}
+
+// ── User Preferences ───────────────────────────────────────
+export interface UserPreferences {
+  timeBudget: TimeBudget;
+  mood: Mood[];
+  skipPreference: SkipPreference;
+  includeMovies: boolean;
+  includeOVAs: boolean;
+  includeSpecials: boolean;
+  includeRecaps: boolean;
+  preferredPath: PathType;
+  language: "english" | "japanese" | "both";
+}
+
+export type TimeBudget =
+  | "1hour"
+  | "3hours"
+  | "1day"
+  | "1week"
+  | "binge"
+  | "custom";
+
+export type Mood =
+  | "action"
+  | "feels"
+  | "mindfuck"
+  | "comedy"
+  | "horror"
+  | "mystery"
+  | "romance"
+  | "adventure"
+  | "all";
+
+export type SkipPreference =
+  | "smart-skip"
+  | "skip-all-filler"
+  | "canon-only"
+  | "watch-everything";
+
+export type PathType =
+  | "release"
+  | "chronological"
+  | "manga"
+  | "optimal";
+
+// ── Search Result ──────────────────────────────────────────
+export interface AnimeSearchResult {
+  malId: number;
+  anilistId?: number;
+  title: string;
+  titleJapanese?: string;
+  imageUrl: string;
+  type: string;
+  episodes?: number;
+  score: number;
+  synopsis: string;
+  genres: string[];
+  aired?: string;
+  status: string;
+  isFranchise: boolean;
+  franchiseEntries?: number;
+}
+
+// ── Enrichment Data ────────────────────────────────────────
+export interface EnrichmentData {
+  malId: number;
+  score: number;
+  popularity: number;
+  members: number;
+  synopsis: string;
+  genres: string[];
+  studios: string[];
+  aired: string;
+  duration: string;
+  rating: string;
+  imageUrl: string;
+  trailerUrl?: string;
+  relations: Relation[];
+  status?: string;
+}
+
+export interface Relation {
+  relation: string;
+  entry: {
+    malId: number;
+    type: string;
+    title: string;
+  };
+}
+
+// ── User Progress ──────────────────────────────────────────
+export interface UserProgress {
+  franchiseId: string;
+  entries: Record<string, EntryProgress>;
+  startedAt: string;
+  lastUpdated: string;
+  totalWatched: number;
+  totalEpisodes: number;
+  shareCode?: string;
+}
+
+export interface EntryProgress {
+  watched: boolean;
+  episodesWatched: number;
+  rating?: number;
+  notes?: string;
+  watchedAt?: string;
+}
+
+// ── AI Response Types ──────────────────────────────────────
+export interface AIGeneratedEntry {
+  title: string;
+  type: EntryType;
+  tier: EntryTier;
+  position: number;
+  episodeCount?: number;
+  durationMinutes?: number;
+  timeEstimate: string;
+  prerequisites: string[];
+  isFiller: boolean;
+  fillerClassification?: FillerType;
+  fillerReason?: string;
+  whyWatch: string;
+  skipWarning?: string;
+  watchIf: string[];
+  contentTags: ContentTag[];
+  arcName?: string;
+}
+
+export interface AIGeneratedOrder {
+  franchise: string;
+  description: string;
+  confidence: number;
+  entries: AIGeneratedEntry[];
+  paths: WatchPath[];
+  warnings?: string[];
+}
+
+// ── API Response Types ─────────────────────────────────────
+export interface APIResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  provider?: string;
+  cached?: boolean;
+  latency?: number;
+}
+
+// ── Cache Types ────────────────────────────────────────────
+export interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+  provider: string;
+}
