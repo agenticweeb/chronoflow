@@ -55,7 +55,7 @@ export default function Home() {
               </div>
             </div>
             <a
-              href="https://github.com/yourusername/chronoflow"
+              href="https://github.com/agenticweeb/chronoflow"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-chrono-text-muted hover:text-chrono-text transition-colors"
@@ -76,21 +76,21 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Search Section */}
-          <div className="max-w-2xl mx-auto mb-8">
+          {/* Search Section - z-50 ensures dropdown is above everything */}
+          <div className="max-w-2xl mx-auto mb-8 relative z-50">
             <AnimeSearch onSelect={setSelectedAnime} selectedAnime={selectedAnime} />
           </div>
 
           {/* Preferences */}
           {selectedAnime && !result && (
-            <div className="max-w-2xl mx-auto mb-8 animate-slide-up">
+            <div className="max-w-2xl mx-auto mb-8 animate-slide-up relative z-40">
               <PreferencePanel preferences={preferences} onChange={setPreferences} />
             </div>
           )}
 
           {/* Generate Button */}
           {selectedAnime && !result && (
-            <div className="max-w-2xl mx-auto text-center animate-slide-up">
+            <div className="max-w-2xl mx-auto text-center animate-slide-up relative z-30">
               <button
                 onClick={handleGenerate}
                 disabled={loading}
@@ -118,7 +118,7 @@ export default function Home() {
 
           {/* Error State */}
           {error && (
-            <div className="max-w-2xl mx-auto mt-6 glass-card p-6 border-l-4 border-tier-skip animate-fade-in">
+            <div className="max-w-2xl mx-auto mt-6 glass-card p-6 border-l-4 border-tier-skip animate-fade-in relative z-30">
               <h3 className="font-semibold text-tier-skip mb-2">Generation Failed</h3>
               <p className="text-chrono-text-muted text-sm">{error}</p>
               <div className="flex gap-3 mt-4">
@@ -136,7 +136,7 @@ export default function Home() {
 
       {/* Results Section */}
       {result && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-20">
           <div className="flex items-center justify-between mb-6">
             <button
               onClick={() => {
@@ -158,9 +158,9 @@ export default function Home() {
         </div>
       )}
 
-      {/* Empty State / Features */}
+      {/* Empty State / Features - z-0 ensures they stay below search dropdown */}
       {!selectedAnime && !result && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-0">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12">
             {[
               {
@@ -195,7 +195,7 @@ export default function Home() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-chrono-border/30 py-8 text-center">
+      <footer className="border-t border-chrono-border/30 py-8 text-center relative z-0">
         <p className="text-sm text-chrono-text-dim">
           ChronoFlow — Built with Next.js, Tailwind, and AI • Free forever
         </p>
