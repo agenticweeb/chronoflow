@@ -346,6 +346,7 @@ export async function POST(req: NextRequest) {
           skipWarning: entry.skipWarning,
           watchIf: entry.watchIf,
           imageUrl: resolvedImageUrl,
+          trailerUrl: enrichment?.trailerUrl || null, // ADD THIS LINE TO FORWARD TRAILERS
           malScore: enrichment?.score || match?.score,
           anilistScore: match?.score,
           popularity: enrichment?.popularity,

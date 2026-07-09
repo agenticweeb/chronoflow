@@ -25,7 +25,7 @@ const SUGGESTIONS = [
   {
     title: "Fate Series",
     malId: 10087,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/11/33923.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx10087-COToXNo9X356.jpg",
     score: 8.3,
     tag: "Multiverse",
     tagColor: "badge-essential",
@@ -34,7 +34,7 @@ const SUGGESTIONS = [
   {
     title: "Monogatari Series",
     malId: 5081,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/11/73278.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5081-N8Wv4SgY0v4A.jpg",
     score: 8.4,
     tag: "Non-Linear",
     tagColor: "badge-recommended",
@@ -43,7 +43,7 @@ const SUGGESTIONS = [
   {
     title: "The Melancholy of Haruhi Suzumiya",
     malId: 849,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/13/21869.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx849-01pU9f2W9Xg0.png",
     score: 7.8,
     tag: "Time Loop",
     tagColor: "badge-optional",
@@ -52,7 +52,7 @@ const SUGGESTIONS = [
   {
     title: "Steins;Gate",
     malId: 9253,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/15/35890.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx9253-7p9mDIn99YpS.jpg",
     score: 9.1,
     tag: "Time Travel",
     tagColor: "badge-essential",
@@ -61,7 +61,7 @@ const SUGGESTIONS = [
   {
     title: "Toaru Series",
     malId: 4654,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/1764/121873.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4654-20R5gI6O5YfG.jpg",
     score: 7.4,
     tag: "Overlap",
     tagColor: "badge-recommended",
@@ -70,7 +70,7 @@ const SUGGESTIONS = [
   {
     title: "Neon Genesis Evangelion",
     malId: 30,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/10/24813.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx30-gY7NGBYpM92N.png",
     score: 8.3,
     tag: "Alternate Reality",
     tagColor: "badge-skip",
@@ -79,7 +79,7 @@ const SUGGESTIONS = [
   {
     title: "Gundam (Universal Century)",
     malId: 80,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/12/21447.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx80-gX7m4Q3O9u2G.jpg",
     score: 7.8,
     tag: "Decades-Long",
     tagColor: "badge-essential",
@@ -88,7 +88,7 @@ const SUGGESTIONS = [
   {
     title: "Higurashi: When They Cry",
     malId: 934,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/12/22751.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx934-8z7mN19P8w7F.png",
     score: 7.9,
     tag: "Mystery Loops",
     tagColor: "badge-recommended",
@@ -97,7 +97,7 @@ const SUGGESTIONS = [
   {
     title: "Kara no Kyoukai",
     malId: 3784,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/12/21741.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3784-y9hDNoZ6M9xN.jpg",
     score: 7.9,
     tag: "Anachronistic",
     tagColor: "badge-essential",
@@ -106,7 +106,7 @@ const SUGGESTIONS = [
   {
     title: "Durarara!! & Baccano!",
     malId: 6746,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/10/71963.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2151-MvNoYp9m9U2N.jpg",
     score: 8.1,
     tag: "Hyper-Ensemble",
     tagColor: "badge-optional",
@@ -115,7 +115,7 @@ const SUGGESTIONS = [
   {
     title: "Ghost in the Shell",
     malId: 43,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/10/19543.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx43-qX7MNoP9C49N.jpg",
     score: 8.3,
     tag: "Parallel Timelines",
     tagColor: "badge-recommended",
@@ -124,7 +124,7 @@ const SUGGESTIONS = [
   {
     title: "Legend of the Galactic Heroes",
     malId: 820,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/13/13225.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx820-A8WvDNo6M9xN.jpg",
     score: 9.0,
     tag: "Space Opera",
     tagColor: "badge-essential",
@@ -133,7 +133,7 @@ const SUGGESTIONS = [
   {
     title: "Sailor Moon",
     malId: 530,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/11/12351.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx530-t9eDNoP9XfGg.jpg",
     score: 7.7,
     tag: "Classic vs Remake",
     tagColor: "badge-skip",
@@ -142,7 +142,7 @@ const SUGGESTIONS = [
   {
     title: "JoJo's Bizarre Adventure",
     malId: 14719,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/3/40403.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx14719-gDToXNo8M8xN.jpg",
     score: 8.2,
     tag: "Generational",
     tagColor: "badge-recommended",
@@ -151,7 +151,7 @@ const SUGGESTIONS = [
   {
     title: "Final Fantasy VII Compilation",
     malId: 295,
-    imageUrl: "https://cdn.myanimelist.net/images/anime/3/4523.jpg",
+    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx295-pY7NNoG7O9gN.jpg",
     score: 7.4,
     tag: "Multimedia",
     tagColor: "badge-optional",

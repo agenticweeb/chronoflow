@@ -1,8 +1,8 @@
 /**
  * AI Provider Configuration & Auto-Failover Engine
  * 
- * Chain: OpenRouter → Groq Direct → Cerebras → GitHub Models → Google
- * If one fails, immediately tries the next with zero user intervention.
+ * Optimized Chain: Groq Direct → Google Direct → GitHub Mini → Backups
+ * Direct keys are tried first for sub-2-second generation speeds.
  */
 
 import { AIProvider } from "@/types";
@@ -10,80 +10,19 @@ import { AIProvider } from "@/types";
 // ── Provider Definitions ───────────────────────────────────
 export const AI_PROVIDERS: AIProvider[] = [
   {
-    name: "openrouter-groq",
-    endpoint: "https://openrouter.ai/api/v1/chat/completions",
-    model: "meta-llama/llama-3.1-70b-instruct",
-    apiKeyEnv: "OPENROUTER_API_KEY",
-    priority: 1,
-    headers: {
-      "HTTP-Referer": "https://chronoflow.app",
-      "X-Title": "ChronoFlow",
-    },
-  },
-  {
-    name: "openrouter-cerebras",
-    endpoint: "https://openrouter.ai/api/v1/chat/completions",
-    model: "cerebras/llama-3.1-70b",
-    apiKeyEnv: "OPENROUTER_API_KEY",
-    priority: 2,
-    headers: {
-      "HTTP-Referer": "https://chronoflow.app",
-      "X-Title": "ChronoFlow",
-    },
-  },
-  {
-    name: "openrouter-google",
-    endpoint: "https://openrouter.ai/api/v1/chat/completions",
-    model: "google/gemini-2.5-flash",
-    apiKeyEnv: "OPENROUTER_API_KEY",
-    priority: 3,
-    headers: {
-      "HTTP-Referer": "https://chronoflow.app",
-      "X-Title": "ChronoFlow",
-    },
-  },
-  {
     name: "groq-direct",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
-    model: "llama-3.1-70b-versatile",
+    model: "llama-3.3-70b-versatile", // Upgraded to latest ultra-fast model
     apiKeyEnv: "GROQ_API_KEY",
-    priority: 4,
+    priority: 1, // Directly tried first! Sub-2s generation.
     headers: {},
-  },
-  {
-    name: "cerebras-direct",
-    endpoint: "https://api.cerebras.ai/v1/chat/completions",
-    model: "llama-3.1-70b",
-    apiKeyEnv: "CEREBRAS_API_KEY",
-    priority: 5,
-    headers: {},
-  },
-  {
-    name: "github-gpt4o",
-    endpoint: "https://models.inference.ai.azure.com/chat/completions",
-    model: "gpt-4o",
-    apiKeyEnv: "GITHUB_MODELS_TOKEN",
-    priority: 6,
-    headers: {
-      "User-Agent": "ChronoFlow",
-    },
-  },
-  {
-    name: "github-claude",
-    endpoint: "https://models.inference.ai.azure.com/chat/completions",
-    model: "claude-3.5-sonnet",
-    apiKeyEnv: "GITHUB_MODELS_TOKEN",
-    priority: 7,
-    headers: {
-      "User-Agent": "ChronoFlow",
-    },
   },
   {
     name: "google-gemini",
     endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
     model: "gemini-1.5-flash",
     apiKeyEnv: "GOOGLE_AI_API_KEY",
-    priority: 8,
+    priority: 2, // Tried second. Extremely reliable direct endpoint.
     headers: {},
     bodyModifier: (body: any) => ({
       contents: [
@@ -100,6 +39,67 @@ export const AI_PROVIDERS: AIProvider[] = [
       ],
       generationConfig: { temperature: 0.3, maxOutputTokens: 4000 },
     }),
+  },
+  {
+    name: "github-gpt4o-mini",
+    endpoint: "https://models.inference.ai.azure.com/chat/completions",
+    model: "gpt-4o-mini", // Fast, low-latency mini model
+    apiKeyEnv: "GITHUB_MODELS_TOKEN",
+    priority: 3, // Tried third.
+    headers: {
+      "User-Agent": "ChronoFlow",
+    },
+  },
+  {
+    name: "github-gpt4o",
+    endpoint: "https://models.inference.ai.azure.com/chat/completions",
+    model: "gpt-4o",
+    apiKeyEnv: "GITHUB_MODELS_TOKEN",
+    priority: 4, // Tried fourth.
+    headers: {
+      "User-Agent": "ChronoFlow",
+    },
+  },
+  {
+    name: "openrouter-google",
+    endpoint: "https://openrouter.ai/api/v1/chat/completions",
+    model: "google/gemini-2.5-flash",
+    apiKeyEnv: "OPENROUTER_API_KEY",
+    priority: 5,
+    headers: {
+      "HTTP-Referer": "https://chronoflow.app",
+      "X-Title": "ChronoFlow",
+    },
+  },
+  {
+    name: "openrouter-groq",
+    endpoint: "https://openrouter.ai/api/v1/chat/completions",
+    model: "meta-llama/llama-3.1-70b-instruct",
+    apiKeyEnv: "OPENROUTER_API_KEY",
+    priority: 6,
+    headers: {
+      "HTTP-Referer": "https://chronoflow.app",
+      "X-Title": "ChronoFlow",
+    },
+  },
+  {
+    name: "openrouter-cerebras",
+    endpoint: "https://openrouter.ai/api/v1/chat/completions",
+    model: "cerebras/llama-3.1-70b",
+    apiKeyEnv: "OPENROUTER_API_KEY",
+    priority: 7,
+    headers: {
+      "HTTP-Referer": "https://chronoflow.app",
+      "X-Title": "ChronoFlow",
+    },
+  },
+  {
+    name: "cerebras-direct",
+    endpoint: "https://api.cerebras.ai/v1/chat/completions",
+    model: "llama-3.1-70b",
+    apiKeyEnv: "CEREBRAS_API_KEY",
+    priority: 8,
+    headers: {},
   },
 ];
 
@@ -178,7 +178,7 @@ Be thorough. Cover obscure OVAs and movies fans often miss. Distinguish between 
 // ── Auto-Failover Call ─────────────────────────────────────
 export async function callAIWithFallback(
   prompt: string,
-  maxRetries: number = 2
+  maxRetries: number = 1 // Set to 1 so we skip to the next active key instantly on any failure
 ): Promise<{ content: string; provider: string; latency: number }> {
   const sortedProviders = [...AI_PROVIDERS].sort(
     (a, b) => a.priority - b.priority
@@ -205,7 +205,6 @@ export async function callAIWithFallback(
               max_tokens: 4000,
             };
 
-        // Prepare headers dynamically to account for service differences
         const headers: Record<string, string> = {
           "Content-Type": "application/json",
           ...provider.headers,
@@ -231,13 +230,11 @@ export async function callAIWithFallback(
         const data = await response.json();
         const latency = Date.now() - startTime;
 
-        // Extract content based on provider format
         let content = "";
         if (provider.name === "google-gemini") {
           content =
             data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
-          // OpenRouter normalizes responses from Google models to OpenAI standard
           content =
             data.choices?.[0]?.message?.content ||
             data.choices?.[0]?.text ||
@@ -258,7 +255,7 @@ export async function callAIWithFallback(
         );
 
         if (attempt < maxRetries - 1) {
-          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s
+          const delay = Math.pow(2, attempt) * 1000;
           await new Promise((r) => setTimeout(r, delay));
         }
       }

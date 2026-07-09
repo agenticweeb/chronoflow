@@ -96,6 +96,7 @@ export interface WatchOrderEntry {
   progress?: number;
   userRating?: number;
   notes?: string;
+  trailerUrl?: string | null;
 }
 
 // ── Watch Path (Alternative Orderings) ─────────────────────

@@ -29,8 +29,27 @@ interface FlowchartProps {
   result: WatchOrderResult;
 }
 
+// Helper: Safely converts various YouTube links to embeddable streams with autoplay
+function getYoutubeEmbedUrl(url?: string | null): string | null {
+  if (!url) return null;
+  
+  // Standard YouTube watch URLs or short links
+  const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  if (match && match[1]) {
+    return `https://www.youtube.com/embed/${match[1]}?autoplay=1`;
+  }
+  
+  // Standard embed format
+  if (url.includes("youtube.com/embed/")) {
+    return url.includes("?") ? `${url}&autoplay=1` : `${url}?autoplay=1`;
+  }
+  
+  return null;
+}
+
 export function Flowchart({ result }: FlowchartProps) {
   const [expanded, setExpanded] = useState(new Set<string>());
+  const [activeTrailerUrl, setActiveTrailerUrl] = useState<string | null>(null);
   
   // Watch Calendar customization states
   const [isCalOpen, setIsCalOpen] = useState(false);
@@ -185,6 +204,7 @@ export function Flowchart({ result }: FlowchartProps) {
               isWatched={progress?.entries[entry.id]?.watched || false}
               onToggleWatched={() => toggleWatched(entry.id, entry)}
               isLast={index === result.entries.length - 1}
+              onPlayTrailer={(url) => setActiveTrailerUrl(url)}
             />
           ))}
         </div>
@@ -194,7 +214,6 @@ export function Flowchart({ result }: FlowchartProps) {
       {isCalOpen && typeof window !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-fade-in">
-            {/* Modal Container */}
             <div className="glass-card w-full max-w-md overflow-hidden relative shadow-2xl animate-slide-up border border-chrono-border">
               
               {/* Header */}
@@ -213,7 +232,6 @@ export function Flowchart({ result }: FlowchartProps) {
 
               {/* Form Content */}
               <div className="p-6 space-y-5">
-                {/* Start Date */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
                     Schedule Start Date
@@ -226,7 +244,6 @@ export function Flowchart({ result }: FlowchartProps) {
                   />
                 </div>
 
-                {/* Episodes Per Day */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-medium">
                     <span className="text-chrono-text-muted">Viewing Pace</span>
@@ -235,7 +252,6 @@ export function Flowchart({ result }: FlowchartProps) {
                     </span>
                   </div>
                   
-                  {/* Select preset minutes mapping */}
                   <div className="grid grid-cols-4 gap-2">
                     {[
                       { label: "1 Ep", val: 1 },
@@ -260,7 +276,6 @@ export function Flowchart({ result }: FlowchartProps) {
                   </div>
                 </div>
 
-                {/* Preferred Watch Hour */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
                     Daily Watch Time
@@ -301,6 +316,45 @@ export function Flowchart({ result }: FlowchartProps) {
           </div>,
           document.body
         )}
+
+      {/* Trailer Video Player Modal (Portal) */}
+      {activeTrailerUrl && typeof window !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-fade-in">
+            <div className="w-full max-w-3xl aspect-video rounded-2xl overflow-hidden relative border border-chrono-border shadow-2xl bg-black">
+              {/* Close Button */}
+              <button
+                onClick={() => setActiveTrailerUrl(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors z-50 border border-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              {getYoutubeEmbedUrl(activeTrailerUrl) ? (
+                <iframe
+                  src={getYoutubeEmbedUrl(activeTrailerUrl)!}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center text-chrono-text-dim p-6">
+                  <Play className="w-12 h-12 text-chrono-primary animate-pulse mb-3" />
+                  <p className="text-sm">Could not load trailer stream. Try watching directly:</p>
+                  <a
+                    href={activeTrailerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-chrono-primary hover:underline text-xs mt-2"
+                  >
+                    {activeTrailerUrl}
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -314,6 +368,7 @@ interface FlowchartNodeProps {
   isWatched: boolean;
   onToggleWatched: () => void;
   isLast: boolean;
+  onPlayTrailer: (url: string) => void;
 }
 
 function FlowchartNode({
@@ -324,6 +379,7 @@ function FlowchartNode({
   isWatched,
   onToggleWatched,
   isLast,
+  onPlayTrailer,
 }: FlowchartNodeProps) {
   const tierStyles = {
     essential: "tier-essential",
@@ -553,6 +609,22 @@ function FlowchartNode({
                   <p className="text-xs text-chrono-text-dim">
                     Aired: {entry.aired}
                   </p>
+                )}
+
+                {entry.trailerUrl && (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPlayTrailer(entry.trailerUrl!);
+                      }}
+                      className="btn-primary py-2 px-4 text-xs font-semibold inline-flex items-center gap-1.5 shadow-md shadow-chrono-primary/10"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>Watch Trailer</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
