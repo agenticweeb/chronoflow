@@ -76,7 +76,7 @@ export async function searchAniList(
   }));
 }
 
-// ── Get Media Details ──────────────────────────────────────
+// ── Get Media Details (Pre-fetches trailers and details for all relations) ──
 export async function getMediaDetails(anilistId: number) {
   const q = `
     query($id: Int) {
@@ -104,7 +104,21 @@ export async function getMediaDetails(anilistId: number) {
         relations {
           edges {
             relationType
-            node { id idMal title { english romaji } format episodes }
+            node { 
+              id 
+              idMal 
+              title { english romaji native } 
+              format 
+              episodes 
+              duration
+              averageScore
+              description
+              genres
+              coverImage { large }
+              startDate { year month day }
+              status
+              trailer { id site }
+            }
           }
         }
         recommendations {

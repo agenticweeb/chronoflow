@@ -1,21 +1,21 @@
-'use client'
+'use client';
 
-import { useState, useCallback } from 'react'
-import { cn } from '@/lib/utils'
+import React, { useState, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 
 type Props = {
-  src?: string
-  alt: string
-  franchise?: string
-  className?: string
-  ratio?: 'portrait' | 'landscape' | 'square'
-}
+  src?: string | null;
+  alt: string;
+  franchise?: string;
+  className?: string;
+  ratio?: 'portrait' | 'landscape' | 'square';
+};
 
 const ASPECTS = {
   portrait:  'aspect-[2/3]',
   landscape: 'aspect-[3/2]',
   square:    'aspect-square',
-}
+};
 
 function monogram(text: string): string {
   return text
@@ -26,16 +26,16 @@ function monogram(text: string): string {
     .map(w => w[0])
     .join('')
     .toUpperCase()
-    .slice(0, 3) || '?'
+    .slice(0, 3) || '?';
 }
 
 function hueFor(text: string): number {
-  let h = 0
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0
-  return h % 360
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  return h % 360;
 }
 
-const BRAND_HUE = 258 // Matches --chrono-primary violet hue
+const BRAND_HUE = 258;
 
 export function SuggestionImage({
   src,
@@ -44,18 +44,16 @@ export function SuggestionImage({
   className,
   ratio = 'portrait',
 }: Props) {
-  const [errored, setErrored] = useState(false)
-  const onError = useCallback(() => setErrored(true), [])
+  const [errorCount, setErrorCount] = useState(0);
+  const onError = useCallback(() => {
+    setErrorCount(prev => prev + 1);
+  }, []);
 
-  // Bypasses HTTP 403 Forbidden blocks on CDNs using a safe proxy
-  const proxiedUrl = src 
-    ? (src.includes("wsrv.nl") ? src : `https://wsrv.nl/?url=${encodeURIComponent(src.replace(/^https?:\/\//, ""))}`) 
-    : "";
-
-  if (!src || errored) {
-    const initials = monogram(franchise || alt || '?')
-    const hue = (BRAND_HUE + hueFor(franchise || alt) * 0.5) % 360
-    const accentHue = (hue + 60) % 360
+  // Standard monogram render when both direct and proxy fail
+  if (!src || errorCount >= 2) {
+    const initials = monogram(franchise || alt || '?');
+    const hue = (BRAND_HUE + hueFor(franchise || alt) * 0.5) % 360;
+    const accentHue = (hue + 60) % 360;
     return (
       <div
         role="img"
@@ -64,7 +62,7 @@ export function SuggestionImage({
           ASPECTS[ratio],
           'relative grid place-items-center overflow-hidden rounded-lg',
           'bg-zinc-900 ring-1 ring-white/10',
-          className,
+          className
         )}
         style={{
           backgroundImage: `
@@ -79,26 +77,30 @@ export function SuggestionImage({
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.06),transparent_60%)]"
         />
         <span
-          className="relative font-bold tracking-tight text-white/90 select-none animate-fade-in"
-          style={{ fontSize: 'clamp(1.5rem, 5vw, 3rem)' }}
+          className="relative font-bold tracking-tight text-white/90 select-none animate-fade-in text-lg"
         >
           {initials}
         </span>
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 animate-shimmer bg-gradient-to-r from-transparent via-white/[0.04] to-transparent"
-        />
       </div>
-    )
+    );
   }
+
+  // Failover architecture:
+  // Tier 1: Load direct CDN image with referrer blockers
+  // Tier 2: Fetch image through server-side proxy
+  const resolvedSrc = errorCount === 1 
+    ? `/api/image-proxy?url=${encodeURIComponent(src)}` 
+    : src;
 
   return (
     <img
-      src={proxiedUrl}
+      src={resolvedSrc}
       alt={alt}
       onError={onError}
       loading="lazy"
+      referrerPolicy="no-referrer"
+      crossOrigin="anonymous"
       className={cn(ASPECTS[ratio], 'object-cover rounded-lg', className)}
     />
-  )
+  );
 }

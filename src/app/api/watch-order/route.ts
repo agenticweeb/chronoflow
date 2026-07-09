@@ -1,19 +1,10 @@
 /**
  * API Route: Generate Watch Order
- * 
- * Flow:
- * 1. Receive anime name + user preferences
- * 2. Check cache first
- * 3. Search and find the best match
- * 4. Pre-fetch real franchise relation graph from AniList/MAL (RAG Context)
- * 5. Call AI with auto-failover, feeding it the verified entries
- * 6. Parse AI response and enrich using live parsed database stats
- * 7. Apply user filters & return formatted, accurate watch order
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { buildWatchOrderPrompt, callAIWithFallback } from "@/lib/ai-providers";
-import { searchAnime, getAnimeDetails } from "@/lib/jikan-client";
+import { searchAnime } from "@/lib/jikan-client";
 import { searchAniList, getMediaDetails } from "@/lib/anilist-client";
 import { cache } from "@/lib/cache";
 import {
@@ -23,30 +14,27 @@ import {
   AIGeneratedOrder,
 } from "@/types";
 
-// Helper: Safely parses human-readable Jikan duration strings into minutes
+// Helper: Safely parses human-readable Jikan/AniList duration strings into minutes
 function parseDuration(durationStr?: string, type?: string): number {
   if (!durationStr) {
     return type === "Movie" ? 90 : 24;
   }
   const clean = durationStr.toLowerCase();
   
-  // 1. Handle seconds first (e.g., "44 sec per ep" or "30 sec")
   if (clean.includes("sec") || clean.includes("second")) {
     const match = clean.match(/(\d+)\s*sec/);
     if (match) {
       const seconds = parseInt(match[1], 10);
-      return Math.ceil(seconds / 60); // Converts 44 seconds -> 1 minute
+      return Math.ceil(seconds / 60); 
     }
     return 1;
   }
   
-  // 2. Handle minutes (e.g., "24 min per ep" or "24 min")
   if (clean.includes("per ep") || clean.includes("min")) {
     const match = clean.match(/(\d+)\s*min/);
     if (match) return parseInt(match[1], 10);
   }
   
-  // 3. Handle hours (e.g., "1 hr 45 min" or "2 hr")
   if (clean.includes("hr") || clean.includes("hour")) {
     const hrMatch = clean.match(/(\d+)\s*hr/);
     const minMatch = clean.match(/(\d+)\s*min/);
@@ -59,124 +47,60 @@ function parseDuration(durationStr?: string, type?: string): number {
   return type === "Movie" ? 90 : 24;
 }
 
-// ── Layer 2 & 1: Image Probe & Re-resolve Pipeline ──────────
-async function fetchAniListImageByMalId(malId: number): Promise<string | undefined> {
-  try {
-    const query = `
-      query($idMal: Int) {
-        Media(idMal: $idMal, type: ANIME) {
-          coverImage { large }
-        }
-      }
-    `;
-    const res = await fetch("https://graphql.anilist.co", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, variables: { idMal: malId } }),
-    });
-    if (res.ok) {
-      const body = await res.json();
-      return body?.data?.Media?.coverImage?.large;
-    }
-  } catch (err) {
-    console.error("AniList re-resolution fetch failed:", err);
-  }
-  return undefined;
-}
-
-async function probeAndResolveImageUrl(
-  malId?: number,
-  anilistId?: number,
-  currentUrl?: string
-): Promise<string> {
-  if (!currentUrl && !malId && !anilistId) return "";
-
-  if (currentUrl?.includes("anilist.co")) {
-    return currentUrl;
-  }
-
-  if (currentUrl) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
-      const res = await fetch(currentUrl, {
-        method: "HEAD",
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (res.ok) {
-        return currentUrl;
-      }
-    } catch (e) {
-      console.warn(`HEAD probe failed for ${currentUrl}. Transitioning to stable re-resolution.`);
-    }
-  }
-
-  if (malId) {
-    const aniListUrl = await fetchAniListImageByMalId(malId);
-    if (aniListUrl) return aniListUrl;
-  }
-
-  return currentUrl || "";
-}
-
-// Pre-fetches immediate franchise network nodes dynamically before prompting the AI
+// Pre-fetches immediate franchise network nodes including trailer schema
 async function getFranchiseGraph(bestMatch: any): Promise<any[]> {
   const entries: any[] = [];
   
-  // 1. Add the main queried show
-  entries.push({
-    malId: bestMatch.malId,
-    anilistId: bestMatch.anilistId,
-    title: bestMatch.title,
-    type: bestMatch.type,
-    episodes: bestMatch.episodes,
-    relation: "Main Query"
-  });
-
-  // 2. Fetch all immediate relation nodes from AniList (extremely fast single graph query)
   if (bestMatch.anilistId) {
     try {
       const details = await getMediaDetails(bestMatch.anilistId);
-      const relations = details?.Media?.relations?.edges || [];
+      const media = details?.Media;
+      
+      if (media) {
+        entries.push({
+          malId: media.idMal,
+          anilistId: media.id,
+          title: media.title?.english || media.title?.romaji || media.title?.native,
+          type: media.format,
+          episodes: media.episodes,
+          duration: media.duration,
+          averageScore: media.averageScore,
+          description: media.description,
+          genres: media.genres,
+          imageUrl: media.coverImage?.large,
+          status: media.status,
+          trailer: media.trailer,
+          relation: "Main Show"
+        });
+      }
+
+      const relations = media?.relations?.edges || [];
       for (const edge of relations) {
         const node = edge.node;
         if (node) {
           entries.push({
             malId: node.idMal,
             anilistId: node.id,
-            title: node.title.english || node.title.romaji || node.title.native,
+            title: node.title?.english || node.title?.romaji || node.title?.native,
             type: node.format,
             episodes: node.episodes,
+            duration: node.duration,
+            averageScore: node.averageScore,
+            description: node.description,
+            genres: node.genres,
+            imageUrl: node.coverImage?.large,
+            status: node.status,
+            trailer: node.trailer,
             relation: edge.relationType
           });
         }
       }
     } catch (err) {
-      console.warn("Failed to fetch relations from AniList:", err);
-    }
-  } else if (bestMatch.malId) {
-    // Fallback Jikan relation fetch
-    try {
-      const details = await getAnimeDetails(bestMatch.malId);
-      const relations = details?.relations || [];
-      for (const r of relations) {
-        if (r.entry) {
-          entries.push({
-            malId: r.entry.malId,
-            title: r.entry.title,
-            type: r.entry.type,
-            relation: r.relation
-          });
-        }
-      }
-    } catch (err) {
-      console.warn("Failed to fetch relations from Jikan:", err);
+      console.warn("Failed to fetch relations from AniList GraphQL query:", err);
     }
   }
 
-  // Deduplicate entries by malId, anilistId, or lowercase title name
+  // Deduplicate entries
   const uniqueEntries: any[] = [];
   const seenKeys = new Set<string>();
 
@@ -196,6 +120,59 @@ async function getFranchiseGraph(bestMatch: any): Promise<any[]> {
   return uniqueEntries;
 }
 
+// Bulletproof JSON parser to prevent LLM formatting crashes
+function cleanAndParseJSON(text: string): any {
+  let cleaned = text.trim();
+
+  // 1. Strip markdown wrapper boundaries
+  const markdownRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
+  const match = cleaned.match(markdownRegex);
+  if (match) {
+    cleaned = match[1].trim();
+  }
+
+  // 2. Locate outermost JSON brackets
+  const firstBracket = cleaned.indexOf('[');
+  const firstBrace = cleaned.indexOf('{');
+  
+  let startIdx = -1;
+  let endIdx = -1;
+
+  if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+    startIdx = firstBracket;
+    endIdx = cleaned.lastIndexOf(']');
+  } else if (firstBrace !== -1) {
+    startIdx = firstBrace;
+    endIdx = cleaned.lastIndexOf('}');
+  }
+
+  if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+    cleaned = cleaned.slice(startIdx, endIdx + 1);
+  }
+
+  // 3. Remove standard javascript single-line & block comments
+  cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+  cleaned = cleaned.replace(/(?:^|\s)\/\/.*$/gm, '');
+
+  // 4. Clean trailing commas in objects or arrays
+  cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (firstError) {
+    try {
+      // 5. Escape raw control character linebreaks inside string values
+      const repaired = cleaned.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (m, group) => {
+        return '"' + group.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+      });
+      return JSON.parse(repaired);
+    } catch (secondError) {
+      console.error('Critical Parsing Failure on Cleaned Output String:', cleaned);
+      throw new Error(`Failed to repair raw LLM output brackets.`);
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
 
@@ -213,7 +190,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Step 1: Check cache ────────────────────────────────
     const cacheKey = `order_${animeName.toLowerCase().replace(/\s+/g, "_")}_${JSON.stringify(preferences)}`;
     const cached = cache.get<WatchOrderResult>(cacheKey);
     if (cached) {
@@ -225,16 +201,13 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Step 2: Parallel search across APIs ──────────────────
     const [jikanResults, anilistResults] = await Promise.allSettled([
       searchAnime(animeName, 5),
       searchAniList(animeName, 5),
     ]);
 
-    const jikanData =
-      jikanResults.status === "fulfilled" ? jikanResults.value : [];
-    const anilistData =
-      anilistResults.status === "fulfilled" ? anilistResults.value : [];
+    const jikanData = jikanResults.status === "fulfilled" ? jikanResults.value : [];
+    const anilistData = anilistResults.status === "fulfilled" ? anilistResults.value : [];
 
     const mergedResults = [...jikanData];
     for (const ani of anilistData) {
@@ -247,7 +220,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const bestMatch = mergedResults[0];
+    // Strict search-match mapping to avoid loose tag matches (e.g. Osomatsu parody text matching "jojo")
+    const bestMatch = mergedResults.find(
+      (item) => item.title.toLowerCase().includes(animeName.toLowerCase()) || 
+                animeName.toLowerCase().includes(item.title.toLowerCase())
+    ) || mergedResults[0];
+
     if (!bestMatch) {
       return NextResponse.json(
         { success: false, error: `No anime found matching "${animeName}"` },
@@ -255,109 +233,85 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Step 3: Fetch verified relation graph & prompt AI ──
+    // Step 3: Fetch dynamic graph pre-enriched with covers, synopsis, and trailers
     const franchiseGraph = await getFranchiseGraph(bestMatch);
     
-    // Convert verified database items to a context block for the AI prompt
     const franchiseContext = franchiseGraph
-      .map((entry) => `- Title: "${entry.title}" | Type: ${entry.type || "Unknown"} | Episodes: ${entry.episodes || "Unknown"} | Relation: ${entry.relation || "Self"}`)
+      .map((entry) => `- Title: "${entry.title}" | Type: ${entry.type || "Unknown"} | Episodes: ${entry.episodes || "Unknown"}`)
       .join("\n");
 
     const basePrompt = buildWatchOrderPrompt(bestMatch.title, preferences);
-    
-    // Inject database context directly into the instruction payload
-    const prompt = `${basePrompt}\n\nVERIFIED DATABASE ENTRIES (You MUST only construct the watch order from this exact list of entries. Do not invent other seasons, movies, or shows. Map these entries directly to your recommendation tiers):\n${franchiseContext}`;
+    const prompt = `${basePrompt}\n\nVERIFIED DATABASE ENTRIES (You MUST strictly map your timeline entries to match this list. Do not invent any other seasons, films, or titles):\n${franchiseContext}`;
 
     const aiResponse = await callAIWithFallback(prompt);
 
-    // Parse AI response safely
+    // Run clean sanitizer to prevent formatting parse failures
     let aiData: AIGeneratedOrder;
     try {
-      const jsonMatch = aiResponse.content.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : aiResponse.content;
-      aiData = JSON.parse(jsonStr);
+      aiData = cleanAndParseJSON(aiResponse.content);
     } catch (parseError) {
-      console.error("AI response parse error:", parseError);
+      console.error("Critical AI Response Parsing Crash. Raw content was:", aiResponse.content);
       return NextResponse.json(
-        { success: false, error: "Failed to parse AI response. Try again." },
+        { success: false, error: "Failed to parse structured AI output cleanly." },
         { status: 500 }
       );
     }
 
-    // ── Step 4: Enrich entries with live data ──────────────
-    const enrichedEntries: WatchOrderEntry[] = await Promise.all(
-      aiData.entries.map(async (entry, index) => {
-        // Find matching anime in our fetched franchise graph first, fallback to search results
-        const match = franchiseGraph.find(
-          (r) =>
-            r.title.toLowerCase().includes(entry.title.toLowerCase()) ||
-            entry.title.toLowerCase().includes(r.title.toLowerCase())
-        ) || mergedResults.find(
-          (r) =>
-            r.title.toLowerCase().includes(entry.title.toLowerCase()) ||
-            entry.title.toLowerCase().includes(r.title.toLowerCase())
-        );
+    // Step 4: Map original metadata and trailers back into parsed entries on the server
+    const enrichedEntries: WatchOrderEntry[] = aiData.entries.map((entry, index) => {
+      const match = franchiseGraph.find(
+        (r) =>
+          r.title.toLowerCase().includes(entry.title.toLowerCase()) ||
+          entry.title.toLowerCase().includes(r.title.toLowerCase())
+      ) || mergedResults.find(
+        (r) =>
+          r.title.toLowerCase().includes(entry.title.toLowerCase()) ||
+          entry.title.toLowerCase().includes(r.title.toLowerCase())
+      );
 
-        let enrichment = null;
-        if (match?.malId) {
-          try {
-            enrichment = await getAnimeDetails(match.malId);
-          } catch (e) {
-            console.warn(`Enrichment failed for ${entry.title}:`, e);
-          }
-        }
+      const cleanSynopsis = match?.description 
+        ? match.description.replace(/<[^>]*>/g, "").trim()
+        : match?.synopsis || "";
 
-        const rawImageUrl = match?.imageUrl || enrichment?.imageUrl;
-        const resolvedImageUrl = await probeAndResolveImageUrl(
-          match?.malId,
-          match?.anilistId,
-          rawImageUrl
-        );
+      let trailerUrl = null;
+      if (match?.trailer?.site?.toLowerCase() === "youtube" && match?.trailer?.id) {
+        trailerUrl = `https://www.youtube.com/watch?v=${match.trailer.id}`; // Fix: Resolved truncation typo string
+      }
 
-        // Parse runtime safely and guard against multi-episode/season calculation bloats
-        const parsedRealDuration = parseDuration(enrichment?.duration, entry.type);
-        let finalDuration = parsedRealDuration || entry.durationMinutes || (entry.type === "Movie" ? 90 : 24);
-        
-        // Safety Clamping Safeguard: TV shows should not have hallucinated per-episode runtimes over 60 minutes
-        if (entry.type === "TV" && finalDuration > 60) {
-          finalDuration = 24;
-        }
+      const durationMinutes = match?.duration || entry.durationMinutes || (entry.type === "Movie" ? 90 : 24);
+      const finalDuration = (entry.type === "TV" && durationMinutes > 60) ? 24 : durationMinutes;
 
-        return {
-          id: `entry_${index}`,
-          malId: match?.malId,
-          anilistId: match?.anilistId,
-          title: entry.title,
-          titleJapanese: match?.titleJapanese,
-          type: entry.type,
-          tier: entry.tier,
-          episodeCount: entry.episodeCount || match?.episodes || 12,
-          durationMinutes: finalDuration,
-          timeEstimate: `${entry.episodeCount || match?.episodes || 12} eps × ${finalDuration}m`,
-          position: entry.position,
-          prerequisites: entry.prerequisites,
-          unlocks: [],
-          contentTags: entry.contentTags,
-          arcName: entry.arcName,
-          isFiller: entry.isFiller,
-          fillerClassification: entry.fillerClassification,
-          fillerReason: entry.fillerReason,
-          whyWatch: entry.whyWatch,
-          skipWarning: entry.skipWarning,
-          watchIf: entry.watchIf,
-          imageUrl: resolvedImageUrl,
-          trailerUrl: enrichment?.trailerUrl || null, // ADD THIS LINE TO FORWARD TRAILERS
-          malScore: enrichment?.score || match?.score,
-          anilistScore: match?.score,
-          popularity: enrichment?.popularity,
-          memberCount: enrichment?.members,
-          synopsis: enrichment?.synopsis || match?.synopsis,
-          genres: enrichment?.genres || match?.genres,
-          aired: enrichment?.aired || match?.aired,
-          status: enrichment?.status || match?.status,
-        };
-      })
-    );
+      return {
+        id: `entry_${index}`,
+        malId: match?.malId,
+        anilistId: match?.anilistId,
+        title: entry.title,
+        titleJapanese: match?.titleJapanese,
+        type: entry.type,
+        tier: entry.tier,
+        episodeCount: entry.episodeCount || match?.episodes || 12,
+        durationMinutes: finalDuration,
+        timeEstimate: `${entry.episodeCount || match?.episodes || 12} eps × ${finalDuration}m`,
+        position: entry.position,
+        prerequisites: entry.prerequisites || [],
+        unlocks: [],
+        contentTags: entry.contentTags || [],
+        arcName: entry.arcName || undefined,         
+        isFiller: entry.isFiller || false,
+        fillerClassification: entry.fillerClassification || "none",
+        fillerReason: entry.fillerReason || "",
+        whyWatch: entry.whyWatch,
+        skipWarning: entry.skipWarning || undefined, 
+        watchIf: entry.watchIf || [],
+        imageUrl: match?.imageUrl || match?.coverImage?.large || "", 
+        trailerUrl: trailerUrl || undefined,         
+        malScore: match?.averageScore ? match.averageScore / 10 : match?.score,
+        anilistScore: match?.averageScore ? match.averageScore / 10 : match?.score,
+        synopsis: cleanSynopsis,
+        genres: match?.genres || [],
+        status: match?.status,
+      };
+    });
 
     // Compute unlocks
     const entryMap = new Map(enrichedEntries.map((e) => [e.title, e.id]));
@@ -373,10 +327,8 @@ export async function POST(req: NextRequest) {
       });
     });
 
-    // ── Step 5: Apply user filters ───────────────────────────
     const filteredEntries = applyFilters(enrichedEntries, preferences);
 
-    // ── Step 6: Build result ─────────────────────────────────
     const result: WatchOrderResult = {
       franchise: aiData.franchise || bestMatch.title,
       franchiseId: `fr_${bestMatch.malId || bestMatch.anilistId || Date.now()}`,
@@ -391,7 +343,6 @@ export async function POST(req: NextRequest) {
       confidence: aiData.confidence || 75,
     };
 
-    // ── Step 7: Cache and return ─────────────────────────────
     cache.set(cacheKey, result, 7 * 24 * 60 * 60 * 1000, aiResponse.provider);
 
     return NextResponse.json({

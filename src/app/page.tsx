@@ -8,6 +8,7 @@ import { AnimeSearch } from "@/components/AnimeSearch";
 import { PreferencePanel } from "@/components/PreferencePanel";
 import { Flowchart } from "@/components/Flowchart";
 import { cn } from "@/lib/utils";
+import { SuggestionImage } from "@/components/SuggestionImage";
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "binge",
@@ -21,11 +22,12 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   language: "english",
 };
 
+// Maps directly to your verified local public/suggestions folder files
 const SUGGESTIONS = [
   {
     title: "Fate Series",
     malId: 10087,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx10087-COToXNo9X356.jpg",
+    imageUrl: "/suggestions/fate.jpg",
     score: 8.3,
     tag: "Multiverse",
     tagColor: "badge-essential",
@@ -34,7 +36,7 @@ const SUGGESTIONS = [
   {
     title: "Monogatari Series",
     malId: 5081,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5081-N8Wv4SgY0v4A.jpg",
+    imageUrl: "/suggestions/monogatari.jpeg",
     score: 8.4,
     tag: "Non-Linear",
     tagColor: "badge-recommended",
@@ -43,7 +45,7 @@ const SUGGESTIONS = [
   {
     title: "The Melancholy of Haruhi Suzumiya",
     malId: 849,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx849-01pU9f2W9Xg0.png",
+    imageUrl: "/suggestions/The Melancholy of Haruhi Suzumiya.jpeg",
     score: 7.8,
     tag: "Time Loop",
     tagColor: "badge-optional",
@@ -52,7 +54,7 @@ const SUGGESTIONS = [
   {
     title: "Steins;Gate",
     malId: 9253,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx9253-7p9mDIn99YpS.jpg",
+    imageUrl: "/suggestions/Steins;Gate.jpeg",
     score: 9.1,
     tag: "Time Travel",
     tagColor: "badge-essential",
@@ -61,7 +63,7 @@ const SUGGESTIONS = [
   {
     title: "Toaru Series",
     malId: 4654,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4654-20R5gI6O5YfG.jpg",
+    imageUrl: "/suggestions/Toaru Series.jpeg",
     score: 7.4,
     tag: "Overlap",
     tagColor: "badge-recommended",
@@ -70,7 +72,7 @@ const SUGGESTIONS = [
   {
     title: "Neon Genesis Evangelion",
     malId: 30,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx30-gY7NGBYpM92N.png",
+    imageUrl: "/suggestions/Neon Genesis Evangelion.jpeg",
     score: 8.3,
     tag: "Alternate Reality",
     tagColor: "badge-skip",
@@ -79,7 +81,7 @@ const SUGGESTIONS = [
   {
     title: "Gundam (Universal Century)",
     malId: 80,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx80-gX7m4Q3O9u2G.jpg",
+    imageUrl: "/suggestions/Gundam (Universal Century).jpeg",
     score: 7.8,
     tag: "Decades-Long",
     tagColor: "badge-essential",
@@ -88,7 +90,7 @@ const SUGGESTIONS = [
   {
     title: "Higurashi: When They Cry",
     malId: 934,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx934-8z7mN19P8w7F.png",
+    imageUrl: "/suggestions/Higurashi_ When They Cry.jpeg",
     score: 7.9,
     tag: "Mystery Loops",
     tagColor: "badge-recommended",
@@ -97,7 +99,7 @@ const SUGGESTIONS = [
   {
     title: "Kara no Kyoukai",
     malId: 3784,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3784-y9hDNoZ6M9xN.jpg",
+    imageUrl: "/suggestions/Kara no Kyoukai.jpeg",
     score: 7.9,
     tag: "Anachronistic",
     tagColor: "badge-essential",
@@ -106,7 +108,7 @@ const SUGGESTIONS = [
   {
     title: "Durarara!! & Baccano!",
     malId: 6746,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2151-MvNoYp9m9U2N.jpg",
+    imageUrl: "/suggestions/Durarara!! & Baccano!.jpeg",
     score: 8.1,
     tag: "Hyper-Ensemble",
     tagColor: "badge-optional",
@@ -115,7 +117,7 @@ const SUGGESTIONS = [
   {
     title: "Ghost in the Shell",
     malId: 43,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx43-qX7MNoP9C49N.jpg",
+    imageUrl: "/suggestions/Ghost in the Shell.jpeg",
     score: 8.3,
     tag: "Parallel Timelines",
     tagColor: "badge-recommended",
@@ -124,7 +126,7 @@ const SUGGESTIONS = [
   {
     title: "Legend of the Galactic Heroes",
     malId: 820,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx820-A8WvDNo6M9xN.jpg",
+    imageUrl: "/suggestions/Legend of the Galactic Heroes.jpeg",
     score: 9.0,
     tag: "Space Opera",
     tagColor: "badge-essential",
@@ -133,7 +135,7 @@ const SUGGESTIONS = [
   {
     title: "Sailor Moon",
     malId: 530,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx530-t9eDNoP9XfGg.jpg",
+    imageUrl: "/suggestions/Sailor Moon.jpeg",
     score: 7.7,
     tag: "Classic vs Remake",
     tagColor: "badge-skip",
@@ -142,66 +144,13 @@ const SUGGESTIONS = [
   {
     title: "JoJo's Bizarre Adventure",
     malId: 14719,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx14719-gDToXNo8M8xN.jpg",
+    imageUrl: "/suggestions/JoJo's Bizarre Adventure.jpeg",
     score: 8.2,
     tag: "Generational",
     tagColor: "badge-recommended",
     desc: "Follows a linear family tree, but drastic shifts in art style, genre, protagonist, and setting often throw newcomers off.",
   },
-  {
-    title: "Final Fantasy VII Compilation",
-    malId: 295,
-    imageUrl: "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx295-pY7NNoG7O9gN.jpg",
-    score: 7.4,
-    tag: "Multimedia",
-    tagColor: "badge-optional",
-    desc: "Navigating across prequel OVAs, feature films, and video games just to gather a single cohesive plotline.",
-  },
 ];
-
-// Helper Component for Premium Image Fallback (Routed through wsrv.nl proxy)
-function SuggestionCardImage({ src, alt, tag, tagColor }: { src: string; alt: string; tag: string; tagColor: string }) {
-  const [error, setError] = useState(false);
-
-  const initials = alt
-    .split(/[\s:;!]+/)
-    .filter(Boolean)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 3)
-    .toUpperCase();
-
-  // Route through proxy to prevent CDN 403 Forbidden referer blockages
-  const proxiedUrl = src ? `https://wsrv.nl/?url=${encodeURIComponent(src.replace(/^https?:\/\//, ""))}` : "";
-
-  return (
-    <div className="relative h-44 w-full overflow-hidden bg-chrono-surface flex items-center justify-center">
-      {!error && proxiedUrl ? (
-        <img
-          src={proxiedUrl}
-          alt={alt}
-          onError={() => setError(true)}
-          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-full h-full bg-gradient-to-br from-chrono-surface via-chrono-surface-hover to-chrono-primary/20 flex flex-col items-center justify-center relative p-4 select-none text-center">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.1)_0,transparent_100%)]" />
-          <span className="text-4xl font-extrabold tracking-widest text-chrono-primary/40 animate-pulse">
-            {initials}
-          </span>
-          <span className="text-[10px] font-semibold text-chrono-text-dim uppercase tracking-wider mt-2 group-hover:text-chrono-primary transition-colors truncate w-full px-2">
-            {alt}
-          </span>
-        </div>
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-chrono-surface via-chrono-surface/30 to-transparent pointer-events-none" />
-      <span className={cn("absolute top-3 right-3 badge text-[10px] pointer-events-none", tagColor)}>
-        {tag}
-      </span>
-    </div>
-  );
-}
 
 export default function Home() {
   const [selectedAnime, setSelectedAnime] = useState<AnimeSearchResult | null>(null);
@@ -429,7 +378,15 @@ export default function Home() {
                   onClick={() => handleSelectSuggestion(s)}
                   className="glass-card group overflow-hidden cursor-pointer flex flex-col h-full border border-chrono-border/30 hover:border-chrono-primary/50 hover:shadow-lg hover:shadow-chrono-primary/10 transition-all duration-300 animate-slide-up"
                 >
-                  <SuggestionCardImage src={s.imageUrl} alt={s.title} tag={s.tag} tagColor={s.tagColor} />
+                  <div className="relative h-44 w-full overflow-hidden bg-chrono-surface flex items-center justify-center">
+                    <SuggestionImage 
+                      src={s.imageUrl} 
+                      alt={s.title} 
+                      franchise={s.title}
+                      className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500" 
+                    />
+                    <div className="absolute top-3 right-3 badge text-[10px] pointer-events-none badge-recommended">{s.tag}</div>
+                  </div>
 
                   {/* Card Content */}
                   <div className="p-5 flex-1 flex flex-col justify-between bg-chrono-surface/10">
