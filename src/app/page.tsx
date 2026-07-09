@@ -159,7 +159,7 @@ const SUGGESTIONS = [
   },
 ];
 
-// Helper Component for Premium Image Fallback (Renamed to avoid naming collision)
+// Helper Component for Premium Image Fallback (Routed through wsrv.nl proxy)
 function SuggestionCardImage({ src, alt, tag, tagColor }: { src: string; alt: string; tag: string; tagColor: string }) {
   const [error, setError] = useState(false);
 
@@ -171,13 +171,15 @@ function SuggestionCardImage({ src, alt, tag, tagColor }: { src: string; alt: st
     .slice(0, 3)
     .toUpperCase();
 
+  // Route through proxy to prevent CDN 403 Forbidden referer blockages
+  const proxiedUrl = src ? `https://wsrv.nl/?url=${encodeURIComponent(src.replace(/^https?:\/\//, ""))}` : "";
+
   return (
     <div className="relative h-44 w-full overflow-hidden bg-chrono-surface flex items-center justify-center">
-      {!error ? (
+      {!error && proxiedUrl ? (
         <img
-          src={src}
+          src={proxiedUrl}
           alt={alt}
-          referrerPolicy="no-referrer"
           onError={() => setError(true)}
           className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
@@ -215,7 +217,6 @@ export default function Home() {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  // Clears active layouts instantly when a brand new target is selected
   const handleSelectAnime = useCallback((anime: AnimeSearchResult | null) => {
     setSelectedAnime(anime);
     reset(); 

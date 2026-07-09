@@ -35,7 +35,7 @@ function hueFor(text: string): number {
   return h % 360
 }
 
-const BRAND_HUE = 258 // Matches your --chrono-primary violet color hue (~258deg)
+const BRAND_HUE = 258 // Matches --chrono-primary violet hue
 
 export function SuggestionImage({
   src,
@@ -46,6 +46,11 @@ export function SuggestionImage({
 }: Props) {
   const [errored, setErrored] = useState(false)
   const onError = useCallback(() => setErrored(true), [])
+
+  // Bypasses HTTP 403 Forbidden blocks on CDNs using a safe proxy
+  const proxiedUrl = src 
+    ? (src.includes("wsrv.nl") ? src : `https://wsrv.nl/?url=${encodeURIComponent(src.replace(/^https?:\/\//, ""))}`) 
+    : "";
 
   if (!src || errored) {
     const initials = monogram(franchise || alt || '?')
@@ -89,11 +94,10 @@ export function SuggestionImage({
 
   return (
     <img
-      src={src}
+      src={proxiedUrl}
       alt={alt}
       onError={onError}
       loading="lazy"
-      referrerPolicy="no-referrer"
       className={cn(ASPECTS[ratio], 'object-cover rounded-lg', className)}
     />
   )
