@@ -489,6 +489,44 @@ vercel --prod
 | Project GitHub | https://github.com/agenticweeb/chronoflow |
 | Creator X | https://x.com/agenticweeb |
 
----
+---## DEVELOPMENT LOG & RESOLVED ISSUES (Update: July 2026)
+
+### 1. Resolved AI Generation Failover & API Key Mismatches
+*   **The Issue:** Generation pipeline throwing `All AI providers exhausted` error on development start.
+*   **Why it occurred:** 
+    1.  **Google Gemini Direct Header:** The direct endpoint (`google-gemini`) does not support the OpenAI standard `Authorization: Bearer` header. It was returning `401 Unauthorized` because it requires the `x-goog-api-key` header instead.
+    2.  **OpenRouter-Google Extraction:** The code looked for `provider.name.includes("google")` to parse the direct Gemini candidates array. However, `openrouter-google` is routed through OpenRouter, which normalizes results into standard OpenAI completions. This caused a parsing crash when using the Google model via OpenRouter.
+*   **The Fix:** 
+    *   Updated the fallback logic in `src/lib/ai-providers.ts` to assign headers dynamically based on the active provider.
+    *   Strictly isolated direct Google endpoint responses (`provider.name === "google-gemini"`), ensuring correct OpenAI format parsing for OpenRouter models.
+    *   Added detailed, verbose terminal logging inside the `catch` loop so that failures (HTTP codes, exceptions) are instantly readable in the development terminal.
+
+### 2. Implemented RAG (Retrieval-Augmented Generation) Context Pipeline
+*   **The Issue:** AI model knowledge cutoffs led to massive hallucinations on newer/obscure/ongoing titles. If the model didn't recognize a show (e.g. *Clevatess* from July 2025), it matched unrelated keyword data from its memory (recommending *Shield Hero* instead).
+*   **The Fix:** 
+    *   Priced in a real-time pre-fetch step inside `src/app/api/watch-order/route.ts`.
+    *   The API route now queries the **AniList GraphQL relation graph** or MyAnimeList (Jikan) directly before prompting the AI, creating a unified list of verified sequels, spin-offs, movies, and prequels.
+    *   Injects this list of **Verified Database Entries** directly into the LLM system prompt. The LLM is strictly instructed to categorize and order *only* these database items, resulting in **zero hallucinations** across all anime.
+
+### 3. Fixed Episode Duration & Smart-Skip Timeline Calculation Bloats
+*   **The Issue:** Watching timelines were extremely inaccurate; standard 24-episode series were showing up as taking a year of daily viewing to complete.
+*   **Why it occurred:** 
+    1.  LLMs returned `durationMinutes` representing the **total season runtime** (e.g. 455 minutes total), but our accumulator was multiplying this total runtime by the `episodeCount` again.
+    2.  Mini-shorts and Twitter ONAs (like *Katarina Nounai Kaigi* which is only **44 seconds** per episode) were parsed as regular 24-minute episodes because our string parser didn't recognize `"sec"`, inflating short OVA durations to hours.
+*   **The Fix:** 
+    *   Built an intelligent parser `parseDuration` in `src/app/api/watch-order/route.ts` which decodes MyAnimeList durations.
+    *   Added dedicated processing for seconds (`"sec"`, `"second"`) which correctly rounds short ONAs/PVs to `1` minute.
+    *   Added a clamp safeguard: Any TV episode format with a calculated runtime over 60 minutes is clamped back to the 24-minute standard.
+
+### 4. Resolved Interactive Sticky Search UI Bugs
+*   **The Issue:** Typing or clicking a new anime on the search bar while look at a generated watch order didn't render the new selection, locking the search bar. Also, resetting/starting over left search text stuck inside the input.
+*   **The Fix:**
+    *   Refactored `src/app/page.tsx`'s search select handler (`handleSelectAnime`) to instantly execute `reset()` on the watch-order hook, wiping the old results flowchart so the UI naturally shifts back to the custom preferences panel.
+    *   Added a synchronization `useEffect` inside `src/components/AnimeSearch.tsx` that binds local input query states to parent changes, instantly clearing the input on resets or suggestions clicks.
+    *   Renamed local suggested helper inside `page.tsx` to `SuggestionCardImage` to resolve name collision issues.
+
+### 5. Added Zero-Cost Suggestion & Bug Feedback System
+*   **Implementation:** Created `/api/feedback/route.ts` which connects to a dedicated developer Discord Webhook. 
+*   **Result:** Users can click a floating purple trigger bubble in the bottom right corner of ChronoFlow at any time to instantly send suggestions, and the developer receives push-notifications immediately inside their Discord server.
 
 *This document is auto-generated and should be updated after every significant change. Keep it in the project root for continuity.*

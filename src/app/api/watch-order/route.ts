@@ -30,13 +30,23 @@ function parseDuration(durationStr?: string, type?: string): number {
   }
   const clean = durationStr.toLowerCase();
   
-  // Example: "24 min per ep" or "24 min"
+  // 1. Handle seconds first (e.g., "44 sec per ep" or "30 sec")
+  if (clean.includes("sec") || clean.includes("second")) {
+    const match = clean.match(/(\d+)\s*sec/);
+    if (match) {
+      const seconds = parseInt(match[1], 10);
+      return Math.ceil(seconds / 60); // Converts 44 seconds -> 1 minute
+    }
+    return 1;
+  }
+  
+  // 2. Handle minutes (e.g., "24 min per ep" or "24 min")
   if (clean.includes("per ep") || clean.includes("min")) {
     const match = clean.match(/(\d+)\s*min/);
     if (match) return parseInt(match[1], 10);
   }
   
-  // Example: "1 hr 45 min" or "2 hr"
+  // 3. Handle hours (e.g., "1 hr 45 min" or "2 hr")
   if (clean.includes("hr") || clean.includes("hour")) {
     const hrMatch = clean.match(/(\d+)\s*hr/);
     const minMatch = clean.match(/(\d+)\s*min/);

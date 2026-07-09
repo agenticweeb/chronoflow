@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Search, X, Loader2, Film, Tv, Sparkles } from "lucide-react";
+import { Search, X, Loader2, Tv, Sparkles } from "lucide-react";
 import { AnimeSearchResult } from "@/types";
 import { useSearch } from "@/hooks/useSearch";
 import { cn } from "@/lib/utils";
@@ -33,6 +33,15 @@ export function AnimeSearch({ onSelect, selectedAnime }: AnimeSearchProps) {
       width: rect.width,
     });
   }, []);
+
+  // Synchronize input text with parent state changes
+  useEffect(() => {
+    if (selectedAnime) {
+      setQuery(selectedAnime.title);
+    } else {
+      setQuery("");
+    }
+  }, [selectedAnime]);
 
   const handleInputChange = (value: string) => {
     setQuery(value);
@@ -157,7 +166,7 @@ export function AnimeSearch({ onSelect, selectedAnime }: AnimeSearchProps) {
         )}
       </div>
 
-      {/* Dropdown via Portal — renders outside parent stacking context */}
+      {/* Dropdown via Portal */}
       {isOpen && results.length > 0 && typeof window !== "undefined" &&
         createPortal(
           <div
