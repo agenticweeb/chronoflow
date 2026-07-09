@@ -47,7 +47,7 @@ function parseDuration(durationStr?: string, type?: string): number {
   return type === "Movie" ? 90 : 24;
 }
 
-// Pre-fetches immediate franchise network nodes including trailer schema
+// Pre-fetches franchise relations, prioritizing main items & capping to prevent LLM timeouts
 async function getFranchiseGraph(bestMatch: any): Promise<any[]> {
   const entries: any[] = [];
   
@@ -70,15 +70,24 @@ async function getFranchiseGraph(bestMatch: any): Promise<any[]> {
           imageUrl: media.coverImage?.large,
           status: media.status,
           trailer: media.trailer,
+          popularity: media.popularity || 0,
           relation: "Main Show"
         });
       }
 
       const relations = media?.relations?.edges || [];
+      const relationNodes: any[] = [];
+
       for (const edge of relations) {
         const node = edge.node;
         if (node) {
-          entries.push({
+          // Omit music PVs or recaps to protect generation speeds on long series (like One Piece)
+          const ignoredFormats = ["music", "special"];
+          if (ignoredFormats.includes(node.format?.toLowerCase() || "")) {
+            continue;
+          }
+
+          relationNodes.push({
             malId: node.idMal,
             anilistId: node.id,
             title: node.title?.english || node.title?.romaji || node.title?.native,
@@ -91,16 +100,24 @@ async function getFranchiseGraph(bestMatch: any): Promise<any[]> {
             imageUrl: node.coverImage?.large,
             status: node.status,
             trailer: node.trailer,
-            relation: edge.relationType
+            popularity: node.popularity || 0,
+            relationType: edge.relationType
           });
         }
       }
+
+      // Sort relations by popularity and limit to top 15 most popular entries (+ main show)
+      const sortedRelations = relationNodes
+        .sort((a, b) => b.popularity - a.popularity)
+        .slice(0, 15);
+
+      entries.push(...sortedRelations);
     } catch (err) {
       console.warn("Failed to fetch relations from AniList GraphQL query:", err);
     }
   }
 
-  // Deduplicate entries
+  // Deduplicate entries safely
   const uniqueEntries: any[] = [];
   const seenKeys = new Set<string>();
 
@@ -120,18 +137,18 @@ async function getFranchiseGraph(bestMatch: any): Promise<any[]> {
   return uniqueEntries;
 }
 
-// Bulletproof JSON parser to prevent LLM formatting crashes
+// Robust JSON sanitizer to prevent conversational markdown parsing failures
 function cleanAndParseJSON(text: string): any {
   let cleaned = text.trim();
 
-  // 1. Strip markdown wrapper boundaries
+  // 1. Strip markdown code fences
   const markdownRegex = /```(?:json)?\s*([\s\S]*?)\s*```/i;
   const match = cleaned.match(markdownRegex);
   if (match) {
     cleaned = match[1].trim();
   }
 
-  // 2. Locate outermost JSON brackets
+  // 2. Identify outermost structural brackets
   const firstBracket = cleaned.indexOf('[');
   const firstBrace = cleaned.indexOf('{');
   
@@ -150,25 +167,25 @@ function cleanAndParseJSON(text: string): any {
     cleaned = cleaned.slice(startIdx, endIdx + 1);
   }
 
-  // 3. Remove standard javascript single-line & block comments
+  // 3. Remove inline javascript comments
   cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
   cleaned = cleaned.replace(/(?:^|\s)\/\/.*$/gm, '');
 
-  // 4. Clean trailing commas in objects or arrays
+  // 4. Eliminate trailing commas
   cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
 
   try {
     return JSON.parse(cleaned);
   } catch (firstError) {
     try {
-      // 5. Escape raw control character linebreaks inside string values
+      // 5. Escape newline controls within string fields
       const repaired = cleaned.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"/g, (m, group) => {
         return '"' + group.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
       });
       return JSON.parse(repaired);
     } catch (secondError) {
-      console.error('Critical Parsing Failure on Cleaned Output String:', cleaned);
-      throw new Error(`Failed to repair raw LLM output brackets.`);
+      console.error('Critical JSON Parsing Failure. Cleansed block was:', cleaned);
+      throw new Error(`Failed to parse LLM response arrays.`);
     }
   }
 }
@@ -220,7 +237,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Strict search-match mapping to avoid loose tag matches (e.g. Osomatsu parody text matching "jojo")
     const bestMatch = mergedResults.find(
       (item) => item.title.toLowerCase().includes(animeName.toLowerCase()) || 
                 animeName.toLowerCase().includes(item.title.toLowerCase())
@@ -233,7 +249,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 3: Fetch dynamic graph pre-enriched with covers, synopsis, and trailers
+    // Step 3: Fetch dynamic graph capped to top 15 most popular entries to prevent LLM truncation
     const franchiseGraph = await getFranchiseGraph(bestMatch);
     
     const franchiseContext = franchiseGraph
@@ -245,7 +261,7 @@ export async function POST(req: NextRequest) {
 
     const aiResponse = await callAIWithFallback(prompt);
 
-    // Run clean sanitizer to prevent formatting parse failures
+    // Parse Response
     let aiData: AIGeneratedOrder;
     try {
       aiData = cleanAndParseJSON(aiResponse.content);
@@ -275,9 +291,11 @@ export async function POST(req: NextRequest) {
 
       let trailerUrl = null;
       if (match?.trailer?.site?.toLowerCase() === "youtube" && match?.trailer?.id) {
-        trailerUrl = `https://www.youtube.com/watch?v=${match.trailer.id}`; // Fix: Resolved truncation typo string
+        trailerUrl = `https://www.youtube.com/watch?v=${match.trailer.id}`; // Fix: Corrected string template typo
       }
 
+      // Safe fallbacks to prevent "0 Hours" bug if AI returns missing fields
+      const episodesCount = match?.episodes || entry.episodeCount || 12;
       const durationMinutes = match?.duration || entry.durationMinutes || (entry.type === "Movie" ? 90 : 24);
       const finalDuration = (entry.type === "TV" && durationMinutes > 60) ? 24 : durationMinutes;
 
@@ -289,9 +307,9 @@ export async function POST(req: NextRequest) {
         titleJapanese: match?.titleJapanese,
         type: entry.type,
         tier: entry.tier,
-        episodeCount: entry.episodeCount || match?.episodes || 12,
+        episodeCount: episodesCount,
         durationMinutes: finalDuration,
-        timeEstimate: `${entry.episodeCount || match?.episodes || 12} eps × ${finalDuration}m`,
+        timeEstimate: `${episodesCount} eps × ${finalDuration}m`,
         position: entry.position,
         prerequisites: entry.prerequisites || [],
         unlocks: [],

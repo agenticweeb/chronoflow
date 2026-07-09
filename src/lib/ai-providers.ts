@@ -103,7 +103,7 @@ export const AI_PROVIDERS: AIProvider[] = [
   },
 ];
 
-// ── Prompt Builder ─────────────────────────────────────────
+// ── Prompt Builder (Optimized for lightning-fast token footprint) ──
 export function buildWatchOrderPrompt(
   animeName: string,
   preferences: any
@@ -122,23 +122,19 @@ USER PREFERENCES:
 - Preferred path: ${preferences.preferredPath}
 
 RULES:
-1. Cover ALL entries: TV series, OVAs, movies, specials, ONAs, spin-offs
+1. Cover ALL entries provided in the VERIFIED DATABASE entries.
 2. For each entry, classify into one of 4 tiers:
    - "essential": Cannot be skipped, core plot
    - "recommended": Enhances experience, character development
    - "optional": Nice to have, not critical
    - "skip": Filler, recap, or content that hurts pacing
 3. For filler entries, classify type: "recap", "side-story", "character-intro", "world-building", "fanservice", "transition", "mixed"
-4. Provide spoiler-free "whyWatch" for every entry
-5. Provide "skipWarning" for skipped entries (what you miss)
-6. Include time estimates in human-readable format
-7. Suggest 2-3 alternative paths (release order, chronological, manga-follow)
-8. If data is limited, set confidence < 70 and add warnings
+4. Keep the descriptions VERY CONCISE to save token output bandwidth. Limit explanations to under 12 words.
 
 OUTPUT FORMAT — Return ONLY valid JSON:
 {
   "franchise": "string",
-  "description": "string",
+  "description": "string (max 15 words)",
   "confidence": 0-100,
   "entries": [
     {
@@ -152,9 +148,9 @@ OUTPUT FORMAT — Return ONLY valid JSON:
       "prerequisites": ["title of prerequisite"],
       "isFiller": boolean,
       "fillerClassification": "none|recap|side-story|character-intro|world-building|fanservice|transition|mixed",
-      "fillerReason": "string",
-      "whyWatch": "string",
-      "skipWarning": "string or null",
+      "fillerReason": "string (max 10 words)",
+      "whyWatch": "string (MAX 12 WORDS - highly concise spoiler-free reason)",
+      "skipWarning": "string or null (max 10 words)",
       "watchIf": ["string"],
       "contentTags": ["Action","Adventure","Comedy","Drama","Fantasy","Horror","Mystery","Psychological","Romance","Sci-Fi","Slice of Life","Sports","Supernatural","Thriller","Mecha","Isekai","Shounen","Seinen","Shoujo","Josei"],
       "arcName": "string or null"
@@ -172,7 +168,7 @@ OUTPUT FORMAT — Return ONLY valid JSON:
   "warnings": ["string or empty"]
 }
 
-Be thorough. Cover obscure OVAs and movies fans often miss. Distinguish between "skip because it's bad" vs "skip because it's recap you just watched".`;
+Be thorough but keep the JSON texts highly summarized, concise, and dense.`;
 }
 
 // ── Auto-Failover Call ─────────────────────────────────────
@@ -201,7 +197,7 @@ export async function callAIWithFallback(
           : {
               model: provider.model,
               messages: [{ role: "user", content: prompt }],
-              temperature: 0.3,
+              temperature: 0.15, // Low temperature for ultra-consistent, fast JSON
               max_tokens: 4000,
             };
 
