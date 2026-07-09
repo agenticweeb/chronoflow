@@ -24,6 +24,71 @@ import {
   AIGeneratedOrder,
 } from "@/types";
 
+// ── Layer 2 & 1: Image Probe & Re-resolve Pipeline ──────────
+async function fetchAniListImageByMalId(malId: number): Promise<string | undefined> {
+  try {
+    const query = `
+      query($idMal: Int) {
+        Media(idMal: $idMal, type: ANIME) {
+          coverImage { large }
+        }
+      }
+    `;
+    const res = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, variables: { idMal: malId } }),
+    });
+    if (res.ok) {
+      const body = await res.json();
+      return body?.data?.Media?.coverImage?.large;
+    }
+  } catch (err) {
+    console.error("AniList re-resolution fetch failed:", err);
+  }
+  return undefined;
+}
+
+async function probeAndResolveImageUrl(
+  malId?: number,
+  anilistId?: number,
+  currentUrl?: string
+): Promise<string> {
+  if (!currentUrl && !malId && !anilistId) return "";
+
+  // Bias toward AniList: If currentUrl is already an AniList stable link, skip validation
+  if (currentUrl?.includes("anilist.co")) {
+    return currentUrl;
+  }
+
+  // Layer 2: Probe MAL CDN with a lightweight HEAD check
+  if (currentUrl) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5-second budget
+      const res = await fetch(currentUrl, {
+        method: "HEAD",
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        return currentUrl; // MAL URL is fully healthy
+      }
+    } catch (e) {
+      console.warn(`HEAD probe failed for ${currentUrl}. Transitioning to stable re-resolution.`);
+    }
+  }
+
+  // Layer 1: Resolve dead/missing images via stable AniList URLs
+  if (malId) {
+    const aniListUrl = await fetchAniListImageByMalId(malId);
+    if (aniListUrl) return aniListUrl;
+  }
+
+  return currentUrl || "";
+}
+
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -97,7 +162,6 @@ export async function POST(req: NextRequest) {
       aiData = JSON.parse(jsonStr);
     } catch (parseError) {
       console.error("AI response parse error:", parseError);
-      console.error("Raw response:", aiResponse.content.substring(0, 500));
       return NextResponse.json(
         { success: false, error: "Failed to parse AI response. Try again." },
         { status: 500 }
@@ -123,6 +187,13 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        const rawImageUrl = match?.imageUrl || enrichment?.imageUrl;
+        const resolvedImageUrl = await probeAndResolveImageUrl(
+          match?.malId,
+          match?.anilistId,
+          rawImageUrl
+        );
+
         return {
           id: `entry_${index}`,
           malId: match?.malId,
@@ -145,7 +216,7 @@ export async function POST(req: NextRequest) {
           whyWatch: entry.whyWatch,
           skipWarning: entry.skipWarning,
           watchIf: entry.watchIf,
-          imageUrl: match?.imageUrl || enrichment?.imageUrl,
+          imageUrl: resolvedImageUrl,
           malScore: enrichment?.score || match?.score,
           anilistScore: match?.score,
           popularity: enrichment?.popularity,
@@ -237,7 +308,6 @@ function applyFilters(entries: WatchOrderEntry[], prefs: UserPreferences): Watch
   } else if (prefs.skipPreference === "smart-skip") {
     filtered = filtered.filter((e) => e.tier !== "skip");
   }
-  // "watch-everything" keeps all
 
   // Mood filter
   if (prefs.mood && prefs.mood.length > 0 && !prefs.mood.includes("all")) {

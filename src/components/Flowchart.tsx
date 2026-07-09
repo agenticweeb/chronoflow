@@ -1,6 +1,10 @@
 "use client";
-
+import { calculateTimeBudget } from "@/lib/time-calculator";
+import { TimeBudgetCard } from "@/components/TimeBudgetCard";
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import { generateWatchCalendarIcs, downloadIcsFile } from "@/lib/calendar-generator";
+
 import {
   ChevronDown,
   ChevronUp,
@@ -9,22 +13,45 @@ import {
   Star,
   AlertTriangle,
   Info,
-  Eye,
-  EyeOff,
   Share2,
   Play,
   SkipForward,
+  CalendarDays,
+  X,
 } from "lucide-react";
+
 import { WatchOrderEntry, WatchOrderResult } from "@/types";
 import { useProgress } from "@/hooks/useProgress";
 import { cn, generateShareText } from "@/lib/utils";
+import { SuggestionImage } from "@/components/SuggestionImage";
 
 interface FlowchartProps {
   result: WatchOrderResult;
 }
 
 export function Flowchart({ result }: FlowchartProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(new Set<string>());
+  
+  // Watch Calendar customization states
+  const [isCalOpen, setIsCalOpen] = useState(false);
+  const [calStartDate, setCalStartDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
+  const [calEpsPerDay, setCalEpsPerDay] = useState(2);
+  const [calStartTime, setCalStartTime] = useState("20:00");
+
+  const toggleEntry = (id: string) => {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const { progress, toggleWatched, getCompletionRate } = useProgress(
     result.franchiseId
   );
@@ -39,6 +66,17 @@ export function Flowchart({ result }: FlowchartProps) {
       text
     )}`;
     window.open(url, "_blank", "width=600,height=400");
+  };
+
+  const handleExportCalendar = () => {
+    const icsContent = generateWatchCalendarIcs(result.franchise, result.entries, {
+      startDate: calStartDate,
+      episodesPerDay: calEpsPerDay,
+      watchStartTime: calStartTime,
+    });
+    const slug = result.franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    downloadIcsFile(`chronoflow-${slug}-schedule.ics`, icsContent);
+    setIsCalOpen(false);
   };
 
   const completionRate = getCompletionRate();
@@ -70,8 +108,10 @@ export function Flowchart({ result }: FlowchartProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex-1 sm:w-48">
+          
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Progress status */}
+            <div className="flex-1 sm:w-40 min-w-[120px]">
               <div className="flex justify-between text-xs text-chrono-text-muted mb-1">
                 <span>Progress</span>
                 <span>{completionRate}%</span>
@@ -83,13 +123,25 @@ export function Flowchart({ result }: FlowchartProps) {
                 />
               </div>
             </div>
-            <button
-              onClick={handleShare}
-              className="btn-secondary flex items-center gap-2"
-            >
-              <Share2 className="w-4 h-4" />
-              Share
-            </button>
+
+            {/* Actions button group */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsCalOpen(true)}
+                title="Generate custom watch calendar (.ics)"
+                className="btn-secondary flex-1 sm:flex-initial flex items-center justify-center gap-2 border-chrono-primary/30 text-chrono-primary hover:bg-chrono-primary/5 transition-colors"
+              >
+                <CalendarDays className="w-4 h-4" />
+                <span>Schedule</span>
+              </button>
+              <button
+                onClick={handleShare}
+                className="btn-secondary flex-1 sm:flex-initial flex items-center justify-center gap-2"
+              >
+                <Share2 className="w-4 h-4" />
+                <span>Share</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -104,7 +156,21 @@ export function Flowchart({ result }: FlowchartProps) {
         </div>
       </div>
 
-      {/* Flowchart */}
+      {/* Time Budget Card */}
+      <TimeBudgetCard
+        data={calculateTimeBudget(
+          result.franchise,
+          result.entries.map((e) => ({
+            title: e.title,
+            episodes: e.episodeCount ?? 1,
+            durationMin: e.durationMinutes ?? 24,
+            tier: e.tier,
+          })),
+          new Date(result.generatedAt)
+        )}
+      />
+
+      {/* Flowchart Timeline */}
       <div className="relative">
         <div className="absolute left-6 sm:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/50 via-chrono-border to-chrono-border" />
 
@@ -114,10 +180,8 @@ export function Flowchart({ result }: FlowchartProps) {
               key={entry.id}
               entry={entry}
               index={index}
-              isExpanded={expandedId === entry.id}
-              onToggle={() =>
-                setExpandedId(expandedId === entry.id ? null : entry.id)
-              }
+              isExpanded={expanded.has(entry.id)}
+              onToggle={() => toggleEntry(entry.id)}
               isWatched={progress?.entries[entry.id]?.watched || false}
               onToggleWatched={() => toggleWatched(entry.id, entry)}
               isLast={index === result.entries.length - 1}
@@ -125,6 +189,118 @@ export function Flowchart({ result }: FlowchartProps) {
           ))}
         </div>
       </div>
+
+      {/* Watch Calendar Configuration Modal (Portal) */}
+      {isCalOpen && typeof window !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-fade-in">
+            {/* Modal Container */}
+            <div className="glass-card w-full max-w-md overflow-hidden relative shadow-2xl animate-slide-up border border-chrono-border">
+              
+              {/* Header */}
+              <div className="p-6 border-b border-chrono-border/40 flex items-center justify-between bg-chrono-surface/30">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-5 h-5 text-chrono-primary" />
+                  <h3 className="text-lg font-bold text-chrono-text">Customize Calendar</h3>
+                </div>
+                <button
+                  onClick={() => setIsCalOpen(false)}
+                  className="p-1.5 rounded-lg bg-chrono-surface hover:bg-chrono-surface-hover text-chrono-text-dim hover:text-chrono-text transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <div className="p-6 space-y-5">
+                {/* Start Date */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
+                    Schedule Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={calStartDate}
+                    onChange={(e) => setCalStartDate(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+
+                {/* Episodes Per Day */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-chrono-text-muted">Viewing Pace</span>
+                    <span className="text-chrono-primary font-bold">
+                      {calEpsPerDay === 1 ? "Casual (1 ep/day)" : calEpsPerDay === 2 ? "Regular (2 eps/day)" : calEpsPerDay === 4 ? "Dedicated (4 eps/day)" : "Binge (8 eps/day)"}
+                    </span>
+                  </div>
+                  
+                  {/* Select preset minutes mapping */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: "1 Ep", val: 1 },
+                      { label: "2 Eps", val: 2 },
+                      { label: "4 Eps", val: 4 },
+                      { label: "8 Eps", val: 8 },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => setCalEpsPerDay(p.val)}
+                        className={cn(
+                          "py-2 rounded-lg text-xs font-semibold border transition-all",
+                          calEpsPerDay === p.val
+                            ? "bg-chrono-primary border-chrono-primary text-white"
+                            : "bg-chrono-surface border-chrono-border/50 text-chrono-text-dim hover:text-chrono-text hover:bg-chrono-surface-hover"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preferred Watch Hour */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
+                    Daily Watch Time
+                  </label>
+                  <input
+                    type="time"
+                    value={calStartTime}
+                    onChange={(e) => setCalStartTime(e.target.value)}
+                    className="input-field"
+                  />
+                </div>
+
+                <p className="text-[11px] text-chrono-text-dim leading-relaxed bg-chrono-surface/30 p-3 rounded-lg border border-chrono-border/10">
+                  This generates a fully compliant, zero-dependency calendar subscription feed containing exact time slots for every episode. Import it into Apple, Google, or Outlook Calendar to track targets.
+                </p>
+              </div>
+
+              {/* Footer Button */}
+              <div className="p-6 border-t border-chrono-border/40 bg-chrono-surface/20 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCalOpen(false)}
+                  className="btn-secondary py-2.5 px-4 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportCalendar}
+                  className="btn-primary py-2.5 px-5 text-xs font-bold inline-flex items-center gap-2"
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  <span>Download .ics Feed</span>
+                </button>
+              </div>
+
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
@@ -198,20 +374,14 @@ function FlowchartNode({
           className="p-4 cursor-pointer flex items-start gap-4"
           onClick={onToggle}
         >
-          {/* Thumbnail */}
-          <div className="w-16 h-24 rounded-lg overflow-hidden bg-chrono-surface flex-shrink-0 hidden sm:block">
-            {entry.imageUrl ? (
-              <img
-                src={entry.imageUrl}
-                alt={entry.title}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Play className="w-6 h-6 text-chrono-text-dim" />
-              </div>
-            )}
+          {/* Poster Fallback Image */}
+          <div className="w-16 h-24 rounded-lg overflow-hidden bg-chrono-surface flex-shrink-0 hidden sm:block relative">
+            <SuggestionImage
+              src={entry.imageUrl}
+              alt={entry.title}
+              franchise={entry.title}
+              className="w-full h-full"
+            />
           </div>
 
           {/* Info */}

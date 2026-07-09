@@ -18,7 +18,14 @@
     --chrono-text: #e2e8f0;
     --chrono-text-muted: #94a3b8;
     --chrono-text-dim: #64748b;
+
+    /* FIX: tier colors were missing — bare .tier-essential was a no-op */
+    --tier-essential: #10b981;
+    --tier-recommended: #3b82f6;
+    --tier-optional: #f59e0b;
+    --tier-skip: #ef4444;
   }
+
 
   html {
     scroll-behavior: smooth;
@@ -208,4 +215,13 @@
 @keyframes fade-in {
   0% { opacity: 0; }
   100% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%, 100% { transform: translateX(-100%); }
+  50%      { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s ease-in-out infinite;
 }

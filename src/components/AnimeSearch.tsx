@@ -6,6 +6,7 @@ import { Search, X, Loader2, Film, Tv, Sparkles } from "lucide-react";
 import { AnimeSearchResult } from "@/types";
 import { useSearch } from "@/hooks/useSearch";
 import { cn } from "@/lib/utils";
+import { SuggestionImage } from "@/components/SuggestionImage";
 
 interface AnimeSearchProps {
   onSelect: (anime: AnimeSearchResult | null) => void;
@@ -183,19 +184,13 @@ export function AnimeSearch({ onSelect, selectedAnime }: AnimeSearchProps) {
                     : "bg-transparent hover:bg-chrono-surface-hover/50"
                 )}
               >
-                <div className="w-14 h-20 rounded-lg overflow-hidden bg-chrono-surface flex-shrink-0">
-                  {anime.imageUrl ? (
-                    <img
-                      src={anime.imageUrl}
-                      alt={anime.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Film className="w-6 h-6 text-chrono-text-dim" />
-                    </div>
-                  )}
+                <div className="w-14 h-20 rounded-lg overflow-hidden bg-chrono-surface flex-shrink-0 relative">
+                  <SuggestionImage
+                    src={anime.imageUrl}
+                    alt={anime.title}
+                    franchise={anime.title}
+                    className="w-full h-full"
+                  />
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -246,18 +241,13 @@ export function AnimeSearch({ onSelect, selectedAnime }: AnimeSearchProps) {
       {/* Selected state */}
       {selectedAnime && !isOpen && (
         <div className="mt-3 glass-card p-4 flex items-center gap-4 animate-slide-up">
-          <div className="w-12 h-16 rounded-lg overflow-hidden bg-chrono-surface flex-shrink-0">
-            {selectedAnime.imageUrl ? (
-              <img
-                src={selectedAnime.imageUrl}
-                alt={selectedAnime.title}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <Film className="w-5 h-5 text-chrono-text-dim" />
-              </div>
-            )}
+          <div className="w-12 h-16 rounded-lg overflow-hidden bg-chrono-surface flex-shrink-0 relative">
+            <SuggestionImage
+              src={selectedAnime.imageUrl}
+              alt={selectedAnime.title}
+              franchise={selectedAnime.title}
+              className="w-full h-full"
+            />
           </div>
           <div className="flex-1">
             <p className="text-sm text-chrono-text-muted">Selected</p>

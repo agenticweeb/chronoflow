@@ -64,7 +64,9 @@ export const AI_PROVIDERS: AIProvider[] = [
     model: "gpt-4o",
     apiKeyEnv: "GITHUB_MODELS_TOKEN",
     priority: 6,
-    headers: {},
+    headers: {
+      "User-Agent": "ChronoFlow",
+    },
   },
   {
     name: "github-claude",
@@ -72,7 +74,9 @@ export const AI_PROVIDERS: AIProvider[] = [
     model: "claude-3.5-sonnet",
     apiKeyEnv: "GITHUB_MODELS_TOKEN",
     priority: 7,
-    headers: {},
+    headers: {
+      "User-Agent": "ChronoFlow",
+    },
   },
   {
     name: "google-gemini",
@@ -183,7 +187,7 @@ export async function callAIWithFallback(
   for (const provider of sortedProviders) {
     const apiKey = process.env[provider.apiKeyEnv];
     if (!apiKey) {
-      console.log(`⚠️  ${provider.name}: No API key, skipping...`);
+      console.log(`⚠️  ${provider.name}: Key "${provider.apiKeyEnv}" is missing from environment, skipping...`);
       continue;
     }
 
@@ -201,13 +205,21 @@ export async function callAIWithFallback(
               max_tokens: 4000,
             };
 
+        // Prepare headers dynamically to account for service differences
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+          ...provider.headers,
+        };
+
+        if (provider.name === "google-gemini") {
+          headers["x-goog-api-key"] = apiKey;
+        } else {
+          headers["Authorization"] = `Bearer ${apiKey}`;
+        }
+
         const response = await fetch(provider.endpoint, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-            ...provider.headers,
-          },
+          headers,
           body: JSON.stringify(body),
         });
 
@@ -221,10 +233,11 @@ export async function callAIWithFallback(
 
         // Extract content based on provider format
         let content = "";
-        if (provider.name.includes("google")) {
+        if (provider.name === "google-gemini") {
           content =
             data.candidates?.[0]?.content?.parts?.[0]?.text || "";
         } else {
+          // OpenRouter normalizes responses from Google models to OpenAI standard
           content =
             data.choices?.[0]?.message?.content ||
             data.choices?.[0]?.text ||
@@ -237,11 +250,11 @@ export async function callAIWithFallback(
 
         console.log(`✅ ${provider.name} responded in ${latency}ms`);
         return { content, provider: provider.name, latency };
-      } catch (error) {
+      } catch (error: any) {
         const latency = Date.now() - startTime;
         console.error(
-          `❌ ${provider.name} attempt ${attempt + 1} failed (${latency}ms):`,
-          error
+          `❌ ${provider.name} (Attempt ${attempt + 1}/${maxRetries}) failed in ${latency}ms:`,
+          error.message || error
         );
 
         if (attempt < maxRetries - 1) {

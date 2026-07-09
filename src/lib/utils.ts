@@ -78,3 +78,21 @@ export function decompressFromUrl(str: string): any {
     return null;
   }
 }
+
+/**
+ * Safely extracts and cleans a JSON string returned by an LLM,
+ * removing markdown wrappers or surrounding conversational text.
+ */
+export function cleanJsonString(raw: string): string {
+  let clean = raw.trim();
+  
+  // Find the boundaries of the first JSON object block
+  const firstBrace = clean.indexOf("{");
+  const lastBrace = clean.lastIndexOf("}");
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    clean = clean.substring(firstBrace, lastBrace + 1);
+  }
+  
+  return clean;
+}

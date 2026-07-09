@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Sparkles, Loader2, Wand2, Github, ExternalLink } from "lucide-react";
+import { Sparkles, Loader2, Wand2, Github, ExternalLink, Star } from "lucide-react";
 import { AnimeSearchResult, UserPreferences, WatchOrderResult } from "@/types";
 import { useWatchOrder } from "@/hooks/useWatchOrder";
 import { AnimeSearch } from "@/components/AnimeSearch";
 import { PreferencePanel } from "@/components/PreferencePanel";
 import { Flowchart } from "@/components/Flowchart";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "binge",
@@ -20,9 +21,192 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   language: "english",
 };
 
+const SUGGESTIONS = [
+  {
+    title: "Fate Series",
+    malId: 10087,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/11/33923.jpg",
+    score: 8.3,
+    tag: "Multiverse",
+    tagColor: "badge-essential",
+    desc: "3 parallel timelines, branching visual novel routes, and prequel structures with no defined official starting point.",
+  },
+  {
+    title: "Monogatari Series",
+    malId: 5081,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/11/73278.jpg",
+    score: 8.4,
+    tag: "Non-Linear",
+    tagColor: "badge-recommended",
+    desc: "Over a dozen parts adapted completely out of chronological order by SHAFT. Heavy debate over Airing vs Novel order.",
+  },
+  {
+    title: "The Melancholy of Haruhi Suzumiya",
+    malId: 849,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/13/21869.jpg",
+    score: 7.8,
+    tag: "Time Loop",
+    tagColor: "badge-optional",
+    desc: "Aired intentionally out of order in 2006, then rebroadcast with the infamous 8-episode looping 'Endless Eight' arc.",
+  },
+  {
+    title: "Steins;Gate",
+    malId: 9253,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/15/35890.jpg",
+    score: 9.1,
+    tag: "Time Travel",
+    tagColor: "badge-essential",
+    desc: "Watching chronologically requires you to pause at S1 Episode 22, watch Steins;Gate 0, then finish S1.",
+  },
+  {
+    title: "Toaru Series",
+    malId: 4654,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/1764/121873.jpg",
+    score: 7.4,
+    tag: "Overlap",
+    tagColor: "badge-recommended",
+    desc: "Index, Railgun, and Accelerator overlap in Academy City during the same timeline. Crossovers happen mid-season.",
+  },
+  {
+    title: "Neon Genesis Evangelion",
+    malId: 30,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/10/24813.jpg",
+    score: 8.3,
+    tag: "Alternate Reality",
+    tagColor: "badge-skip",
+    desc: "Unravel the abstract original TV finale, the legendary 'End of Evangelion' film, and the modern Rebuild tetralogy.",
+  },
+  {
+    title: "Gundam (Universal Century)",
+    malId: 80,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/12/21447.jpg",
+    score: 7.8,
+    tag: "Decades-Long",
+    tagColor: "badge-essential",
+    desc: "Spanning over 40 years of media. Navigating the UC timeline involves jumping across decades of classic series and OVAs.",
+  },
+  {
+    title: "Higurashi: When They Cry",
+    malId: 934,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/12/22751.jpg",
+    score: 7.9,
+    tag: "Mystery Loops",
+    tagColor: "badge-recommended",
+    desc: "A plot structured entirely around time loops. The reboots Gou/Sotsu turned out to be secret direct sequels.",
+  },
+  {
+    title: "Kara no Kyoukai",
+    malId: 3784,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/12/21741.jpg",
+    score: 7.9,
+    tag: "Anachronistic",
+    tagColor: "badge-essential",
+    desc: "This 8-movie series by ufotable was intentionally released out of order. Movie 2 is first, Movie 4 is second, Movie 1 is third.",
+  },
+  {
+    title: "Durarara!! & Baccano!",
+    malId: 6746,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/10/71963.jpg",
+    score: 8.1,
+    tag: "Hyper-Ensemble",
+    tagColor: "badge-optional",
+    desc: "Dozens of characters with overlapping storylines. Baccano! cuts back and forth between three years simultaneously.",
+  },
+  {
+    title: "Ghost in the Shell",
+    malId: 43,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/10/19543.jpg",
+    score: 8.3,
+    tag: "Parallel Timelines",
+    tagColor: "badge-recommended",
+    desc: "Splits into three entirely separate parallel timelines: the 1995 films, Stand Alone Complex, and Arise prequel/reboots.",
+  },
+  {
+    title: "Legend of the Galactic Heroes",
+    malId: 820,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/13/13225.jpg",
+    score: 9.0,
+    tag: "Space Opera",
+    tagColor: "badge-essential",
+    desc: "The massive 110-episode main OVA series is best started only after watching specific prequel movies first.",
+  },
+  {
+    title: "Sailor Moon",
+    malId: 530,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/11/12351.jpg",
+    score: 7.7,
+    tag: "Classic vs Remake",
+    tagColor: "badge-skip",
+    desc: "Choose between the 90s classic (hundreds of filler episodes and movies) and Sailor Moon Crystal (fast-paced canon reset).",
+  },
+  {
+    title: "JoJo's Bizarre Adventure",
+    malId: 14719,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/3/40403.jpg",
+    score: 8.2,
+    tag: "Generational",
+    tagColor: "badge-recommended",
+    desc: "Follows a linear family tree, but drastic shifts in art style, genre, protagonist, and setting often throw newcomers off.",
+  },
+  {
+    title: "Final Fantasy VII Compilation",
+    malId: 295,
+    imageUrl: "https://cdn.myanimelist.net/images/anime/3/4523.jpg",
+    score: 7.4,
+    tag: "Multimedia",
+    tagColor: "badge-optional",
+    desc: "Navigating across prequel OVAs, feature films, and video games just to gather a single cohesive plotline.",
+  },
+];
+
+// Helper Component for Premium Image Fallback
+function SuggestionImage({ src, alt, tag, tagColor }: { src: string; alt: string; tag: string; tagColor: string }) {
+  const [error, setError] = useState(false);
+
+  // Extract initials (e.g. "Steins;Gate" -> "SG", "The Melancholy of Haruhi Suzumiya" -> "TMHS")
+  const initials = alt
+    .split(/[\s:;!]+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 3)
+    .toUpperCase();
+
+  return (
+    <div className="relative h-44 w-full overflow-hidden bg-chrono-surface flex items-center justify-center">
+      {!error ? (
+        <img
+          src={src}
+          alt={alt}
+          referrerPolicy="no-referrer"
+          onError={() => setError(true)}
+          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+          loading="lazy"
+        />
+      ) : (
+        /* Premium Glowing Placeholder fallback */
+        <div className="w-full h-full bg-gradient-to-br from-chrono-surface via-chrono-surface-hover to-chrono-primary/20 flex flex-col items-center justify-center relative p-4 select-none text-center">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(139,92,246,0.1)_0,transparent_100%)]" />
+          <span className="text-4xl font-extrabold tracking-widest text-chrono-primary/40 animate-pulse">
+            {initials}
+          </span>
+          <span className="text-[10px] font-semibold text-chrono-text-dim uppercase tracking-wider mt-2 group-hover:text-chrono-primary transition-colors truncate w-full px-2">
+            {alt}
+          </span>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-chrono-surface via-chrono-surface/30 to-transparent pointer-events-none" />
+      <span className={cn("absolute top-3 right-3 badge text-[10px] pointer-events-none", tagColor)}>
+        {tag}
+      </span>
+    </div>
+  );
+}
+
 export default function Home() {
   const [selectedAnime, setSelectedAnime] = useState<AnimeSearchResult | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const { result, loading, error, provider, latency, generate, reset } = useWatchOrder();
 
   const handleGenerate = useCallback(async () => {
@@ -35,6 +219,24 @@ export default function Home() {
     setPreferences(DEFAULT_PREFERENCES);
     reset();
   }, [reset]);
+
+  const handleSelectSuggestion = useCallback((suggestion: typeof SUGGESTIONS[0]) => {
+    setSelectedAnime({
+      malId: suggestion.malId,
+      title: suggestion.title,
+      type: "TV",
+      imageUrl: suggestion.imageUrl,
+      score: suggestion.score,
+      synopsis: suggestion.desc,
+      genres: [],
+      status: "Finished Airing",
+      isFranchise: true,
+    });
+    reset();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [reset]);
+
+  const displayedSuggestions = showAllSuggestions ? SUGGESTIONS : SUGGESTIONS.slice(0, 6);
 
   return (
     <main className="min-h-screen bg-chrono-bg">
@@ -158,47 +360,181 @@ export default function Home() {
         </div>
       )}
 
-      {/* Empty State / Features - z-0 ensures they stay below search dropdown */}
+      {/* Empty State / Interactive Suggestions - z-0 ensures they stay below search dropdown */}
       {!selectedAnime && !result && (
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-0">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12">
-            {[
-              {
-                icon: <Wand2 className="w-6 h-6" />,
-                title: "Any Anime",
-                desc: "From mainstream hits to obscure gems — AI knows them all",
-              },
-              {
-                icon: <Sparkles className="w-6 h-6" />,
-                title: "Smart Skip",
-                desc: "4-tier filler intelligence — not just skip/don't skip",
-              },
-              {
-                icon: <ExternalLink className="w-6 h-6" />,
-                title: "Share Paths",
-                desc: "Generate links for friends — watch together, stay in sync",
-              },
-            ].map((feature) => (
-              <div
-                key={feature.title}
-                className="glass-card p-6 text-center hover:bg-chrono-surface-hover transition-colors"
-              >
-                <div className="w-12 h-12 rounded-xl bg-chrono-primary/10 text-chrono-primary flex items-center justify-center mx-auto mb-4">
-                  {feature.icon}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pb-16 relative z-0">
+          
+          {/* Interactive Suggestions Grid */}
+          <div className="mb-16 animate-fade-in">
+            <div className="text-center sm:text-left mb-8">
+              <h3 className="text-xl sm:text-2xl font-bold text-chrono-text flex items-center justify-center sm:justify-start gap-2">
+                <Sparkles className="w-5 h-5 text-chrono-accent animate-pulse" />
+                Notoriously Confusing Watch Orders
+              </h3>
+              <p className="text-sm text-chrono-text-muted mt-1">
+                Select a legendary franchise below to automatically load its profiles and explore your optimal watching path.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayedSuggestions.map((s) => (
+                <div
+                  key={s.title}
+                  onClick={() => handleSelectSuggestion(s)}
+                  className="glass-card group overflow-hidden cursor-pointer flex flex-col h-full border border-chrono-border/30 hover:border-chrono-primary/50 hover:shadow-lg hover:shadow-chrono-primary/10 transition-all duration-300 animate-slide-up"
+                >
+                  {/* Premium Poster Fallback */}
+                  <SuggestionImage src={s.imageUrl} alt={s.title} tag={s.tag} tagColor={s.tagColor} />
+
+                  {/* Card Content */}
+                  <div className="p-5 flex-1 flex flex-col justify-between bg-chrono-surface/10">
+                    <div>
+                      <h4 className="font-bold text-chrono-text text-base leading-snug group-hover:text-chrono-primary transition-colors duration-200">
+                        {s.title}
+                      </h4>
+                      <p className="text-xs text-chrono-text-muted mt-2 line-clamp-3 leading-relaxed">
+                        {s.desc}
+                      </p>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-chrono-border/20 flex items-center justify-between text-xs text-chrono-text-dim">
+                      <span className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-chrono-accent" />
+                        MAL: {s.score.toFixed(1)}
+                      </span>
+                      <span className="text-chrono-primary group-hover:translate-x-1 transition-transform duration-200 flex items-center gap-1 font-semibold">
+                        Select Franchise →
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-chrono-text mb-2">{feature.title}</h3>
-                <p className="text-sm text-chrono-text-muted">{feature.desc}</p>
+              ))}
+            </div>
+
+            {/* Toggle Button for suggestions expand/collapse */}
+            {SUGGESTIONS.length > 6 && (
+              <div className="mt-10 text-center">
+                <button
+                  onClick={() => setShowAllSuggestions(!showAllSuggestions)}
+                  className="btn-secondary inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold transition-all duration-200 shadow-md shadow-black/40 hover:scale-[1.02]"
+                >
+                  {showAllSuggestions ? "Show Fewer Series" : `Show All ${SUGGESTIONS.length} Complex Timelines`}
+                </button>
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Sleeker Core Features Row */}
+          <div className="border-t border-chrono-border/20 pt-16">
+            <div className="text-center mb-10">
+              <h3 className="text-lg font-bold text-chrono-text">The ChronoFlow Engine</h3>
+              <p className="text-xs text-chrono-text-dim mt-1">Built specifically for the modern anime enthusiast.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {[
+                {
+                  icon: <Wand2 className="w-5 h-5" />,
+                  title: "Any Anime",
+                  desc: "From mainstream hits to obscure gems — AI maps the entire multiverse.",
+                },
+                {
+                  icon: <Sparkles className="w-5 h-5" />,
+                  title: "Smart Skip",
+                  desc: "4-tier filler intelligence — categorizing essential, optional, and skippable content.",
+                },
+                {
+                  icon: <ExternalLink className="w-5 h-5" />,
+                  title: "Share Paths",
+                  desc: "Generate custom sharing URLs. Keep friends and communities in sync effortlessly.",
+                },
+              ].map((feature) => (
+                <div
+                  key={feature.title}
+                  className="glass-card p-6 text-center hover:bg-chrono-surface-hover/30 border border-chrono-border/20 transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-chrono-primary/10 text-chrono-primary flex items-center justify-center mx-auto mb-4">
+                    {feature.icon}
+                  </div>
+                  <h4 className="font-semibold text-chrono-text text-sm mb-1">{feature.title}</h4>
+                  <p className="text-xs text-chrono-text-dim leading-relaxed">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="border-t border-chrono-border/30 py-8 text-center relative z-0">
-        <p className="text-sm text-chrono-text-dim">
-          ChronoFlow — Built with Next.js, Tailwind, and AI • Free forever
-        </p>
+            {/* Footer */}
+      <footer className="border-t border-chrono-border/20 bg-chrono-surface/10 py-12 relative z-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Col 1: Brand */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-chrono-primary to-chrono-accent flex items-center justify-center">
+                <Sparkles className="w-3.5 h-3.5 text-white" />
+              </div>
+              <span className="font-bold text-chrono-text text-sm">ChronoFlow</span>
+            </div>
+            <p className="text-xs text-chrono-text-dim leading-relaxed max-w-xs">
+              Your anime journey, optimized. Mapping complex franchises with zero fluff and full schedule capabilities.
+            </p>
+          </div>
+
+          {/* Col 2: Community & Retention */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider">Community</h4>
+            <ul className="space-y-2 text-xs text-chrono-text-dim">
+              <li>
+                <a 
+                  href="https://discord.gg/invite-placeholder" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:text-chrono-primary transition-colors flex items-center gap-1.5"
+                >
+                  <span>Discord Server</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+              <li>
+                <a 
+                  href="https://newsletter-placeholder.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:text-chrono-primary transition-colors flex items-center gap-1.5"
+                >
+                  <span>Newsletter Signup</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Col 3: Product Engine */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider">Platform</h4>
+            <ul className="space-y-2 text-xs text-chrono-text-dim">
+              <li>
+                <a 
+                  href="https://github.com/agenticweeb/chronoflow" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="hover:text-chrono-text transition-colors"
+                >
+                  GitHub Repository
+                </a>
+              </li>
+              <li className="text-[11px] text-chrono-text-muted select-none">
+                ChronoCache TTL: 7 Days
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-6 border-t border-chrono-border/10 text-center text-xs text-chrono-text-dim">
+          ChronoFlow — Open Source • Free Forever
+        </div>
       </footer>
     </main>
   );
