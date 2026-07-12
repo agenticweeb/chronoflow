@@ -10,6 +10,7 @@ import { callAIWithFallback } from "@/lib/ai-providers";
 import { searchAnime } from "@/lib/jikan-client";
 import { searchAniList } from "@/lib/anilist-client";
 import { findCuratedFranchise, curatedToV2Result } from "@/lib/knowledge/curated-franchises";
+import { selectBestAnimeMatch } from "@/lib/knowledge/title-matcher";
 import {
   AllowedTitle,
   WatchOrderResultV2,

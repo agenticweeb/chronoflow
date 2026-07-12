@@ -51,7 +51,7 @@ function convertV2ToLegacy(v2: WatchOrderResultV2): WatchOrderResult {
     status: e.status,
     watched: e.watched,
     progress: e.progress,
-    trailerUrl: e.trailerUrl || (e.coverImage?.trailer ? e.coverImage.trailer : null) || null,
+    trailerUrl: e.trailerUrl || null,
   }));
 
   // Convert V2 paths to old paths format (flatten groups)
