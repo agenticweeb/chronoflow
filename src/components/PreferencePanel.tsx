@@ -1,16 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Clock,
-  Zap,
-  Heart,
-  Eye,
-  Film,
-  Tv,
-  Star,
-  Calendar,
-} from "lucide-react";
+import { Clock, Eye, Heart, Star, Zap } from "lucide-react";
 import {
   UserPreferences,
   TimeBudget,
@@ -25,17 +15,65 @@ interface PreferencePanelProps {
   onChange: (prefs: UserPreferences) => void;
 }
 
-const TIME_OPTIONS: { value: TimeBudget; label: string; icon: React.ReactNode }[] =
-  [
-    { value: "1hour", label: "1 Hour", icon: <Clock className="w-4 h-4" /> },
-    { value: "3hours", label: "3 Hours", icon: <Clock className="w-4 h-4" /> },
-    { value: "1day", label: "1 Day", icon: <Calendar className="w-4 h-4" /> },
-    { value: "1week", label: "1 Week", icon: <Calendar className="w-4 h-4" /> },
-    { value: "binge", label: "Binge", icon: <Zap className="w-4 h-4" /> },
-  ];
+const PACE_OPTIONS: {
+  value: TimeBudget;
+  label: string;
+  desc: string;
+  mins: number;
+}[] = [
+  { value: "casual", label: "Casual", desc: "30 min/day", mins: 30 },
+  { value: "regular", label: "Regular", desc: "1 hour/day", mins: 60 },
+  { value: "dedicated", label: "Dedicated", desc: "2 hours/day", mins: 120 },
+  { value: "binge", label: "Binge", desc: "4 hours/day", mins: 240 },
+];
+
+const SKIP_OPTIONS: {
+  value: SkipPreference;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "smart-skip",
+    label: "Smart Skip",
+    description:
+      "Keep story, skip pure filler & recaps. Side stories stay optional.",
+  },
+  {
+    value: "watch-everything",
+    label: "Watch Everything",
+    description: "Include everything — even recaps. Completionist mode.",
+  },
+  {
+    value: "canon-only",
+    label: "Canon Only",
+    description: "Only story that matters to the main plot.",
+  },
+];
+
+const PATH_OPTIONS: {
+  value: PathType;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "optimal",
+    label: "Optimal",
+    description: "Release order that preserves reveals (best for first-timers).",
+  },
+  {
+    value: "release",
+    label: "Release Order",
+    description: "Exactly as it aired — no reordering.",
+  },
+  {
+    value: "chronological",
+    label: "Chronological",
+    description: "In-universe timeline. May spoil later reveals.",
+  },
+];
 
 const MOOD_OPTIONS: { value: Mood; label: string }[] = [
-  { value: "all", label: "All" },
+  { value: "all", label: "Any" },
   { value: "action", label: "Action" },
   { value: "feels", label: "Feels" },
   { value: "mindfuck", label: "Mindfuck" },
@@ -46,60 +84,10 @@ const MOOD_OPTIONS: { value: Mood; label: string }[] = [
   { value: "adventure", label: "Adventure" },
 ];
 
-const SKIP_OPTIONS: { value: SkipPreference; label: string; description: string }[] =
-  [
-    {
-      value: "smart-skip",
-      label: "Smart Skip",
-      description: "AI decides — keeps character intros, skips recaps",
-    },
-    {
-      value: "skip-all-filler",
-      label: "Skip All Filler",
-      description: "Aggressive — skips anything non-canon",
-    },
-    {
-      value: "canon-only",
-      label: "Canon Only",
-      description: "Plot-critical episodes only",
-    },
-    {
-      value: "watch-everything",
-      label: "Everything",
-      description: "Completionist — no skips",
-    },
-  ];
-
-const PATH_OPTIONS: { value: PathType; label: string; description: string }[] =
-  [
-    {
-      value: "optimal",
-      label: "Optimal",
-      description: "AI-optimized for best first-time experience",
-    },
-    {
-      value: "release",
-      label: "Release Order",
-      description: "As it aired — recommended for first-timers",
-    },
-    {
-      value: "chronological",
-      label: "Chronological",
-      description: "In-universe timeline order",
-    },
-    {
-      value: "manga",
-      label: "Manga Order",
-      description: "Follows manga structure",
-    },
-  ];
-
 export function PreferencePanel({
   preferences,
   onChange,
 }: PreferencePanelProps) {
-  const [expanded, setExpanded] = useState(false);
-
   const toggleMood = (mood: Mood) => {
     if (mood === "all") {
       onChange({ ...preferences, mood: ["all"] });
@@ -107,7 +95,6 @@ export function PreferencePanel({
     }
     const current = preferences.mood || ["all"];
     const withoutAll = current.filter((m) => m !== "all");
-
     if (withoutAll.includes(mood)) {
       const filtered = withoutAll.filter((m) => m !== mood);
       onChange({
@@ -120,93 +107,87 @@ export function PreferencePanel({
   };
 
   return (
-    <div className="glass-card p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-chrono-text">
-          Your Preferences
+    <div className="glass-card p-5 sm:p-6 space-y-6 border border-chrono-border/40 bg-chrono-surface/40">
+      <div>
+        <h2 className="text-lg font-semibold text-chrono-text tracking-tight">
+          How you watch
         </h2>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="text-sm text-chrono-primary hover:text-chrono-primary-hover transition-colors"
-        >
-          {expanded ? "Collapse" : "Expand"}
-        </button>
+        <p className="text-xs text-chrono-text-dim mt-1">
+          These never change what exists — only order preference, skips, and
+          finish dates.
+        </p>
       </div>
 
-      {/* Time Budget */}
+      {/* Pace = finish dates only */}
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-3">
-          <Clock className="w-4 h-4" />
-          Time Budget
+        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
+          <Clock className="w-4 h-4 text-chrono-primary" />
+          Daily pace
+          <span className="text-[10px] font-normal text-chrono-text-dim ml-1">
+            · finish date only, not order
+          </span>
         </label>
-        <div className="flex flex-wrap gap-2">
-          {TIME_OPTIONS.map((opt) => (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {PACE_OPTIONS.map((opt) => (
             <button
               key={opt.value}
+              type="button"
               onClick={() =>
                 onChange({ ...preferences, timeBudget: opt.value })
               }
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                "flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl text-left transition-all border",
                 preferences.timeBudget === opt.value
-                  ? "bg-chrono-primary text-white shadow-lg shadow-chrono-primary/25"
-                  : "bg-chrono-surface text-chrono-text-muted hover:bg-chrono-surface-hover hover:text-chrono-text"
+                  ? "bg-chrono-primary text-white border-chrono-primary shadow-lg shadow-chrono-primary/20"
+                  : "bg-chrono-surface text-chrono-text-muted border-chrono-border hover:border-chrono-primary/40 hover:text-chrono-text"
               )}
             >
-              {opt.icon}
-              {opt.label}
+              <span className="text-sm font-semibold flex items-center gap-1.5">
+                {opt.value === "binge" ? (
+                  <Zap className="w-3.5 h-3.5" />
+                ) : (
+                  <Clock className="w-3.5 h-3.5 opacity-70" />
+                )}
+                {opt.label}
+              </span>
+              <span
+                className={cn(
+                  "text-[11px]",
+                  preferences.timeBudget === opt.value
+                    ? "text-white/70"
+                    : "text-chrono-text-dim"
+                )}
+              >
+                {opt.desc}
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Mood */}
+      {/* Skip strategy */}
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-3">
-          <Heart className="w-4 h-4" />
-          Mood
+        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
+          <Eye className="w-4 h-4 text-chrono-primary" />
+          Skip strategy
         </label>
-        <div className="flex flex-wrap gap-2">
-          {MOOD_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => toggleMood(opt.value)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-sm font-medium transition-all",
-                preferences.mood?.includes(opt.value)
-                  ? "bg-chrono-accent/20 text-chrono-accent border border-chrono-accent/30"
-                  : "bg-chrono-surface text-chrono-text-muted border border-chrono-border hover:border-chrono-text-dim"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Skip Preference */}
-      <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-3">
-          <Eye className="w-4 h-4" />
-          Skip Strategy
-        </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SKIP_OPTIONS.map((opt) => (
             <button
               key={opt.value}
+              type="button"
               onClick={() =>
                 onChange({ ...preferences, skipPreference: opt.value })
               }
               className={cn(
                 "p-3 rounded-xl text-left transition-all border",
                 preferences.skipPreference === opt.value
-                  ? "bg-chrono-primary/10 border-chrono-primary/50 text-chrono-text"
+                  ? "bg-chrono-primary/15 border-chrono-primary/50 text-chrono-text ring-1 ring-chrono-primary/30"
                   : "bg-chrono-surface border-chrono-border text-chrono-text-muted hover:border-chrono-text-dim"
               )}
             >
               <div className="font-medium text-sm">{opt.label}</div>
-              <div className="text-xs mt-1 opacity-70">
+              <div className="text-[11px] mt-1 leading-snug opacity-80">
                 {opt.description}
               </div>
             </button>
@@ -214,28 +195,29 @@ export function PreferencePanel({
         </div>
       </div>
 
-      {/* Path Type */}
+      {/* Path preference */}
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-3">
-          <Star className="w-4 h-4" />
-          Viewing Path
+        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
+          <Star className="w-4 h-4 text-chrono-primary" />
+          Viewing path
         </label>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {PATH_OPTIONS.map((opt) => (
             <button
               key={opt.value}
+              type="button"
               onClick={() =>
                 onChange({ ...preferences, preferredPath: opt.value })
               }
               className={cn(
                 "p-3 rounded-xl text-left transition-all border",
                 preferences.preferredPath === opt.value
-                  ? "bg-chrono-primary/10 border-chrono-primary/50 text-chrono-text"
+                  ? "bg-chrono-primary/15 border-chrono-primary/50 text-chrono-text ring-1 ring-chrono-primary/30"
                   : "bg-chrono-surface border-chrono-border text-chrono-text-muted hover:border-chrono-text-dim"
               )}
             >
               <div className="font-medium text-sm">{opt.label}</div>
-              <div className="text-xs mt-1 opacity-70">
+              <div className="text-[11px] mt-1 leading-snug opacity-80">
                 {opt.description}
               </div>
             </button>
@@ -243,52 +225,33 @@ export function PreferencePanel({
         </div>
       </div>
 
-      {/* Content Type Toggles (expanded) */}
-      {expanded && (
-        <div className="animate-slide-up">
-          <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-3">
-            <Film className="w-4 h-4" />
-            Include Content Types
-          </label>
-          <div className="flex flex-wrap gap-3">
-            {[
-              {
-                key: "includeMovies" as const,
-                label: "Movies",
-                icon: Film,
-              },
-              { key: "includeOVAs" as const, label: "OVAs", icon: Tv },
-              {
-                key: "includeSpecials" as const,
-                label: "Specials",
-                icon: Star,
-              },
-              {
-                key: "includeRecaps" as const,
-                label: "Recaps",
-                icon: Calendar,
-              },
-            ].map((item) => (
-              <label
-                key={item.key}
-                className="flex items-center gap-2 cursor-pointer select-none"
-              >
-                <input
-                  type="checkbox"
-                  checked={preferences[item.key]}
-                  onChange={(e) =>
-                    onChange({ ...preferences, [item.key]: e.target.checked })
-                  }
-                  className="w-4 h-4 rounded border-chrono-border bg-chrono-surface text-chrono-primary focus:ring-chrono-primary/20"
-                />
-                <span className="text-sm text-chrono-text-muted">
-                  {item.label}
-                </span>
-              </label>
-            ))}
-          </div>
+      {/* Mood — optional, influences recommended path only */}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
+          <Heart className="w-4 h-4 text-chrono-accent" />
+          Mood
+          <span className="text-[10px] font-normal text-chrono-text-dim">
+            · optional · influences path pick, not titles
+          </span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {MOOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => toggleMood(opt.value)}
+              className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                preferences.mood?.includes(opt.value)
+                  ? "bg-chrono-accent/15 text-chrono-accent border-chrono-accent/40"
+                  : "bg-chrono-surface text-chrono-text-muted border-chrono-border hover:border-chrono-text-dim"
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }

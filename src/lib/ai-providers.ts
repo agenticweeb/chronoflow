@@ -2,7 +2,6 @@
  * AI Provider Configuration & Auto-Failover Engine
  * 
  * Optimized Chain: Groq Direct → Google Direct → GitHub Mini → Backups
- * Direct keys are tried first for sub-2-second generation speeds.
  */
 
 import { AIProvider } from "@/types";
@@ -12,9 +11,9 @@ export const AI_PROVIDERS: AIProvider[] = [
   {
     name: "groq-direct",
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
-    model: "llama-3.3-70b-versatile", // Upgraded to latest ultra-fast model
+    model: "llama-3.3-70b-versatile", 
     apiKeyEnv: "GROQ_API_KEY",
-    priority: 1, // Directly tried first! Sub-2s generation.
+    priority: 1, 
     headers: {},
   },
   {
@@ -22,7 +21,7 @@ export const AI_PROVIDERS: AIProvider[] = [
     endpoint: "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
     model: "gemini-1.5-flash",
     apiKeyEnv: "GOOGLE_AI_API_KEY",
-    priority: 2, // Tried second. Extremely reliable direct endpoint.
+    priority: 2, 
     headers: {},
     bodyModifier: (body: any) => ({
       contents: [
@@ -37,15 +36,15 @@ export const AI_PROVIDERS: AIProvider[] = [
           ],
         },
       ],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 4000 },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8000 },
     }),
   },
   {
     name: "github-gpt4o-mini",
     endpoint: "https://models.inference.ai.azure.com/chat/completions",
-    model: "gpt-4o-mini", // Fast, low-latency mini model
+    model: "gpt-4o-mini", 
     apiKeyEnv: "GITHUB_MODELS_TOKEN",
-    priority: 3, // Tried third.
+    priority: 3, 
     headers: {
       "User-Agent": "ChronoFlow",
     },
@@ -55,14 +54,14 @@ export const AI_PROVIDERS: AIProvider[] = [
     endpoint: "https://models.inference.ai.azure.com/chat/completions",
     model: "gpt-4o",
     apiKeyEnv: "GITHUB_MODELS_TOKEN",
-    priority: 4, // Tried fourth.
+    priority: 4, 
     headers: {
       "User-Agent": "ChronoFlow",
     },
   },
   {
     name: "openrouter-google",
-    endpoint: "https://openrouter.ai/api/v1/chat/completions",
+    endpoint: "https://openrouter.ai/api/openai/v1/chat/completions",
     model: "google/gemini-2.5-flash",
     apiKeyEnv: "OPENROUTER_API_KEY",
     priority: 5,
@@ -103,57 +102,126 @@ export const AI_PROVIDERS: AIProvider[] = [
   },
 ];
 
-// ── Prompt Builder (Optimized for lightning-fast token footprint) ──
+// ── Verified Entry Shape (Fully declared to satisfy strict TS compilers) ──
+export interface VerifiedEntry {
+  anilistId: number;
+  malId?: number;
+  title: string;
+  type?: string;          
+  episodes?: number | null;
+  duration?: number | null;      
+  popularity?: number;
+  format?: string | null;        
+  description?: string | null;    
+  trailer?: {                     
+    id: string;
+    site: string;
+  } | null;
+  imageUrl?: string | null;
+  coverImage?: {
+    large: string;
+    medium: string;
+  } | null;
+  averageScore?: number | null;
+  score?: number | null;
+  genres?: string[];
+  status?: string | null;
+  titleJapanese?: string | null;
+  relationType?: string | null;
+}
+
+// ── Prompt Builder (Optimized for Franchise Guides vs Arc-based guides) ──
 export function buildWatchOrderPrompt(
   animeName: string,
-  preferences: any
+  preferences: any,
+  verifiedEntries: VerifiedEntry[],
+  scope?: string
 ): string {
-  return `You are ChronoFlow, an expert anime watch order curator with deep knowledge of anime production, narrative structure, and fan communities.
+  const verifiedBlock =
+    verifiedEntries.length > 0
+      ? verifiedEntries
+          .map((e) => {
+            const id = e.anilistId ?? e.malId ?? "?";
+            const type = e.type || e.format || "Unknown";
+            const eps = e.episodes ?? "Unknown";
+            const dur = e.duration ? `${e.duration}m` : "?";
+            return `- ID: ${id} | "${e.title}" | ${type} | ${eps} eps | ${dur}`;
+          })
+          .join("\n")
+      : "(No verified entries available.)";
 
-TASK: Generate a complete, structured watch order for "${animeName}".
+  const prefHints: string[] = [];
+  if (preferences?.skipPreference) {
+    prefHints.push(`Skip preference: ${preferences.skipPreference}`);
+  }
+  if (preferences?.includeMovies === false) {
+    prefHints.push("Exclude movies");
+  }
+  if (preferences?.includeOVAs === false) {
+    prefHints.push("Exclude OVAs");
+  }
+  if (preferences?.includeSpecials === false) {
+    prefHints.push("Exclude specials");
+  }
+  if (preferences?.mood && preferences.mood.length > 0 && !preferences.mood.includes("all")) {
+    prefHints.push(`Mood tags: ${preferences.mood.join(", ")}`);
+  }
+  const prefBlock = prefHints.length > 0 ? prefHints.join("\n") : "(none)";
 
-USER PREFERENCES:
-- Time budget: ${preferences.timeBudget}
-- Mood: ${preferences.mood?.join(", ") || "all"}
-- Skip preference: ${preferences.skipPreference}
-- Include movies: ${preferences.includeMovies}
-- Include OVAs: ${preferences.includeOVAs}
-- Include specials: ${preferences.includeSpecials}
-- Preferred path: ${preferences.preferredPath}
+  const isFranchiseScope = scope === "franchise";
 
-RULES:
-1. Cover ALL entries provided in the VERIFIED DATABASE entries.
-2. For each entry, classify into one of 4 tiers:
-   - "essential": Cannot be skipped, core plot
-   - "recommended": Enhances experience, character development
-   - "optional": Nice to have, not critical
-   - "skip": Filler, recap, or content that hurts pacing
-3. For filler entries, classify type: "recap", "side-story", "character-intro", "world-building", "fanservice", "transition", "mixed"
-4. Keep the descriptions VERY CONCISE to save token output bandwidth. Limit explanations to under 12 words.
+  return `You are ChronoFlow, an expert anime watch order curator with deep knowledge of narrative structures, story arcs, and filler lists.
+
+TASK: Generate a curated watch order guide for "${animeName}".
+
+The request scope is: [${(scope || "season").toUpperCase()}]
+
+[OUTPUT FORMAT SELECTION]
+${
+  isFranchiseScope 
+    ? `- CHOSEN CLASSIFICATION: TYPE A: FRANCHISE GUIDE (e.g. Fate Series, Monogatari, Gundam)
+       * Output one entry per distinct show, season, or movie.
+       * Keep descriptions to 1-3 highly descriptive sentences explaining what each entry is, where it fits, and why it is essential/recap/optional/filler.`
+    : `- CHOSEN CLASSIFICATION: TYPE B: SINGLE SHOW GUIDE (e.g. Bleach, One Piece, Naruto, Fate/Zero)
+       * Output an ARC-BASED skip guide for this specific show.
+       * Each arc is ONE entry representing a folder block of episodes with an episode range like "21-63".
+       * Mark filler arcs as tier "skip" with isFiller: true.
+       * Mark canon arcs as tier "essential" or "recommended".
+       * ALWAYS combine them into named arcs.`
+}
+
+[STRICT ARCHITECTURAL SAFETY RULES]
+1. YOU CANNOT INVENT ANY ENTRIES. Every single item in your "entries" array MUST have an "id" matching an ID from the "Verified Database Entries" list below. If an ID is not in that list, you are strictly FORBIDDEN from including it.
+2. DO NOT GUESS EPISODE COUNTS OR DURATIONS. The application backend will automatically overwrite these values with 100% verified database facts. Focus entirely on recommended viewing order.
+
+Below is the VERIFIED LIST of anime entries fetched from the AniList database. These are real entries with real IDs. You MUST base your output on these entries. Do NOT invent titles or IDs.
+
+${verifiedBlock}
+
+User preferences:
+${prefBlock}
 
 OUTPUT FORMAT — Return ONLY valid JSON:
 {
-  "franchise": "string",
-  "description": "string (max 15 words)",
+  "franchise": "string (the franchise name or main show name)",
+  "description": "string (overview of how to watch, e.g. 'Linear shonen with ~50% filler. Skip marked arcs.')",
   "confidence": 0-100,
   "entries": [
     {
-      "title": "string",
-      "type": "TV|OVA|Movie|Special|ONA|Spin-off|Recap|Side-story",
-      "tier": "essential|recommended|optional|skip",
+      "id": number (The EXACT database ID matching the verified input entries),
+      "title": "string (The Arc name with episode range like 'Soul Society Arc (Eps 21-63)' or the Season Title)",
+      "type": "TV" | "MOVIE" | "OVA" | "SPECIAL",
+      "tier": "essential" | "recommended" | "optional" | "skip",
+      "episodeRange": "X-Y" or null (The episode range of this specific arc if Type B, otherwise null),
       "position": 1,
-      "episodeCount": number,
-      "durationMinutes": number,
-      "timeEstimate": "string",
-      "prerequisites": ["title of prerequisite"],
+      "prerequisites": [],
       "isFiller": boolean,
       "fillerClassification": "none|recap|side-story|character-intro|world-building|fanservice|transition|mixed",
       "fillerReason": "string (max 10 words)",
-      "whyWatch": "string (MAX 12 WORDS - highly concise spoiler-free reason)",
-      "skipWarning": "string or null (max 10 words)",
+      "whyWatch": "string (highly descriptive context, why it matters, or character developments)",
+      "skipWarning": "string or null (what you miss if skipped)",
       "watchIf": ["string"],
-      "contentTags": ["Action","Adventure","Comedy","Drama","Fantasy","Horror","Mystery","Psychological","Romance","Sci-Fi","Slice of Life","Sports","Supernatural","Thriller","Mecha","Isekai","Shounen","Seinen","Shoujo","Josei"],
-      "arcName": "string or null"
+      "contentTags": ["Action","Adventure","Comedy","Drama","Fantasy","Sci-Fi","Shounen","Seinen","Supernatural"]
     }
   ],
   "paths": [
@@ -168,13 +236,13 @@ OUTPUT FORMAT — Return ONLY valid JSON:
   "warnings": ["string or empty"]
 }
 
-Be thorough but keep the JSON texts highly summarized, concise, and dense.`;
+Output the JSON now.`;
 }
 
 // ── Auto-Failover Call ─────────────────────────────────────
 export async function callAIWithFallback(
   prompt: string,
-  maxRetries: number = 1 // Set to 1 so we skip to the next active key instantly on any failure
+  maxRetries: number = 1
 ): Promise<{ content: string; provider: string; latency: number }> {
   const sortedProviders = [...AI_PROVIDERS].sort(
     (a, b) => a.priority - b.priority
@@ -183,7 +251,7 @@ export async function callAIWithFallback(
   for (const provider of sortedProviders) {
     const apiKey = process.env[provider.apiKeyEnv];
     if (!apiKey) {
-      console.log(`⚠️  ${provider.name}: Key "${provider.apiKeyEnv}" is missing from environment, skipping...`);
+      console.log(`⚠️  ${provider.name}: Key "${provider.apiKeyEnv}" missing, skipping...`);
       continue;
     }
 
@@ -197,8 +265,8 @@ export async function callAIWithFallback(
           : {
               model: provider.model,
               messages: [{ role: "user", content: prompt }],
-              temperature: 0.15, // Low temperature for ultra-consistent, fast JSON
-              max_tokens: 4000,
+              temperature: 0.1,
+              max_tokens: 8000, 
             };
 
         const headers: Record<string, string> = {

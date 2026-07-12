@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --chrono-bg: #0a0a0f;
-    --chrono-surface: #12121a;
-    --chrono-surface-hover: #1a1a25;
-    --chrono-border: #2a2a3a;
-    --chrono-primary: #8b5cf6;
-    --chrono-primary-hover: #7c3aed;
-    --chrono-accent: #f59e0b;
-    --chrono-success: #10b981;
-    --chrono-warning: #f59e0b;
-    --chrono-danger: #ef4444;
-    --chrono-info: #3b82f6;
-    --chrono-text: #e2e8f0;
-    --chrono-text-muted: #94a3b8;
-    --chrono-text-dim: #64748b;
+    /* Deep anime-night palette — purple/sakura, high contrast for long sessions */
+    --chrono-bg: #08080f;
+    --chrono-surface: #10101a;
+    --chrono-surface-hover: #181824;
+    --chrono-border: #2a2540;
+    --chrono-primary: #a78bfa;
+    --chrono-primary-hover: #8b5cf6;
+    --chrono-accent: #fbbf24;
+    --chrono-success: #34d399;
+    --chrono-warning: #fbbf24;
+    --chrono-danger: #f87171;
+    --chrono-info: #38bdf8;
+    --chrono-text: #f1f0f7;
+    --chrono-text-muted: #a8a3b8;
+    --chrono-text-dim: #6b6580;
 
-    /* FIX: tier colors were missing — bare .tier-essential was a no-op */
-    --tier-essential: #10b981;
-    --tier-recommended: #3b82f6;
-    --tier-optional: #f59e0b;
-    --tier-skip: #ef4444;
+    --tier-essential: #34d399;
+    --tier-recommended: #38bdf8;
+    --tier-optional: #fbbf24;
+    --tier-skip: #f87171;
   }
 
 

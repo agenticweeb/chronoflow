@@ -124,6 +124,8 @@ export interface WatchOrderResult {
 }
 
 // ── User Preferences ───────────────────────────────────────
+// How the user watches — never "what" to watch.
+// timeBudget = daily pace only (finish dates). Never changes order.
 export interface UserPreferences {
   timeBudget: TimeBudget;
   mood: Mood[];
@@ -136,13 +138,12 @@ export interface UserPreferences {
   language: "english" | "japanese" | "both";
 }
 
+/** Daily viewing pace — maps to minutes/day for finish-date math only */
 export type TimeBudget =
-  | "1hour"
-  | "3hours"
-  | "1day"
-  | "1week"
-  | "binge"
-  | "custom";
+  | "casual"
+  | "regular"
+  | "dedicated"
+  | "binge";
 
 export type Mood =
   | "action"
@@ -157,14 +158,13 @@ export type Mood =
 
 export type SkipPreference =
   | "smart-skip"
-  | "skip-all-filler"
-  | "canon-only"
-  | "watch-everything";
+  | "watch-everything"
+  | "canon-only";
 
+/** Optimal = release order that preserves reveals (default) */
 export type PathType =
   | "release"
   | "chronological"
-  | "manga"
   | "optimal";
 
 // ── Search Result ──────────────────────────────────────────

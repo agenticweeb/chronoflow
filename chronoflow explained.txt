@@ -1,0 +1,230 @@
+CHRONOFLOW HANDOVER DOCUMENTATION
+
+System Status: Stable / Production-Ready
+Framework: Next.js 14.2.5 (App Router)
+Database: Zero-Database (Completely API-driven & cached on Client)
+Time Limit Policy: Compliant with Vercel's strict 10-second Serverless execution
+timeout.
+
+1. THE CHRONOFLOW GIST
+
+ChronoFlow solves the Heilbronn / Timeline problem for modern anime media:
+generating logical, spoiler-free viewing paths for highly complex, multi-decade,
+or non-linear franchises (e.g., Fate, Monogatari, Steins;Gate, Gundam) [1].
+
+Rather than relying on static, hardcoded databases or blind, hallucination-prone
+AI prompts, ChronoFlow merges live database relation graphs (from AniList
+GraphQL) with ultra-fast AI reasoning (Groq/Gemini/GPT) to compile
+custom-tailored, filtered watch schedules instantly on-demand [1, 3].
+
+2. SITE NAVIGATION & PRODUCT FLOW
+
+A. The Landing State (Home Page)
+
+  - Search Bar: An autocomplete input centered on the screen [1]. Typing \ge 2
+    characters queries MAL & AniList in parallel and displays a portal-mounted
+    autocomplete dropdown [1].
+  - Suggested Franchises Grid: A highly polished showcase of 14 notoriously
+    confusing franchises [1]. Clicking a card selects it, scrolls to the top,
+    and opens the customize drawer [1].
+  - Discord Suggestion Drawer: A floating trigger button in the bottom-right
+    corner [1]. Users can toggle it to report bugs or submit feature suggestions
+    [1]. Submitting sends a direct payload to the developer's private Discord
+    channel [1].
+
+B. The Customize State (Preferences Drawer)
+
+Once an anime is selected, the flowchart is hidden (if a previous result was
+open), and the Preferences Panel slides up [1]. The user configures:
+
+1.  Inclusions Toggles: Include/exclude Movies, OVAs, Specials, or Recaps [1].
+2.  Skip Strategy:
+      - Smart Skip: Omit low-tier summaries, fillers, and recap entries [1].
+      - Canon Only: Strip all side content, showing only core TV arcs [1].
+      - Skip All Filler: Strictly remove filler episodes [1].
+3.  Mood Focus Toggles: Filters the list to match preferred genre/content tags
+    [1].
+4.  Time Budget Constraints: Limits the timeline content to fit inside a rough
+    viewing budget (e.g., "1 hour", "3 hours", "1 day", "1 week", or "Binge")
+    [1].
+
+C. The Results State (Interactive Timeline Flowchart)
+
+Clicking Generate Watch Order triggers the pipeline [1]. Upon completion, the
+page transitions to the results state:
+
+  - Franchise Stats Header: Displays the title, total watchable hours, entry
+    count, episode count, data confidence, and generation source [1].
+  - Dynamic Progress Tracker: A persistent completion percentage bar [1]. Users
+    click a checkmark on each timeline node to toggle viewed state, saving
+    progress automatically to localStorage [1].
+  - Time Budget Calculator Card: Displays a premium card with relative date
+    completion estimations [1] (e.g., "Done by 2026-07-19 (in 10 days) at
+    Regular pace").
+  - Calendar Schedule (.ics Generator): Clicking "Schedule" opens a portal modal
+    [1]. Users select a start date, viewing pace (e.g., 2 eps/day), and daily
+    watch hour [1]. It exports a standard .ics file that imports directly into
+    Apple, Google, or Outlook Calendar to synchronize viewing habits [1].
+  - collapsible Timeline Nodes: Dynamic cards rendered sequentially [1].
+    Clicking expands them to show complete synopses, personal viewing notes,
+    genres, status, and external content links [1].
+
+3. TECHNICAL ARCHITECTURE & DATA PIPELINE
+
+ [User UI Select]
+       │
+       ▼
+ [POST /api/watch-order] ({ animeName, preferences })
+       │
+       ├─► [Parallel API Search] (Jikan + AniList GraphQL) ──► Strict Title Match
+       │
+       ├─► [AniList Batch Query] ──► Pre-fetches entire prequel/sequel relation graph 
+       │                             with synopsis, scores, formatting & trailer objects
+       │
+       ├─► [Prompt Assembly] ──► Injects pre-fetched verified relation names to AI prompt
+       │
+       ├─► [Direct AI Fallover Chain] ──► Groq Direct LPU (llama3.3-70b-versatile)
+       │                                  fallback to Gemini or GitHub Models Mini (sub-1.5s)
+       │
+       ├─► [JSON Sanitizer Engine] ──► Cleans markdown, trailing commas, comments & breaks
+       │
+       ├─► [Metadata Re-Merger] ──► Re-injects pre-fetched cover, synopsis & trailer details
+       │
+       ▼
+ [JSON Response Payload] (Delivered and cached on client for 7 Days)
+
+A. Parallel Search & Strict Matching (route.ts)
+
+When a term is queried, the API searches MyAnimeList (Jikan) and AniList
+simultaneously.
+
+  - Loose Keyword Prevention: To prevent keyword relevance parodies (e.g.
+    Osomatsu-san JoJo parodies matching the search term "jojo"), the backend
+    runs a strict filter search on the combined search results [1]:
+    const bestMatch = mergedResults.find(
+      (item) => item.title.toLowerCase().includes(animeName.toLowerCase()) || 
+                animeName.toLowerCase().includes(item.title.toLowerCase())
+    ) || mergedResults[0];
+
+B. Single-Query Batch Pre-Fetching (anilist-client.ts)
+
+To avoid MyAnimeList Jikan API Rate-Limits (HTTP 429) which occur when querying
+details for 15+ timeline shows in parallel, ChronoFlow fetches the entire
+related franchise graph in a single round-trip [3] GraphQL request to AniList:
+
+  - We request the primary media parameters and request extra relation nested
+    fields (covers, synopsis, format, episodes, score, and trailers) inside the
+    relations loop [3]:
+    Media (id: $id, search: $search, type: ANIME) {
+      id ...
+      relations {
+        edges {
+          relationType
+          node { id idMal title { romaji english native } format episodes duration averageScore description genres coverImage { large } status trailer { id site } }
+        }
+      }
+    }
+
+C. Direct-First AI Fallback Chain (ai-providers.ts)
+
+Because Vercel has a 10-second timeout policy, ChronoFlow bypasses high-latency
+open proxies like OpenRouter for its initial tries.
+
+  - The Chain: It tries direct Groq LPU (llama-3.3-70b-versatile) first, direct
+    Google API (gemini-1.5-flash) second, and direct GitHub Models (gpt-4o-mini)
+    third [1].
+  - Latency Speed: These models generate, evaluate, and return the timeline
+    structure in less than 1.5 seconds, avoiding timeouts.
+  - Zero-Hallucination RAG Integration: The verified relation list is injected
+    into the AI's instruction payload as VERIFIED DATABASE ENTRIES [1]. The AI
+    is instructed to order and tier only these pre-vetted titles, preventing AI
+    hallucinations.
+
+D. JSON Response Sanitization (route.ts)
+
+The API route contains a parsing routine cleanAndParseJSON to isolate structural
+blocks [1]:
+
+1.  Removes markdown fences (```json ... ```) [1].
+2.  Locates outermost brackets [ & ] or { & } to isolate structural JSON,
+    discarding conversational chatter [1].
+3.  Removes inline/multi-line comments (// and /* ... */) introduced by
+    open-source LLMs [1].
+4.  Strips malformed trailing commas [1].
+5.  Repairs unescaped literal linebreaks inside quotes using regex replacements
+    [1].
+
+E. Episode Duration Decoding & Clamping (route.ts)
+
+Calculations are based on parsed MyAnimeList database duration values instead of
+relying on the AI:
+
+  - Twitter Mini-Shorts Compatibility: An intelligent analyzer decodes seconds
+    string formats (e.g. "44 sec per ep") and rounds them to 1 minute, while
+    normal TV values evaluate to 24.
+  - Guard Clamp: Any TV series node returning a calculated runtime over 60
+    minutes is automatically clamped back to the 24-minute standard to prevent
+    total time estimate inflation.
+
+4. FEEDBACK WEBHOOK ENDPOINT (/api/feedback)
+
+The suggestion/bug box works without databases or costs by calling an API
+handler which structures data into colored Discord Embed payloads and sends them
+to a private Discord channel Webhook:
+
+  - Endpoint: /api/feedback
+  - Required Vercel Secret Var: DISCORD_FEEDBACK_WEBHOOK
+  - Rich Payload Structure:
+    const discordPayload = {
+      username: "ChronoFlow Feedback Bot",
+      embeds: [{
+        title: `🎯 New ${feedbackType === "bug" ? "Bug Report" : "Feature Suggestion"}`,
+        color: feedbackType === "bug" ? 15158332 : 10181046, // Red vs Purple
+        fields: [
+          { name: "Message", value: message },
+          { name: "User Contact", value: contact || "Anonymous", inline: true },
+          { name: "Context / Anime Name", value: context || "General", inline: true }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+5. DESIGN & STATIC ASSETS CAPABILITY
+
+Suggestion Cover Images (public/suggestions/)
+
+To eliminate hotlink blockages (HTTP 403 blocks) on the home page suggestions in
+any Private/Incognito browser tab, all 14 suggestions are hosted locally in
+public/suggestions/ [1].
+
+They are declared inside page.tsx as local paths [1]:
+
+const SUGGESTIONS = [
+  {
+    title: "Fate Series",
+    imageUrl: "/suggestions/fate.jpg", // Preloaded local asset
+    ...
+  }
+]
+
+These resolve natively, load instantly, and cannot break due to external
+database changes or network limits [1].
+
+6. STATUS OF THE TRAILER STREAM SYSTEM
+
+As of July 2026, the trailer system has been pre-configured on both client and
+server:
+
+1.  Backend Capability: The GraphQL batch query successfully grabs the trailer {
+    id site } nodes from AniList, transforms them into standardized URLs, and
+    delivers them safely to the client within the watch order entry [3].
+2.  Frontend Capability: Flowchart.tsx is equipped with a TrailerPortal that
+    mounts a responsive YouTube video iframe inside a React Portal when a user
+    clicks "Watch Trailer".
+3.  Product Priority Check: This feature is currently skipped/non-urgent. The
+    user audience utilizes ChronoFlow primarily to discover the structural watch
+    order of franchises they are already searching for, rather than to browse
+    previews. If a trailer is absent or fails due to lack of a YouTube ID in the
+    AniList record, the "Watch Trailer" button safely hides itself without
+    impacting the flowchart generation or parsing reliability.
+

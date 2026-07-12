@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ChronoFlow — Your Anime Journey, Optimized",
+  title: "ChronoFlow — Never Watch Anime Wrong Again",
   description:
-    "Intelligent anime watch order generator. Any anime. Smart skip. Time-aware paths.",
+    "Spoiler-safe anime watch orders. Smart skip, real finish dates, franchise paths that actually make sense.",
 };
 
 export default function RootLayout({
