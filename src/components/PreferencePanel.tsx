@@ -1,12 +1,13 @@
 "use client";
 
-import { Clock, Eye, Heart, Star, Zap } from "lucide-react";
+import { Clock, Eye, Heart, Star, Zap, CalendarDays } from "lucide-react";
 import {
   UserPreferences,
   TimeBudget,
   Mood,
   SkipPreference,
   PathType,
+  CustomSchedule,
 } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -35,8 +36,7 @@ const SKIP_OPTIONS: {
   {
     value: "smart-skip",
     label: "Smart Skip",
-    description:
-      "Keep story, skip pure filler & recaps. Side stories stay optional.",
+    description: "Keep story, skip pure filler & recaps. Side stories stay optional.",
   },
   {
     value: "watch-everything",
@@ -84,6 +84,27 @@ const MOOD_OPTIONS: { value: Mood; label: string }[] = [
   { value: "adventure", label: "Adventure" },
 ];
 
+const DAYS_OF_WEEK = [
+  { key: "monday", label: "Monday" },
+  { key: "tuesday", label: "Tuesday" },
+  { key: "wednesday", label: "Wednesday" },
+  { key: "thursday", label: "Thursday" },
+  { key: "friday", label: "Friday" },
+  { key: "saturday", label: "Saturday" },
+  { key: "sunday", label: "Sunday" },
+] as const;
+
+const DEFAULT_CUSTOM_SCHEDULE: CustomSchedule = {
+  enabled: false,
+  monday: { enabled: true, startTime: "20:00", endTime: "22:00" },
+  tuesday: { enabled: true, startTime: "20:00", endTime: "22:00" },
+  wednesday: { enabled: true, startTime: "20:00", endTime: "22:00" },
+  thursday: { enabled: true, startTime: "20:00", endTime: "22:00" },
+  friday: { enabled: true, startTime: "20:00", endTime: "22:00" },
+  saturday: { enabled: true, startTime: "10:00", endTime: "16:00" },
+  sunday: { enabled: true, startTime: "10:00", endTime: "16:00" },
+};
+
 export function PreferencePanel({
   preferences,
   onChange,
@@ -119,12 +140,12 @@ export function PreferencePanel({
       </div>
 
       {/* Pace = finish dates only */}
-      <div>
+      <div className={cn(preferences.customSchedule?.enabled && "opacity-50 pointer-events-none")}>
         <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
           <Clock className="w-4 h-4 text-chrono-primary" />
           Daily pace
           <span className="text-[10px] font-normal text-chrono-text-dim ml-1">
-            · finish date only, not order
+            · finish date only, not order (Overridden when Custom Weekly Schedule is enabled)
           </span>
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -163,6 +184,120 @@ export function PreferencePanel({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* New: Custom Day-by-Day Schedule Builder */}
+      <div className="border-t border-chrono-border/20 pt-5">
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted">
+            <CalendarDays className="w-4 h-4 text-chrono-primary" />
+            Custom Weekly Schedule
+            <span className="text-[10px] font-normal text-chrono-text-dim ml-1">
+              · custom watch blocks per day
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const currentSched = preferences.customSchedule || DEFAULT_CUSTOM_SCHEDULE;
+              onChange({
+                ...preferences,
+                customSchedule: {
+                  ...currentSched,
+                  enabled: !currentSched.enabled,
+                },
+              });
+            }}
+            className={cn(
+              "px-3 py-1 text-xs font-semibold rounded-lg border transition-all",
+              preferences.customSchedule?.enabled
+                ? "bg-chrono-primary/20 border-chrono-primary text-chrono-primary"
+                : "bg-chrono-surface border-chrono-border text-chrono-text-muted"
+            )}
+          >
+            {preferences.customSchedule?.enabled ? "Enabled" : "Disabled"}
+          </button>
+        </div>
+
+        {preferences.customSchedule?.enabled && (
+          <div className="mt-4 p-4 rounded-xl border border-chrono-border/30 bg-chrono-surface/30 space-y-3.5 animate-slide-up">
+            <p className="text-[11px] text-chrono-text-dim leading-relaxed">
+              Configure exactly which days of the week you can watch anime, and during what specific hours. ChronoFlow will dynamically calculate your completion timeline.
+            </p>
+
+            <div className="space-y-2">
+              {DAYS_OF_WEEK.map((day) => {
+                const sched = preferences.customSchedule || DEFAULT_CUSTOM_SCHEDULE;
+                const daySched = sched[day.key] || { enabled: true, startTime: "20:00", endTime: "22:00" };
+
+                return (
+                  <div
+                    key={day.key}
+                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-black/25 border border-chrono-border/10"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={daySched.enabled}
+                        onChange={(e) => {
+                          const updated = {
+                            ...sched,
+                            [day.key]: {
+                              ...daySched,
+                              enabled: e.target.checked,
+                            },
+                          };
+                          onChange({ ...preferences, customSchedule: updated });
+                        }}
+                        className="rounded border-chrono-border bg-chrono-surface text-chrono-primary focus:ring-chrono-primary w-4 h-4 cursor-pointer"
+                      />
+                      <span className={cn("text-xs font-semibold", daySched.enabled ? "text-chrono-text" : "text-chrono-text-dim")}>
+                        {day.label}
+                      </span>
+                    </div>
+
+                    {daySched.enabled && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-chrono-text-dim text-[11px]">Watch from</span>
+                        <input
+                          type="time"
+                          value={daySched.startTime}
+                          onChange={(e) => {
+                            const updated = {
+                              ...sched,
+                              [day.key]: {
+                                ...daySched,
+                                startTime: e.target.value,
+                              },
+                            };
+                            onChange({ ...preferences, customSchedule: updated });
+                          }}
+                          className="bg-chrono-surface border border-chrono-border/50 text-chrono-text rounded px-2 py-1 focus:ring-1 focus:ring-chrono-primary font-medium"
+                        />
+                        <span className="text-chrono-text-dim text-[11px]">to</span>
+                        <input
+                          type="time"
+                          value={daySched.endTime}
+                          onChange={(e) => {
+                            const updated = {
+                              ...sched,
+                              [day.key]: {
+                                ...daySched,
+                                endTime: e.target.value,
+                              },
+                            };
+                            onChange({ ...preferences, customSchedule: updated });
+                          }}
+                          className="bg-chrono-surface border border-chrono-border/50 text-chrono-text rounded px-2 py-1 focus:ring-1 focus:ring-chrono-primary font-medium"
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Skip strategy */}
@@ -225,7 +360,7 @@ export function PreferencePanel({
         </div>
       </div>
 
-      {/* Mood — optional, influences recommended path only */}
+      {/* Mood */}
       <div>
         <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
           <Heart className="w-4 h-4 text-chrono-accent" />

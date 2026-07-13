@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Clock, Zap, Share2, Loader2 } from "lucide-react";
+import { Clock, Zap, Share2, Loader2, CalendarRange } from "lucide-react";
 import { toPng } from "html-to-image";
 import type { TimeBudgetResult, PaceEstimate } from "@/lib/time-calculator";
 import { formatMinutesExact } from "@/lib/time-calculator";
@@ -28,14 +28,12 @@ export function TimeBudgetCard({
 
   const totalHM = formatMinutesExact(data.totalMinutes);
   const watchableHM = formatMinutesExact(data.watchableMinutes);
-  const skipHM =
-    data.skippedMinutes > 0
-      ? formatMinutesExact(data.skippedMinutes)
-      : null;
+  const skipHM = data.skippedMinutes > 0 ? formatMinutesExact(data.skippedMinutes) : null;
 
   const featured = useMemo(
     () =>
       data.paces.find((p) => p.label === preferredPaceLabel) ??
+      data.paces.find((p) => p.label === "Custom") ??
       data.paces.find((p) => p.label === "Regular") ??
       data.paces[0],
     [data.paces, preferredPaceLabel]
@@ -173,14 +171,15 @@ export function TimeBudgetCard({
 }
 
 function Featured({ pace }: { pace: PaceEstimate }) {
+  const isCustom = pace.label === "Custom";
   return (
     <div className="rounded-2xl border border-chrono-primary/35 bg-chrono-primary/[0.09] p-5 sm:p-6">
       <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-chrono-primary/90 font-semibold">
         <span className="inline-flex items-center gap-1.5">
-          <Clock className="h-3.5 w-3.5" />
-          {pace.label} pace
+          {isCustom ? <CalendarRange className="h-3.5 w-3.5 text-chrono-primary" /> : <Clock className="h-3.5 w-3.5" />}
+          {isCustom ? "Your Weekly Schedule" : `${pace.label} pace`}
         </span>
-        <span>{pace.minutesPerDay} min/day</span>
+        <span>{isCustom ? "Custom active hours" : `${pace.minutesPerDay} min/day`}</span>
       </div>
       <div className="mt-3">
         <span className="text-3xl sm:text-5xl font-bold tracking-tight text-chrono-text">

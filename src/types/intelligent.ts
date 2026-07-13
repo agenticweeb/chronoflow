@@ -393,6 +393,24 @@ export interface EnrichedEntryV2 extends WatchOrderEntryV2 {
   };
 }
 
+// ── Custom Schedule Types ────────────────────────────────────
+export interface DailySchedule {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+}
+
+export interface CustomSchedule {
+  enabled: boolean;
+  monday: DailySchedule;
+  tuesday: DailySchedule;
+  wednesday: DailySchedule;
+  thursday: DailySchedule;
+  friday: DailySchedule;
+  saturday: DailySchedule;
+  sunday: DailySchedule;
+}
+
 // ── API Types V2 ─────────────────────────────────────────────
 export interface GenerateRequestV2 {
   animeName: string;
@@ -408,6 +426,7 @@ export interface GenerateRequestV2 {
     includeRecaps: boolean;
     preferredPath: "release" | "chronological" | "optimal" | "manga";
     language: "english" | "japanese" | "both";
+    customSchedule?: CustomSchedule; // Added cleanly to preferences
   };
   scope?: "season" | "franchise"; // franchise = full rebuild like Fate
   id?: number; // selected search result id

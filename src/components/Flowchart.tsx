@@ -1,4 +1,5 @@
 "use client";
+
 import { calculateTimeBudget } from "@/lib/time-calculator";
 import { TimeBudgetCard } from "@/components/TimeBudgetCard";
 import { useState } from "react";
@@ -19,26 +20,29 @@ import {
   CalendarDays,
   X,
   Target,
+  CalendarCheck2,
 } from "lucide-react";
 
-import { WatchOrderEntry, WatchOrderResult } from "@/types";
+import { WatchOrderEntry, WatchOrderResult, CustomSchedule } from "@/types";
 import { useProgress } from "@/hooks/useProgress";
 import { cn, generateShareText } from "@/lib/utils";
 import { SuggestionImage } from "@/components/SuggestionImage";
+import { ShareCard } from "@/components/ShareCard";
 
 interface FlowchartProps {
   result: WatchOrderResult;
+  customSchedule?: CustomSchedule; // Added support
 }
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
   if (!url) return null;
   const match = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
   if (match && match[1]) return `https://www.youtube.com/embed/${match[1]}?autoplay=1`;
-  if (url.includes("youtube.com/embed/")) return url.includes("?") ? `${url}&autoplay=1` : `${url}?autoplay=1`;
+  if (url.includes("embed/")) return url.includes("?") ? `${url}&autoplay=1` : `${url}?autoplay=1`;
   return null;
 }
 
-export function Flowchart({ result }: FlowchartProps) {
+export function Flowchart({ result, customSchedule }: FlowchartProps) {
   const [expanded, setExpanded] = useState(new Set<string>());
   const [activeTrailerUrl, setActiveTrailerUrl] = useState<string | null>(null);
   const [isCalOpen, setIsCalOpen] = useState(false);
@@ -73,6 +77,7 @@ export function Flowchart({ result }: FlowchartProps) {
       startDate: calStartDate,
       episodesPerDay: calEpsPerDay,
       watchStartTime: calStartTime,
+      customSchedule, // Added
     });
     const slug = result.franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     downloadIcsFile(`chronoflow-${slug}-schedule.ics`, icsContent);
@@ -108,7 +113,18 @@ export function Flowchart({ result }: FlowchartProps) {
         <div className="mt-4 flex items-center gap-2 text-xs text-chrono-text-dim"><span>Powered by</span><span className="px-2 py-0.5 bg-chrono-primary/10 text-chrono-primary rounded-full font-medium">{result.aiProvider}</span><span>• Generated {new Date(result.generatedAt).toLocaleDateString()}</span></div>
       </div>
 
-      <TimeBudgetCard data={calculateTimeBudget(result.franchise, result.entries.map((e) => ({ title: e.title, episodes: e.episodeCount ?? 1, durationMin: e.durationMinutes ?? 24, tier: e.tier })), new Date(result.generatedAt))} />
+      <TimeBudgetCard 
+        data={calculateTimeBudget(
+          result.franchise, 
+          result.entries.map((e) => ({ title: e.title, episodes: e.episodeCount ?? 1, durationMin: e.durationMinutes ?? 24, tier: e.tier })), 
+          new Date(result.generatedAt),
+          { customSchedule } // Added
+        )} 
+        preferredPaceLabel={customSchedule?.enabled ? "Custom" : "Regular"}
+      />
+
+      {/* Shareable Card Integration */}
+      <ShareCard result={result} />
 
       <div className="relative">
         <div className="absolute left-6 sm:left-8 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/50 via-chrono-border to-chrono-border" />
@@ -119,7 +135,56 @@ export function Flowchart({ result }: FlowchartProps) {
         </div>
       </div>
 
-      {isCalOpen && typeof window !== "undefined" && createPortal(<div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999]"><div className="glass-card w-full max-w-md overflow-hidden shadow-2xl border border-chrono-border"><div className="p-6 border-b border-chrono-border/40 flex items-center justify-between bg-chrono-surface/30"><div className="flex items-center gap-2"><CalendarDays className="w-5 h-5 text-chrono-primary" /><h3 className="text-lg font-bold">Customize Calendar</h3></div><button onClick={() => setIsCalOpen(false)} className="p-1.5 rounded-lg bg-chrono-surface hover:bg-chrono-surface-hover"><X className="w-4 h-4" /></button></div><div className="p-6 space-y-5"><div className="space-y-2"><label className="text-xs font-bold uppercase">Start Date</label><input type="date" value={calStartDate} onChange={(e) => setCalStartDate(e.target.value)} className="input-field w-full" /></div><div className="space-y-2"><div className="flex justify-between text-xs"><span>Pace</span><span className="font-bold">{calEpsPerDay} ep/day</span></div><div className="grid grid-cols-4 gap-2">{[1,2,4,8].map(v=><button key={v} onClick={()=>setCalEpsPerDay(v)} className={cn("py-2 rounded-lg text-xs font-semibold border",calEpsPerDay===v?"bg-chrono-primary text-white":"bg-chrono-surface")}>{v} Ep</button>)}</div></div><div className="space-y-2"><label className="text-xs font-bold uppercase">Daily Time</label><input type="time" value={calStartTime} onChange={e=>setCalStartTime(e.target.value)} className="input-field w-full" /></div></div><div className="p-6 border-t flex justify-end gap-3"><button onClick={()=>setIsCalOpen(false)} className="btn-secondary">Cancel</button><button onClick={handleExportCalendar} className="btn-primary">Download .ics</button></div></div></div>,document.body)}
+      {isCalOpen && typeof window !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999]">
+          <div className="glass-card w-full max-w-md overflow-hidden shadow-2xl border border-chrono-border">
+            <div className="p-6 border-b border-chrono-border/40 flex items-center justify-between bg-chrono-surface/30">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-chrono-primary" />
+                <h3 className="text-lg font-bold">Customize Calendar</h3>
+              </div>
+              <button onClick={() => setIsCalOpen(false)} className="p-1.5 rounded-lg bg-chrono-surface hover:bg-chrono-surface-hover"><X className="w-4 h-4" /></button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              {customSchedule?.enabled ? (
+                <div className="flex gap-2.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 leading-relaxed">
+                  <CalendarCheck2 className="w-5 h-5 flex-shrink-0 text-indigo-400" />
+                  <div>
+                    <span className="font-bold text-white block mb-0.5">Custom Schedule Active</span>
+                    Calendar events will be scheduled precisely within your active days and hours as configured in your preferences. Pace override is locked.
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs"><span>Pace</span><span className="font-bold">{calEpsPerDay} ep/day</span></div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1,2,4,8].map(v=><button key={v} onClick={()=>setCalEpsPerDay(v)} className={cn("py-2 rounded-lg text-xs font-semibold border",calEpsPerDay===v?"bg-chrono-primary text-white border-chrono-primary":"bg-chrono-surface border-chrono-border")}>{v} Ep</button>)}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase block text-chrono-text-muted">Daily Time</label>
+                    <input type="time" value={calStartTime} onChange={e=>setCalStartTime(e.target.value)} className="input-field w-full" />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase block text-chrono-text-muted">Start Date</label>
+                <input type="date" value={calStartDate} onChange={(e) => setCalStartDate(e.target.value)} className="input-field w-full" />
+              </div>
+            </div>
+
+            <div className="p-6 border-t flex justify-end gap-3 bg-chrono-surface/20">
+              <button onClick={()=>setIsCalOpen(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleExportCalendar} className="btn-primary">Download .ics</button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {activeTrailerUrl && typeof window !== "undefined" && createPortal(<div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 z-[99999]"><div className="w-full max-w-3xl aspect-video rounded-2xl overflow-hidden relative bg-black"><button onClick={()=>setActiveTrailerUrl(null)} className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white z-50"><X className="w-5 h-5" /></button>{getYoutubeEmbedUrl(activeTrailerUrl)?<iframe src={getYoutubeEmbedUrl(activeTrailerUrl)!} className="w-full h-full" allowFullScreen />:<div className="w-full h-full flex flex-col items-center justify-center"><Play className="w-12 h-12" /><a href={activeTrailerUrl} target="_blank" className="text-chrono-primary underline text-xs mt-2">{activeTrailerUrl}</a></div>}</div></div>,document.body)}
     </div>
   );
@@ -144,5 +209,4 @@ function FlowchartNode({ entry, index, isExpanded, onToggle, isWatched, onToggle
   );
 }
 
-// Add default export so both import styles work
 export default Flowchart;

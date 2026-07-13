@@ -1,8 +1,3 @@
-/**
- * Flowchart V2 — Immersive watch path for anime fans
- * Paths → Groups → Entries · client Focus · time card · calendar · progress
- */
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -29,12 +24,14 @@ import {
   Tv,
   Film,
   ArrowLeft,
+  CalendarCheck2,
 } from "lucide-react";
 
 import {
   WatchOrderResultV2,
   WatchOrderEntryV2,
   EntryTier,
+  CustomSchedule,
 } from "@/types/intelligent";
 import {
   calculateTimeBudget,
@@ -49,11 +46,13 @@ import {
   downloadIcsFile,
 } from "@/lib/calendar-generator";
 import { buildFocusedResult } from "@/lib/focus-entry";
+import { ShareCard } from "@/components/ShareCard";
 
 interface FlowchartV2Props {
   data: WatchOrderResultV2;
   timeBudget?: string;
   onBackFromFocus?: () => void;
+  customSchedule?: CustomSchedule; // Added support
 }
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
@@ -105,6 +104,7 @@ const tierConfig: Record<
 export default function FlowchartV2({
   data: initialData,
   timeBudget = "regular",
+  customSchedule, // Added
 }: FlowchartV2Props) {
   const [focusEntry, setFocusEntry] = useState<WatchOrderEntryV2 | null>(null);
 
@@ -119,7 +119,6 @@ export default function FlowchartV2({
     data.recommendedPathId || data.paths[0]?.id
   );
 
-  // Reset path when entering/leaving focus
   useEffect(() => {
     setActivePathId(data.recommendedPathId || data.paths[0]?.id);
     setExpandedGroups(
@@ -182,9 +181,10 @@ export default function FlowchartV2({
           tier: e.tier,
           isFiller: e.isFiller && e.tier === "skip",
         })),
-        new Date()
+        new Date(),
+        { customSchedule } // Passed
       ),
-    [data.franchise, pathEntries]
+    [data.franchise, pathEntries, customSchedule]
   );
 
   const toggleGroup = (id: string) => {
@@ -232,6 +232,7 @@ export default function FlowchartV2({
         startDate: calStartDate,
         episodesPerDay: calEpsPerDay,
         watchStartTime: calStartTime,
+        customSchedule, // Passed
       }
     );
     const slug = data.franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -387,7 +388,10 @@ export default function FlowchartV2({
       </div>
 
       {/* Time experience for active path */}
-      <TimeBudgetCard data={timeData} preferredPaceLabel={preferredPace} />
+      <TimeBudgetCard data={timeData} preferredPaceLabel={customSchedule?.enabled ? "Custom" : preferredPace} />
+
+      {/* Shareable Card Integration */}
+      <ShareCard result={data} />
 
       {/* Path picker */}
       {data.paths.length > 1 && (
@@ -550,7 +554,6 @@ export default function FlowchartV2({
                                 }
                                 onPlayTrailer={setActiveTrailerUrl}
                                 onFocus={() => {
-                                  // Exact card — never re-search
                                   setFocusEntry(entry);
                                   window.scrollTo({
                                     top: 0,
@@ -592,6 +595,54 @@ export default function FlowchartV2({
                 </button>
               </div>
               <div className="p-5 space-y-4">
+                {customSchedule?.enabled ? (
+                  <div className="flex gap-2.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 leading-relaxed">
+                    <CalendarCheck2 className="w-5 h-5 flex-shrink-0 text-indigo-400 animate-pulse" />
+                    <div>
+                      <span className="font-bold text-white block mb-0.5">Custom Schedule Active</span>
+                      Calendar events will be scheduled precisely within your active days and hours as configured in your preferences. Daily pace is overridden.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-xs font-medium">
+                        <span className="text-chrono-text-muted">Pace</span>
+                        <span className="text-chrono-primary font-bold">
+                          {calEpsPerDay} ep/day
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        {[1, 2, 4, 8].map((v) => (
+                          <button
+                            key={v}
+                            onClick={() => setCalEpsPerDay(v)}
+                            className={cn(
+                              "py-2 rounded-lg text-xs font-semibold border",
+                              calEpsPerDay === v
+                                ? "bg-chrono-primary border-chrono-primary text-white"
+                                : "bg-chrono-surface border-chrono-border/50 text-chrono-text-dim"
+                            )}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
+                        Daily start time
+                      </label>
+                      <input
+                        type="time"
+                        value={calStartTime}
+                        onChange={(e) => setCalStartTime(e.target.value)}
+                        className="input-field w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
                     Start date
@@ -603,43 +654,8 @@ export default function FlowchartV2({
                     className="input-field w-full"
                   />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs font-medium">
-                    <span className="text-chrono-text-muted">Pace</span>
-                    <span className="text-chrono-primary font-bold">
-                      {calEpsPerDay} ep/day
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[1, 2, 4, 8].map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => setCalEpsPerDay(v)}
-                        className={cn(
-                          "py-2 rounded-lg text-xs font-semibold border",
-                          calEpsPerDay === v
-                            ? "bg-chrono-primary border-chrono-primary text-white"
-                            : "bg-chrono-surface border-chrono-border/50 text-chrono-text-dim"
-                        )}
-                      >
-                        {v}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
-                    Daily start time
-                  </label>
-                  <input
-                    type="time"
-                    value={calStartTime}
-                    onChange={(e) => setCalStartTime(e.target.value)}
-                    className="input-field w-full"
-                  />
-                </div>
               </div>
-              <div className="p-5 border-t border-chrono-border/40 flex justify-end gap-3">
+              <div className="p-5 border-t border-chrono-border/40 flex justify-end gap-3 bg-chrono-surface/20">
                 <button
                   onClick={() => setIsCalOpen(false)}
                   className="btn-secondary py-2.5 px-4 text-xs font-bold"

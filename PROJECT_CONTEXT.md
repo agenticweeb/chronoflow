@@ -3770,3 +3770,12 @@ ChronoFlow is a Next.js + TypeScript anime watch-order generator for anime fans 
 - `src/app/api/enrich/route.ts`: enrichment endpoint returning image and trailer metadata.
 - `PROJECT_CONTEXT.md`: appended with this conversation summary.
 ```
+### RESOLVED: Relation Graph Crossover Leakage (July 2026)
+
+*   **The Issue:** When users searched for major franchises published by standard light novel imprints (like *Sword Art Online* from Dengeki Bunko), the relation graph builder traversed too deeply (up to depth 4) and grabbed loose crossover relations. Crossover video game promos, anniversary ONAs, and character cameos (linked via `CHARACTER` or `OTHER` relation types on AniList) acted as "graph leakage hubs." This bridged separate franchises, causing the AI to force unrelated shows (e.g., *Spice and Wolf*, *Oreimo*, *Haganai*, *Eromanga Sensei*) into the final timeline.
+*   **The Fix:** Built a targeted **Linguistic/Title Coherence Guard** (`isFranchiseCoherent`) inside `src/lib/knowledge/relation-graph.ts` and integrated it into the BFS queue loop.
+*   **How It Works:**
+    1.  **Strict Narrative Pass:** Tight relations representing actual narrative connections (`SEQUEL`, `PREQUEL`, `PARENT`, `ALTERNATIVE`, `SIDE_STORY`, `SPIN_OFF`, `COMPILATION`, `SUMMARY`) bypass the title-matching check. This ensures spinoffs with distinct titles (like *Lord El-Melloi II's Case Files* under *Fate/Zero*) are kept safely.
+    2.  **Crossover Filtering:** High-leakage relations (`CHARACTER` and `OTHER`) are strictly inspected. They are immediately dropped *unless* they share linguistic coherence with the root franchise name.
+    3.  **Linguistic Check:** Discards generic words ("the", "movie", "season", "ni", "ga", "alternative"), then checks if the titles share a meaningful stem keyword (using the `extractStem` registry) or overlap on any unique word of length >= 3.
+    4.  **Short-Title Fallback:** If generic filtering leaves zero words (e.g., short titles like "86" or "K"), the guard gracefully retains the raw characters to prevent false negatives.

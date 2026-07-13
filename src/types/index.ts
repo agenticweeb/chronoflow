@@ -277,3 +277,34 @@ export interface CacheEntry<T> {
   ttl: number;
   provider: string;
 }
+
+export interface DailySchedule {
+  enabled: boolean;
+  startTime: string; // e.g., "20:00"
+  endTime: string;   // e.g., "22:00"
+}
+
+export interface CustomSchedule {
+  enabled: boolean;
+  monday: DailySchedule;
+  tuesday: DailySchedule;
+  wednesday: DailySchedule;
+  thursday: DailySchedule;
+  friday: DailySchedule;
+  saturday: DailySchedule;
+  sunday: DailySchedule;
+}
+
+// Update UserPreferences to optionally accept customSchedule
+export interface UserPreferences {
+  timeBudget: TimeBudget;
+  mood: Mood[];
+  skipPreference: SkipPreference;
+  includeMovies: boolean;
+  includeOVAs: boolean;
+  includeSpecials: boolean;
+  includeRecaps: boolean;
+  preferredPath: PathType;
+  language: "english" | "japanese" | "both";
+  customSchedule?: CustomSchedule; // Added
+}

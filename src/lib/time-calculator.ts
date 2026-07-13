@@ -1,8 +1,10 @@
 /**
  * Time-Budget Calculator
- * Order never changes here — only finish dates from daily pace.
+ * Order never changes here — only finish dates from daily pace or custom schedules.
  * Finish dates use local noon + ceil(days) to avoid off-by-one.
  */
+
+import { CustomSchedule } from "@/types";
 
 export type SkipTier = "essential" | "recommended" | "optional" | "skip";
 
@@ -44,7 +46,7 @@ export const PACES = [
   { label: "Binge", minutesPerDay: 240 },
 ] as const;
 
-export type PaceLabel = (typeof PACES)[number]["label"];
+export type PaceLabel = (typeof PACES)[number]["label"] | "Custom";
 
 /** Map UserPreferences.timeBudget → pace label */
 export function paceFromTimeBudget(
@@ -80,7 +82,6 @@ function formatDurationFromDays(fractionalDays: number): { full: string; short: 
   if (fractionalDays === 0) {
     return { full: "0 minutes", short: "0m" };
   }
-  // Under 1 day → show hours
   if (fractionalDays < 1) {
     const hours = Math.max(1, Math.ceil(fractionalDays * 24));
     return {
@@ -157,13 +158,66 @@ function relativeFromCeilDays(ceilDays: number): string {
   return `in ${w}w ${r}d`;
 }
 
-/**
- * Count an entry as "skipped savings" only when it's pure skip/filler,
- * not recommended/essential. Optional counts as savings only when strategy
- * treats optional as non-watchable (canon-only already filtered them out).
- */
 function isSavingsTier(tier: SkipTier): boolean {
   return tier === "skip";
+}
+
+/**
+ * Mathematically steps through calendar days to calculate the exact finish date
+ * taking into account the user's specific weekly availability hours.
+ */
+function calculateCustomScheduleFinish(
+  watchableMinutes: number,
+  startDate: Date,
+  schedule: CustomSchedule
+): { daysCeil: number; finishDate: string; relativeLabel: string; activeMinutesPerWeek: number } {
+  let remainingMinutes = watchableMinutes;
+  let dayCursor = localNoon(startDate);
+  let daysCount = 0;
+
+  const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
+
+  let activeMinutesPerWeek = 0;
+  daysOfWeek.forEach(day => {
+    const daily = schedule[day];
+    if (daily && daily.enabled) {
+      const [startH, startM] = daily.startTime.split(":").map(Number);
+      const [endH, endM] = daily.endTime.split(":").map(Number);
+      const totalMins = (endH * 60 + endM) - (startH * 60 + startM);
+      if (totalMins > 0) {
+        activeMinutesPerWeek += totalMins;
+      }
+    }
+  });
+
+  if (activeMinutesPerWeek <= 0 || watchableMinutes <= 0) {
+    return { daysCeil: 0, finishDate: formatLocalYMD(startDate), relativeLabel: "today", activeMinutesPerWeek: 0 };
+  }
+
+  while (remainingMinutes > 0) {
+    const dayName = daysOfWeek[dayCursor.getDay()];
+    const daily = schedule[dayName];
+    if (daily && daily.enabled) {
+      const [startH, startM] = daily.startTime.split(":").map(Number);
+      const [endH, endM] = daily.endTime.split(":").map(Number);
+      const minsAvailable = (endH * 60 + endM) - (startH * 60 + startM);
+      if (minsAvailable > 0) {
+        remainingMinutes -= minsAvailable;
+      }
+    }
+
+    if (remainingMinutes > 0) {
+      dayCursor.setDate(dayCursor.getDate() + 1);
+      daysCount++;
+    }
+  }
+
+  return {
+    daysCeil: daysCount,
+    finishDate: formatLocalYMD(dayCursor),
+    relativeLabel: relativeFromCeilDays(daysCount),
+    activeMinutesPerWeek
+  };
 }
 
 export function calculateTimeBudget(
@@ -171,9 +225,9 @@ export function calculateTimeBudget(
   entries: FranchiseEntry[],
   startDate: Date = new Date(),
   options?: {
-    /** Extra minutes/episodes already filtered out by skip strategy */
     preSkippedMinutes?: number;
     preSkippedEpisodes?: number;
+    customSchedule?: CustomSchedule; // Added option
   }
 ): TimeBudgetResult {
   let totalMinutes = 0;
@@ -195,17 +249,14 @@ export function calculateTimeBudget(
 
   const watchableMinutes = Math.max(0, totalMinutes - skippedMinutes);
   const watchableEpisodes = Math.max(0, totalEpisodes - skippedEpisodes);
-    const avg =
-      totalEpisodes > 0
-        ? Math.round((totalMinutes / totalEpisodes) * 10) / 10
-        : 24;
+  const avg = totalEpisodes > 0 ? Math.round((totalMinutes / totalEpisodes) * 10) / 10 : 24;
 
   const noonStart = localNoon(startDate);
 
+  // Default Standard Paces
   const paces: PaceEstimate[] = PACES.map((p) => {
     const fractional = watchableMinutes / p.minutesPerDay;
-    const daysCeil =
-      watchableMinutes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
+    const daysCeil = watchableMinutes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
     const finish = new Date(noonStart);
     finish.setDate(finish.getDate() + daysCeil);
     const { full, short } = formatDurationFromDays(fractional);
@@ -220,8 +271,28 @@ export function calculateTimeBudget(
     };
   });
 
+  // Calculate Custom Schedule if active and valid
+  if (options?.customSchedule?.enabled) {
+    const customEst = calculateCustomScheduleFinish(watchableMinutes, startDate, options.customSchedule);
+    if (customEst.activeMinutesPerWeek > 0) {
+      const avgMinutesPerDay = Math.round(customEst.activeMinutesPerWeek / 7);
+      const fractional = watchableMinutes / avgMinutesPerDay;
+      const { full, short } = formatDurationFromDays(fractional);
+      
+      paces.unshift({
+        label: "Custom",
+        minutesPerDay: avgMinutesPerDay,
+        duration: full,
+        durationShort: short,
+        finishDate: customEst.finishDate,
+        daysCeil: customEst.daysCeil,
+        relativeLabel: customEst.relativeLabel,
+      });
+    }
+  }
+
   const totalHM = formatHM(totalMinutes);
-    const mathNote = `Total ${totalHM} = ${totalEpisodes} eps × ${avg.toFixed(1)}m avg`;
+  const mathNote = `Total ${totalHM} = ${totalEpisodes} eps × ${avg.toFixed(1)}m avg`;
 
   return {
     franchise,
