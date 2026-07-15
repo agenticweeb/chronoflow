@@ -1,6 +1,5 @@
 /**
- * ChronoFlow Orchestrator V2.2 - Curated Ground Truth + Deterministic Fallback
- * For top franchises, uses curated ground truth 100% correct. For others, uses graph + AI with manga filtering.
+ * ChronoFlow Orchestrator V2.3 - Grounded Graph + Double-Safety Guards
  */
 
 import { buildRelationGraph, findAllowedTitleById, findAllowedTitleByFuzzy } from "@/lib/knowledge/relation-graph";
@@ -68,7 +67,6 @@ export interface OrchestratorParams {
   animeName: string;
   anilistId?: number;
   malId?: number;
-  /** Always franchise for generate; season is client-side Focus */
   scope: "season" | "franchise";
   preferences: {
     timeBudget: string;
@@ -396,7 +394,7 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     classification: (aiData as any).classification || classification.shape,
     classificationReason: (aiData as any).classificationReason || classification.reasoning,
     summary: (aiData as any).summary || `Complete watch order for ${root.title}`,
-    whyConfusing,
+    whyConfusing: (aiData as any).whyConfusing || whyConfusing, // Correctly prioritizes Dynamic LLM analysis
     recommendedPathId: recommended,
     paths: filteredPaths as any,
     totalGroups: filteredPaths.reduce((s: number, p: any) => s + p.groups.length, 0),
@@ -473,14 +471,41 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         const allowed = findAllowedTitleById(allowedTitles, entry.id);
         const node = allowed ? nodeMap.get(allowed.anilistId) : null;
         const format = (node?.format || allowed?.format || "TV").toUpperCase() as any;
-        const episodes = node?.episodes || (allowed as any)?.episodes || 12;
+        
+        let episodes = node?.episodes || (allowed as any)?.episodes || 12;
+
+        // MULTI-TIER MATH SEGMENTATION GUARDS
+        // Try parsing range from episodeRange, fallback to title/arc regex scans if LLM omitted properties
+        let rangeStr = entry.episodeRange;
+        if (!rangeStr) {
+          const titleMatch = (entry.title || "").match(/Eps?\s*(\d+)\s*-\s*(\d+)/i);
+          if (titleMatch) {
+            rangeStr = `${titleMatch[1]}-${titleMatch[2]}`;
+          }
+        }
+
+        if (rangeStr) {
+          const matchRange = rangeStr.match(/(\d+)\s*-\s*(\d+)/);
+          if (matchRange) {
+            const start = parseInt(matchRange[1], 10);
+            const end = parseInt(matchRange[2], 10);
+            if (start > 0 && end >= start) {
+              episodes = end - start + 1;
+            }
+          }
+        } else if (entry.episodeCount && entry.episodeCount < episodes) {
+          episodes = entry.episodeCount;
+        }
+
         const duration = parseDuration(node?.duration || (allowed as any)?.duration, format);
         const cover = node?.coverImage;
         const trailer = node?.trailer;
         let trailerUrl: string | null = null;
         if (trailer?.site?.toLowerCase() === "youtube" && trailer?.id) trailerUrl = `https://www.youtube.com/watch?v=${trailer.id}`;
+        
         const timeEst = format === "MOVIE" ? `${duration}m` : `${episodes} eps × ${duration}m`;
         const entryImage = entry.imageUrl || cover?.large || cover?.medium || "";
+        
         return {
           id: entry.id, malId: allowed?.malId, anilistId: allowed?.anilistId,
           title: allowed?.title || entry.title || "Unknown",
@@ -489,7 +514,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           episodeCount: episodes, durationMinutes: duration, timeEstimate: timeEst,
           year: (allowed as any)?.year, position: entry.position || idx + 1, groupPosition: entry.groupPosition || idx + 1,
           prerequisites: entry.prerequisites || [], unlocks: [], watchAfter: entry.watchAfter,
-          contentTags: entry.contentTags || [], arcName: entry.arcName, episodeRange: entry.episodeRange,
+          contentTags: entry.contentTags || [], arcName: entry.arcName, episodeRange: rangeStr || entry.episodeRange,
           isFiller: entry.isFiller || false, fillerType: (entry.fillerType as any) || "none", fillerReason: entry.fillerReason,
           whyWatch: entry.whyWatch, skipWarning: entry.skipWarning, watchIf: entry.watchIf || [],
           imageUrl: entryImage, bannerUrl: undefined, coverImage: cover,
@@ -520,11 +545,10 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
   });
 }
 
-function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: OrchestratorParams["preferences"]): WatchOrderPathV2[] {
+function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: { includeMovies: boolean; includeOVAs: boolean; includeSpecials: boolean; includeRecaps: boolean; skipPreference: string; }): WatchOrderPathV2[] {
   return paths.map((p: any) => {
     const groups = p.groups.map((g: any) => {
       let e = [...g.entries];
-      // Prefer keep movies/OVAs when they're essential (canon sandwich)
       if (prefs.includeMovies === false) {
         e = e.filter((x: any) => x.format !== "MOVIE" || x.tier === "essential");
       }
@@ -539,7 +563,6 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: OrchestratorParam
       if (skip === "canon-only") {
         e = e.filter((x: any) => x.tier === "essential");
       } else if (skip === "smart-skip" || skip === "skip-all-filler") {
-        // Keep story; drop pure skip / recaps / pure filler; optional side stories stay
         e = e.filter(
           (x: any) =>
             x.tier !== "skip" &&
@@ -547,7 +570,6 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: OrchestratorParam
             x.fillerType !== "pure_filler"
         );
       }
-      // watch-everything: keep recaps/skip entries visible
 
       const totEp = e.reduce((s: number, x: any) => s + (x.episodeCount || 0), 0);
       const { text } = calcDuration(e as any);
@@ -573,7 +595,6 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: OrchestratorParam
   }).filter((p: any) => p.groups.length > 0) as any;
 }
 
-/** Prefer path matching user preference; mood only influences which path is recommended */
 function applyPathPreference(
   paths: WatchOrderPathV2[],
   preferredPath: string,
@@ -592,7 +613,6 @@ function applyPathPreference(
       paths.find((p) => lower(p.name).includes("release") || lower(p.id).includes("release"))?.id ||
       null;
   } else {
-    // optimal = spoiler-free / recommended / main
     pickId =
       paths.find((p) => p.isRecommended)?.id ||
       paths.find((p) => lower(p.name).includes("spoiler") || lower(p.name).includes("recommended") || lower(p.name).includes("optimal"))?.id ||
@@ -600,7 +620,6 @@ function applyPathPreference(
       null;
   }
 
-  // Mood lightly prefers action/mindfuck paths etc.
   const moods = (mood || []).filter((m) => m !== "all");
   if (moods.includes("mindfuck")) {
     const alt = paths.find((p) => lower(p.name).includes("route") || lower(p.name).includes("true"));
@@ -642,10 +661,6 @@ function markAiringStatuses(paths: WatchOrderPathV2[], graph: RelationGraph): Wa
   })) as any;
 }
 
-/**
- * Deterministic order from graph: TV seasons by year, movies/OVAs interleaved by year
- * with essential tier when relation is sequel/side story, optional for pure spin-offs.
- */
 function buildDeterministicPaths(
   root: any,
   allowed: AllowedTitle[],
@@ -798,13 +813,11 @@ function buildDeterministicPaths(
   ];
 }
 
-/** Pull essential movies from side groups into main timeline order by year */
 function interleaveMoviesIntoMainTimeline(
   aiPaths: WatchOrderPathV2[],
   detPaths: WatchOrderPathV2[]
 ): WatchOrderPathV2[] {
   if (!aiPaths.length) return detPaths;
-  // If AI already put movies in main with essential tier, keep AI
   const main = aiPaths[0]?.groups?.find((g) => g.timelineType === "main_timeline");
   const hasCanonMovie =
     main?.entries?.some(
@@ -813,6 +826,5 @@ function interleaveMoviesIntoMainTimeline(
         (e.tier === "essential" || e.tier === "recommended")
     ) ?? false;
   if (hasCanonMovie) return aiPaths;
-  // Otherwise prefer deterministic main timeline for sandwich shapes
   return detPaths.length ? detPaths : aiPaths;
 }
