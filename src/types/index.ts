@@ -136,6 +136,10 @@ export interface UserPreferences {
   includeRecaps: boolean;
   preferredPath: PathType;
   language: "english" | "japanese" | "both";
+  customSchedule?: CustomSchedule;
+  // NEW COHERENCE FIELDS:
+  paceType?: "duration" | "episodes";
+  episodesPerDay?: number;
 }
 
 /** Daily viewing pace — maps to minutes/day for finish-date math only */

@@ -80,24 +80,25 @@ export interface InnerOrder {
 // ── Entry V2 - The Atomic Unit ───────────────────────────────
 export interface WatchOrderEntryV2 {
   // Identity - grounded in real DB
-  id: string; // anilistId or malId as string, e.g. "ani_10087"
+  id: string; 
   malId?: number;
   anilistId?: number;
-  title: string; // verified title from DB, never AI invented
+  title: string; 
   titleJapanese?: string;
   titleEnglish?: string;
   titleRomaji?: string;
 
   // Classification
   format: EntryFormat;
-  type: EntryFormat; // alias for backward compat
+  type: EntryFormat; 
   tier: EntryTier;
-  tierReason: string; // 1-2 sentences why this tier, e.g. "Core canon, introduces Holy Grail War rules"
+  tierReason: string; 
 
   // Timing
   episodeCount?: number;
-  durationMinutes?: number; // per ep for TV, total for Movie
-  timeEstimate: string; // "24m x 13 eps = 5h 12m"
+  releasedEpisodeCount?: number; // ADDED: Currently aired/released episodes count
+  durationMinutes?: number; 
+  timeEstimate: string; 
   year?: number;
   aired?: string;
 
@@ -426,10 +427,13 @@ export interface GenerateRequestV2 {
     includeRecaps: boolean;
     preferredPath: "release" | "chronological" | "optimal" | "manga";
     language: "english" | "japanese" | "both";
-    customSchedule?: CustomSchedule; // Added cleanly to preferences
+    customSchedule?: CustomSchedule;
+    // NEW COHERENCE FIELDS:
+    paceType?: "duration" | "episodes";
+    episodesPerDay?: number;
   };
-  scope?: "season" | "franchise"; // franchise = full rebuild like Fate
-  id?: number; // selected search result id
+  scope?: "season" | "franchise";
+  id?: number;
 }
 
 export interface GenerateResponseV2 {

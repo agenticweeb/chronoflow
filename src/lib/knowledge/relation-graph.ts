@@ -1,7 +1,5 @@
 /**
- * ChronoFlow Relation Graph Builder - Leak-Proof V2.3
- * Prevents crossover leakage by pruning loose relations (CHARACTER, OTHER) 
- * that do not share core franchise title keywords.
+ * ChronoFlow Relation Graph Builder - V2.4 (Airing-Progress Grounded)
  */
 
 import { RawRelationNode, RelationGraph, AllowedTitle, EntryFormat } from "@/types/intelligent";
@@ -30,8 +28,10 @@ function sleep(ms: number) {
 }
 
 const ENDPOINT = "https://graphql.anilist.co";
-const MEDIA_Q = `query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english native} format episodes duration status averageScore popularity description genres startDate{year} coverImage{large medium color} trailer{id site} relations{edges{relationType node{id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site}}}}}}`;
-const SEARCH_Q = `query($search:String,$perPage:Int){Page(perPage:$perPage){media(search:$search,type:ANIME,sort:POPULARITY_DESC){id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site}}}}`;
+
+// Enriched with nextAiringEpisode payload nodes
+const MEDIA_Q = `query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english native} format episodes duration status averageScore popularity description genres startDate{year} coverImage{large medium color} trailer{id site} nextAiringEpisode { episode } relations{edges{relationType node{id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode { episode }}}}}}`;
+const SEARCH_Q = `query($search:String,$perPage:Int){Page(perPage:$perPage){media(search:$search,type:ANIME,sort:POPULARITY_DESC){id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode { episode }}}}`;
 
 async function fetchWithRetry(body: any, retries = 3) {
   for (let a = 0; a <= retries; a++) {
@@ -106,18 +106,36 @@ async function searchAniListForGraph(search: string, perPage = 25): Promise<any[
 
 function anilistToRaw(node: any, depth: number, relType?: string, src?: number): RawRelationNode {
   const title = node.title?.english || node.title?.romaji || node.title?.native || "Unknown";
-  return { anilistId: node.id, malId: node.idMal || undefined, title, titleEnglish: node.title?.english || undefined, titleRomaji: node.title?.romaji || undefined, titleNative: node.title?.native || undefined, format: node.format || undefined, type: node.format || undefined, episodes: node.episodes ?? undefined, duration: node.duration ?? undefined, status: node.status || undefined, averageScore: node.averageScore ?? undefined, popularity: node.popularity || 0, coverImage: node.coverImage || undefined, genres: node.genres || [], description: node.description || undefined, trailer: node.trailer || null, relationType: relType || undefined, sourceId: src, depth, year: node.startDate?.year || undefined } as any;
+  return { 
+    anilistId: node.id, 
+    malId: node.idMal || undefined, 
+    title, 
+    titleEnglish: node.title?.english || undefined, 
+    titleRomaji: node.title?.romaji || undefined, 
+    titleNative: node.title?.native || undefined, 
+    format: node.format || undefined, 
+    type: node.format || undefined, 
+    episodes: node.episodes ?? undefined, 
+    duration: node.duration ?? undefined, 
+    status: node.status || undefined, 
+    averageScore: node.averageScore ?? undefined, 
+    popularity: node.popularity || 0, 
+    coverImage: node.coverImage || undefined, 
+    genres: node.genres || [], 
+    description: node.description || undefined, 
+    trailer: node.trailer || null, 
+    relationType: relType || undefined, 
+    sourceId: src, 
+    depth, 
+    year: node.startDate?.year || undefined,
+    nextAiringEpisode: node.nextAiringEpisode || null,
+  } as any;
 }
 
-/**
- * Validates if a related candidate title is linguistically part of the same franchise.
- * Excludes generic crossover hubs while maintaining safety for shorter titles.
- */
 export function isFranchiseCoherent(rootTitle: string, candidateTitle: string): boolean {
   const cleanRoot = normalizeTitle(rootTitle);
   const cleanCand = normalizeTitle(candidateTitle);
 
-  // Quick stem matching optimization
   const rootStem = extractStem(rootTitle);
   const candStem = extractStem(candidateTitle);
   if (rootStem && candStem && rootStem === candStem) {
@@ -134,7 +152,6 @@ export function isFranchiseCoherent(rootTitle: string, candidateTitle: string): 
   let rootWords = cleanRoot.split(" ").filter(w => w.length >= 3 && !genericWords.has(w));
   let candWords = cleanCand.split(" ").filter(w => w.length >= 3 && !genericWords.has(w));
 
-  // Fallback for extremely short franchise names (e.g., "K" or "86")
   if (rootWords.length === 0) {
     rootWords = cleanRoot.split(" ").filter(w => !genericWords.has(w) && w.length > 0);
   }
@@ -142,7 +159,6 @@ export function isFranchiseCoherent(rootTitle: string, candidateTitle: string): 
     candWords = cleanCand.split(" ").filter(w => !genericWords.has(w) && w.length > 0);
   }
 
-  // Confirm word overlap or substring match
   return rootWords.some(rw => candWords.includes(rw) || cleanCand.includes(rw)) ||
          candWords.some(cw => cleanRoot.includes(cw));
 }
@@ -194,7 +210,6 @@ export async function buildRelationGraph(params: BuildGraphParams) {
 
       const relType = (e.relationType || "unknown").toUpperCase();
 
-      // STRICT FRANCHISE COHERENCE GUARD: Skip crossovers sliding in via CHARACTER or OTHER relations
       if (relType === "CHARACTER" || relType === "OTHER") {
         const rnTitle = rn.title?.english || rn.title?.romaji || rn.title?.native || "";
         if (!isFranchiseCoherent(root.title, rnTitle)) {
@@ -239,7 +254,6 @@ export async function buildRelationGraph(params: BuildGraphParams) {
         const titleScore = scoreTitleMatch(params.title, it);
         if (titleScore < 35) continue;
 
-        // Secondary guard on loose wider searches
         const widerTitle = it.title?.english || it.title?.romaji || it.title?.native || "";
         if (!isFranchiseCoherent(root.title, widerTitle)) {
           continue;
@@ -274,7 +288,9 @@ export async function buildRelationGraph(params: BuildGraphParams) {
       year: (node as any).year,
       popularity: node.popularity || 0,
       relationType: node.relationType,
-      isMainEntry: node.depth === 0
+      isMainEntry: node.depth === 0,
+      status: node.status,
+      nextAiringEpisode: node.nextAiringEpisode,
     };
   });
 

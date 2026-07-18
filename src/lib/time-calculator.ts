@@ -1,7 +1,10 @@
 /**
- * Time-Budget Calculator
+ * Time-Budget & Episode-Pace Calculator - Rebuilt V2.4
  * Order never changes here — only finish dates from daily pace or custom schedules.
  * Finish dates use local noon + ceil(days) to avoid off-by-one.
+ * 
+ * Supports both Duration (Minutes/Day) and strict Episode-Pace (Episodes/Day)
+ * converting long movies mathematically to standard episode weights.
  */
 
 import { CustomSchedule } from "@/types";
@@ -46,7 +49,7 @@ export const PACES = [
   { label: "Binge", minutesPerDay: 240 },
 ] as const;
 
-export type PaceLabel = (typeof PACES)[number]["label"] | "Custom";
+export type PaceLabel = (typeof PACES)[number]["label"] | "Custom" | "Episodes";
 
 /** Map UserPreferences.timeBudget → pace label */
 export function paceFromTimeBudget(
@@ -227,7 +230,9 @@ export function calculateTimeBudget(
   options?: {
     preSkippedMinutes?: number;
     preSkippedEpisodes?: number;
-    customSchedule?: CustomSchedule; // Added option
+    customSchedule?: CustomSchedule;
+    paceType?: "duration" | "episodes";
+    episodesPerDay?: number;
   }
 ): TimeBudgetResult {
   let totalMinutes = 0;
@@ -235,15 +240,30 @@ export function calculateTimeBudget(
   let skippedMinutes = options?.preSkippedMinutes || 0;
   let skippedEpisodes = options?.preSkippedEpisodes || 0;
 
+  // Track episode-based weighted lengths to avoid movie bloats
+  let watchableWeightedEpisodes = 0;
+
   for (const e of entries) {
     if (!Number.isFinite(e.episodes) || e.episodes <= 0) continue;
     if (!Number.isFinite(e.durationMin) || e.durationMin <= 0) continue;
+    
     const m = e.episodes * e.durationMin;
     totalMinutes += m;
     totalEpisodes += e.episodes;
-    if (isSavingsTier(e.tier) || e.isFiller) {
+
+    const isSkipped = isSavingsTier(e.tier) || e.isFiller;
+    if (isSkipped) {
       skippedMinutes += m;
       skippedEpisodes += e.episodes;
+    } else {
+      // DYNAMIC MOVIE WEIGHTING SAFETY GATE:
+      // If duration per episode > 40 minutes (Movies/Large OVAs), calculate equivalents
+      if (e.durationMin > 40) {
+        const equivalentEps = Math.max(1, Math.ceil(e.durationMin / 24)) * e.episodes;
+        watchableWeightedEpisodes += equivalentEps;
+      } else {
+        watchableWeightedEpisodes += e.episodes;
+      }
     }
   }
 
@@ -270,6 +290,25 @@ export function calculateTimeBudget(
       relativeLabel: relativeFromCeilDays(daysCeil),
     };
   });
+
+  // Calculate Episode-Based Pace
+  if (options?.paceType === "episodes" && options.episodesPerDay && options.episodesPerDay > 0) {
+    const fractional = watchableWeightedEpisodes / options.episodesPerDay;
+    const daysCeil = watchableWeightedEpisodes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
+    const finish = new Date(noonStart);
+    finish.setDate(finish.getDate() + daysCeil);
+    const { full, short } = formatDurationFromDays(fractional);
+
+    paces.unshift({
+      label: "Episodes",
+      minutesPerDay: options.episodesPerDay, // Represented as episodes/day in UI rendering
+      duration: full,
+      durationShort: short,
+      finishDate: formatLocalYMD(finish),
+      daysCeil,
+      relativeLabel: relativeFromCeilDays(daysCeil),
+    });
+  }
 
   // Calculate Custom Schedule if active and valid
   if (options?.customSchedule?.enabled) {

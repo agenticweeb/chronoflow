@@ -52,7 +52,7 @@ interface FlowchartV2Props {
   data: WatchOrderResultV2;
   timeBudget?: string;
   onBackFromFocus?: () => void;
-  customSchedule?: CustomSchedule; // Added support
+  customSchedule?: CustomSchedule;
 }
 
 function getYoutubeEmbedUrl(url?: string | null): string | null {
@@ -69,42 +69,48 @@ function getYoutubeEmbedUrl(url?: string | null): string | null {
 
 const tierConfig: Record<
   EntryTier,
-  { label: string; color: string; bg: string; border: string; badge: string }
+  { label: string; color: string; bg: string; border: string; badge: string; shadow: string }
 > = {
   essential: {
     label: "Essential",
     color: "text-emerald-400",
     bg: "bg-emerald-500/10",
-    border: "border-emerald-500/30",
+    border: "border-emerald-500/25",
     badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    shadow: "shadow-[0_0_15px_rgba(52,211,153,0.12)]",
   },
   recommended: {
     label: "Recommended",
     color: "text-sky-400",
     bg: "bg-sky-500/10",
-    border: "border-sky-500/30",
+    border: "border-sky-500/25",
     badge: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+    shadow: "shadow-[0_0_15px_rgba(56,189,248,0.12)]",
   },
   optional: {
     label: "Optional",
     color: "text-amber-400",
     bg: "bg-amber-500/10",
-    border: "border-amber-500/30",
+    border: "border-amber-500/25",
     badge: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    shadow: "shadow-[0_0_15px_rgba(251,191,36,0.12)]",
   },
   skip: {
     label: "Skip",
     color: "text-zinc-500",
-    bg: "bg-zinc-800/50",
-    border: "border-zinc-700",
-    badge: "bg-zinc-800 text-zinc-500 border-zinc-700",
+    bg: "bg-zinc-800/40",
+    border: "border-zinc-700/50",
+    badge: "bg-zinc-800 text-zinc-500 border-zinc-700/50",
+    shadow: "shadow-none",
   },
 };
+
+const easeSpring = [0.16, 1, 0.3, 1] as const;
 
 export default function FlowchartV2({
   data: initialData,
   timeBudget = "regular",
-  customSchedule, // Added
+  customSchedule,
 }: FlowchartV2Props) {
   const [focusEntry, setFocusEntry] = useState<WatchOrderEntryV2 | null>(null);
 
@@ -177,12 +183,13 @@ export default function FlowchartV2({
         pathEntries.map((e) => ({
           title: e.title,
           episodes: e.episodeCount ?? 1,
+          releasedEpisodes: typeof (e as any).releasedEpisodeCount === "number" ? (e as any).releasedEpisodeCount : e.episodeCount ?? 1, // TRANSFERS DYNAMIC COUNT
           durationMin: e.durationMinutes ?? 24,
           tier: e.tier,
           isFiller: e.isFiller && e.tier === "skip",
         })),
         new Date(),
-        { customSchedule } // Passed
+        { customSchedule } 
       ),
     [data.franchise, pathEntries, customSchedule]
   );
@@ -232,7 +239,7 @@ export default function FlowchartV2({
         startDate: calStartDate,
         episodesPerDay: calEpsPerDay,
         watchStartTime: calStartTime,
-        customSchedule, // Passed
+        customSchedule,
       }
     );
     const slug = data.franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -250,26 +257,33 @@ export default function FlowchartV2({
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-5">
+    <div className="w-full max-w-5xl mx-auto space-y-6">
       {/* Focus banner */}
-      {isFocused && (
-        <div className="flex items-center gap-3 rounded-2xl border border-chrono-primary/30 bg-chrono-primary/10 px-4 py-3">
-          <button
-            onClick={() => setFocusEntry(null)}
-            className="btn-secondary py-2 px-3 text-xs font-bold inline-flex items-center gap-1.5"
+      <AnimatePresence>
+        {isFocused && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex items-center gap-3 rounded-2xl border border-chrono-primary/30 bg-chrono-primary/10 px-4 py-3"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to {initialData.franchise}
-          </button>
-          <p className="text-xs text-chrono-text-muted">
-            Focused season only — same cover & data as the card you clicked. No
-            re-search.
-          </p>
-        </div>
-      )}
+            <button
+              onClick={() => setFocusEntry(null)}
+              className="btn-secondary py-2 px-3 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to {initialData.franchise}
+            </button>
+            <p className="text-xs text-chrono-text-muted">
+              Focused season only — same cover & data as the card you clicked. No
+              re-search.
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Hero header */}
-      <div className="glass-card overflow-hidden relative border border-chrono-border/40">
+      <div className="glass-card overflow-hidden relative border border-chrono-border/40 rounded-2xl">
         <div className="absolute inset-0 pointer-events-none">
           {heroImage && (
             <div
@@ -284,8 +298,8 @@ export default function FlowchartV2({
           <div className="absolute inset-0 bg-gradient-to-br from-chrono-bg via-chrono-bg/95 to-chrono-primary/20" />
         </div>
 
-        <div className="relative p-5 sm:p-7">
-          <div className="flex flex-col sm:flex-row gap-5">
+        <div className="relative p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row gap-6">
             {heroImage && (
               <div className="w-28 h-40 sm:w-32 sm:h-48 rounded-xl overflow-hidden border border-white/10 shadow-2xl shrink-0 mx-auto sm:mx-0">
                 <SuggestionImage
@@ -297,8 +311,8 @@ export default function FlowchartV2({
               </div>
             )}
 
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="flex-1 min-w-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                   {data.franchise}
                 </h1>
@@ -307,11 +321,11 @@ export default function FlowchartV2({
                 </span>
               </div>
 
-              <p className="text-sm text-chrono-text-muted leading-relaxed max-w-3xl">
+              <p className="text-xs sm:text-sm text-chrono-text-muted leading-relaxed max-w-3xl">
                 {data.summary}
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-chrono-text-dim">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-chrono-text-dim">
                 <span className="inline-flex items-center gap-2 rounded-full border border-chrono-border/60 bg-white/5 px-3 py-1.5 text-chrono-text">
                   <Sparkles className="w-3.5 h-3.5 text-chrono-primary" />
                   {data.classification.replace(/_/g, " ")}
@@ -321,13 +335,13 @@ export default function FlowchartV2({
                 </span>
               </div>
               {data.classificationReason && (
-                <p className="text-xs text-chrono-text-muted mt-2 max-w-3xl">
+                <p className="text-xs text-chrono-text-muted max-w-3xl leading-relaxed">
                   {data.classificationReason}
                 </p>
               )}
 
               {data.whyConfusing && (
-                <div className="mt-3 flex gap-2 text-sm bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 max-w-3xl">
+                <div className="flex gap-2 text-sm bg-amber-500/10 border border-amber-500/25 rounded-xl p-3 max-w-3xl">
                   <Info className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
                   <span className="text-amber-100/85">
                     <span className="font-semibold text-amber-300">
@@ -354,7 +368,7 @@ export default function FlowchartV2({
                 </span>
               </div>
 
-              <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
                 <div className="flex-1 max-w-xs">
                   <div className="flex justify-between text-[11px] text-chrono-text-muted mb-1">
                     <span>Your progress</span>
@@ -370,13 +384,13 @@ export default function FlowchartV2({
                 <div className="flex gap-2">
                   <button
                     onClick={() => setIsCalOpen(true)}
-                    className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 border-chrono-primary/30 text-chrono-primary"
+                    className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 border-chrono-primary/30 text-chrono-primary cursor-pointer"
                   >
                     <CalendarDays className="w-3.5 h-3.5" /> Schedule
                   </button>
                   <button
                     onClick={handleShare}
-                    className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5"
+                    className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <Share2 className="w-3.5 h-3.5" /> Share
                   </button>
@@ -395,8 +409,8 @@ export default function FlowchartV2({
 
       {/* Path picker */}
       {data.paths.length > 1 && (
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.18em] text-chrono-text-dim font-semibold mb-2 px-1">
+        <div className="space-y-2">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-chrono-text-dim font-bold px-1">
             Choose a path
           </p>
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
@@ -407,14 +421,14 @@ export default function FlowchartV2({
                   key={path.id}
                   onClick={() => setActivePathId(path.id)}
                   className={cn(
-                    "flex-shrink-0 flex flex-col items-start gap-1 px-4 py-3 rounded-2xl border text-left transition-all min-w-[210px] max-w-[280px]",
+                    "flex-shrink-0 flex flex-col items-start gap-1.5 px-4 py-3 rounded-2xl border text-left transition-all min-w-[210px] max-w-[280px] cursor-pointer",
                     isActive
-                      ? "bg-white text-black border-white shadow-xl shadow-chrono-primary/20"
+                      ? "bg-white text-black border-white shadow-xl"
                       : "bg-chrono-surface/80 text-zinc-300 border-chrono-border hover:border-chrono-primary/40"
                   )}
                 >
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-[13px]">{path.name}</span>
+                    <span className="font-bold text-[13px]">{path.name}</span>
                     {path.isRecommended && (
                       <span
                         className={cn(
@@ -438,12 +452,11 @@ export default function FlowchartV2({
                   </span>
                   <span
                     className={cn(
-                      "text-[11px] mt-0.5",
+                      "text-[10px] mt-0.5 font-bold",
                       isActive ? "text-black/50" : "text-zinc-600"
                     )}
                   >
                     {path.totalTime}
-                    {path.bestFor?.[0] ? ` · ${path.bestFor[0]}` : ""}
                   </span>
                 </button>
               );
@@ -452,7 +465,7 @@ export default function FlowchartV2({
         </div>
       )}
 
-      {/* Groups timeline */}
+      {/* Groups timeline with premium transitions */}
       {activePath && (
         <div className="space-y-3">
           {activePath.groups.map((group, gIdx) => {
@@ -462,7 +475,7 @@ export default function FlowchartV2({
               <div
                 key={group.id}
                 className={cn(
-                  "rounded-2xl border overflow-hidden backdrop-blur-sm",
+                  "rounded-2xl border overflow-hidden backdrop-blur-sm transition-all duration-300",
                   isMain
                     ? "border-chrono-primary/25 bg-chrono-surface/50"
                     : "border-chrono-border/50 bg-chrono-surface/30"
@@ -470,12 +483,12 @@ export default function FlowchartV2({
               >
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] text-left transition-colors"
+                  className="w-full flex items-center justify-between p-4 hover:bg-white/[0.02] text-left transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div
                       className={cn(
-                        "p-2 rounded-xl",
+                        "p-2 rounded-xl transition-colors",
                         isMain
                           ? "bg-chrono-primary/20 text-violet-200"
                           : "bg-zinc-800 text-zinc-400"
@@ -492,7 +505,7 @@ export default function FlowchartV2({
                         <span className="text-[10px] text-chrono-text-dim font-mono">
                           {String(gIdx + 1).padStart(2, "0")}
                         </span>
-                        <h3 className="font-semibold text-white text-[15px]">
+                        <h3 className="font-bold text-white text-[15px]">
                           {group.name}
                         </h3>
                       </div>
@@ -503,16 +516,16 @@ export default function FlowchartV2({
                   </div>
                   <div className="flex items-center gap-3 ml-3">
                     <div className="text-right hidden sm:block">
-                      <div className="text-xs font-medium text-white">
+                      <div className="text-xs font-bold text-white">
                         {group.totalEntries} titles
                       </div>
-                      <div className="text-[11px] text-zinc-500">
+                      <div className="text-[10px] text-zinc-500 font-mono">
                         {group.totalTime}
                       </div>
                     </div>
                     <div
                       className={cn(
-                        "p-1 rounded-lg transition-transform",
+                        "p-1 rounded-lg transition-transform duration-300",
                         isOpen && "rotate-90"
                       )}
                     >
@@ -527,9 +540,10 @@ export default function FlowchartV2({
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.35, ease: easeSpring }}
                       className="overflow-hidden"
                     >
-                      <div className="p-3 sm:p-4 space-y-3 bg-black/25 border-t border-white/5">
+                      <div className="p-4 space-y-4 bg-black/25 border-t border-white/5 relative film-stripe">
                         {group.orderNote && (
                           <div className="flex gap-2 text-xs text-sky-200/90 bg-sky-500/10 border border-sky-500/20 rounded-xl p-3">
                             <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -537,8 +551,8 @@ export default function FlowchartV2({
                           </div>
                         )}
                         <div className="relative">
-                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/40 via-chrono-border to-transparent hidden sm:block" />
-                          <div className="space-y-0">
+                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/40 to-transparent hidden sm:block" />
+                          <div className="space-y-4">
                             {group.entries.map((entry, idx) => (
                               <EntryNode
                                 key={`${group.id}-${entry.id}-${idx}`}
@@ -581,7 +595,7 @@ export default function FlowchartV2({
         typeof window !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999]">
-            <div className="glass-card w-full max-w-md overflow-hidden shadow-2xl border border-chrono-border">
+            <div className="glass-card w-full max-w-md overflow-hidden shadow-2xl border border-chrono-border rounded-2xl">
               <div className="p-5 border-b border-chrono-border/40 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="w-5 h-5 text-chrono-primary" />
@@ -589,7 +603,7 @@ export default function FlowchartV2({
                 </div>
                 <button
                   onClick={() => setIsCalOpen(false)}
-                  className="p-1.5 rounded-lg bg-chrono-surface hover:bg-chrono-surface-hover"
+                  className="p-1.5 rounded-lg bg-chrono-surface hover:bg-chrono-surface-hover cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -597,7 +611,7 @@ export default function FlowchartV2({
               <div className="p-5 space-y-4">
                 {customSchedule?.enabled ? (
                   <div className="flex gap-2.5 text-xs text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 leading-relaxed">
-                    <CalendarCheck2 className="w-5 h-5 flex-shrink-0 text-indigo-400 animate-pulse" />
+                    <CalendarCheck2 className="w-5 h-5 flex-shrink-0 text-indigo-400" />
                     <div>
                       <span className="font-bold text-white block mb-0.5">Custom Schedule Active</span>
                       Calendar events will be scheduled precisely within your active days and hours as configured in your preferences. Daily pace is overridden.
@@ -606,7 +620,7 @@ export default function FlowchartV2({
                 ) : (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <div className="flex justify-between text-xs font-medium">
+                      <div className="flex justify-between text-xs font-semibold">
                         <span className="text-chrono-text-muted">Pace</span>
                         <span className="text-chrono-primary font-bold">
                           {calEpsPerDay} ep/day
@@ -618,7 +632,7 @@ export default function FlowchartV2({
                             key={v}
                             onClick={() => setCalEpsPerDay(v)}
                             className={cn(
-                              "py-2 rounded-lg text-xs font-semibold border",
+                              "py-2 rounded-lg text-xs font-semibold border cursor-pointer",
                               calEpsPerDay === v
                                 ? "bg-chrono-primary border-chrono-primary text-white"
                                 : "bg-chrono-surface border-chrono-border/50 text-chrono-text-dim"
@@ -658,13 +672,13 @@ export default function FlowchartV2({
               <div className="p-5 border-t border-chrono-border/40 flex justify-end gap-3 bg-chrono-surface/20">
                 <button
                   onClick={() => setIsCalOpen(false)}
-                  className="btn-secondary py-2.5 px-4 text-xs font-bold"
+                  className="btn-secondary py-2.5 px-4 text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleExportCalendar}
-                  className="btn-primary py-2.5 px-5 text-xs font-bold inline-flex items-center gap-2"
+                  className="btn-primary py-2.5 px-5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
                 >
                   <CalendarDays className="w-4 h-4" /> Download .ics
                 </button>
@@ -747,9 +761,11 @@ function EntryNode({
 
   return (
     <div className={cn("relative pl-12 sm:pl-16", !isLast && "pb-1")}>
+      {/* Node Dot with pulsing active glows */}
       <div
         className={cn(
-          "absolute left-4 sm:left-6 top-7 w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center text-[8px] font-bold",
+          "absolute left-4 sm:left-6 top-6 w-4 h-4 rounded-full border-2 z-10 flex items-center justify-center text-[8px] font-bold transition-all duration-300",
+          tier.shadow,
           isWatched
             ? "bg-chrono-success border-chrono-success text-white"
             : entry.tier === "essential"
@@ -766,27 +782,29 @@ function EntryNode({
 
       <div
         className={cn(
-          "glass-card mb-3 transition-all border",
+          "glass-card mb-3 transition-all border rounded-2xl duration-300",
           tier.border,
           tier.bg,
+          tier.shadow,
           isWatched && "opacity-55"
         )}
       >
         <div
-          className="p-3.5 sm:p-4 cursor-pointer flex gap-3 sm:gap-4"
+          className="p-3.5 sm:p-4 cursor-pointer flex gap-4"
           onClick={onToggle}
         >
-          <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-lg overflow-hidden bg-zinc-900 flex-shrink-0 relative border border-white/5">
+          {/* Card Poster with premium watermark */}
+          <div className="w-14 h-20 sm:w-16 sm:h-24 rounded-xl overflow-hidden bg-zinc-900 border border-white/5 shrink-0 relative">
             <SuggestionImage
               src={entry.imageUrl}
               alt={entry.title}
               franchise={entry.title}
-              className="w-full h-full"
+              className="w-full h-full object-cover"
             />
             <div className="absolute top-1 left-1">
               <span
                 className={cn(
-                  "text-[8px] font-bold px-1 py-0.5 rounded border backdrop-blur-md",
+                  "text-[8px] font-bold px-1.5 py-0.5 rounded border backdrop-blur-md",
                   tier.badge
                 )}
               >
@@ -797,19 +815,11 @@ function EntryNode({
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span
-                className={cn(
-                  "text-[10px] font-medium px-2 py-0.5 rounded-full border",
-                  tier.badge
-                )}
-              >
-                {entry.tier.toUpperCase()}
-              </span>
               <span className="text-[10px] text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-full inline-flex items-center gap-1">
                 <FormatIcon className="w-3 h-3" /> {entry.format}
               </span>
               {airing && (
-                <span className="text-[10px] font-semibold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-semibold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full animate-pulse">
                   {entry.status === "Upcoming" ? "UPCOMING" : "AIRING"}
                 </span>
               )}
@@ -825,7 +835,7 @@ function EntryNode({
               )}
             </div>
 
-            <h3 className="font-semibold text-white mt-1.5 line-clamp-2 leading-snug">
+            <h3 className="font-bold text-white mt-1.5 line-clamp-2 leading-snug">
               {entry.title}
             </h3>
 
@@ -845,7 +855,7 @@ function EntryNode({
               ) : null}
             </div>
 
-            <p className="text-[13px] text-zinc-400 mt-2 line-clamp-2 leading-relaxed">
+            <p className="text-[13px] text-chrono-text-muted mt-2 line-clamp-2 leading-relaxed">
               {entry.whyWatch}
             </p>
 
@@ -864,7 +874,7 @@ function EntryNode({
                 onToggleWatched();
               }}
               className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+                "w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer",
                 isWatched
                   ? "bg-emerald-500/20 text-emerald-400"
                   : "bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700"
@@ -881,164 +891,174 @@ function EntryNode({
           </div>
         </div>
 
-        {isExpanded && (
-          <div className="px-4 pb-4 border-t border-white/5 pt-4 bg-black/20">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Info className="w-4 h-4 text-chrono-primary mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-white uppercase tracking-wider">
-                      Why watch
-                    </p>
-                    <p className="text-sm text-zinc-400 mt-1 leading-relaxed">
-                      {entry.whyWatch}
-                    </p>
-                    {entry.tierReason && (
-                      <p className="text-xs text-zinc-500 mt-2">
-                        <span className="text-zinc-400 font-medium">
-                          Tier reason:{" "}
-                        </span>
-                        {entry.tierReason}
-                      </p>
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.35, ease: easeSpring }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 border-t border-white/5 pt-4 bg-black/20 rounded-b-2xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <Info className="w-4 h-4 text-chrono-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-white uppercase tracking-wider">
+                          Why watch
+                        </p>
+                        <p className="text-sm text-zinc-400 mt-1 leading-relaxed">
+                          {entry.whyWatch}
+                        </p>
+                        {entry.tierReason && (
+                          <p className="text-xs text-zinc-500 mt-2">
+                            <span className="text-zinc-400 font-medium">
+                              Tier reason:{" "}
+                            </span>
+                            {entry.tierReason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {entry.skipWarning && (
+                      <div className="flex gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold text-amber-400 uppercase">
+                            If you skip
+                          </p>
+                          <p className="text-sm text-zinc-400 mt-1 leading-relaxed">
+                            {entry.skipWarning}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {entry.fillerReason && (
+                      <div className="flex gap-2">
+                        <SkipForward className="w-4 h-4 text-zinc-500 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-zinc-400 uppercase">
+                            Filler note
+                          </p>
+                          <p className="text-sm text-zinc-400 leading-relaxed">
+                            {entry.fillerReason}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {entry.innerOrder && entry.innerOrder.ranges.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                          <Layers className="w-3 h-3" /> Arc map
+                        </p>
+                        <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
+                          {entry.innerOrder.ranges.slice(0, 20).map((r, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center justify-between text-xs bg-zinc-900/80 rounded-lg px-2.5 py-1.5 border border-zinc-800/50 gap-2"
+                            >
+                              <span className="font-mono text-zinc-300 shrink-0">
+                                {r.start}-{r.end}
+                              </span>
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0",
+                                  r.type === "canon" || r.type === "none"
+                                    ? "bg-emerald-500/20 text-emerald-300"
+                                    : String(r.type).includes("filler")
+                                      ? "bg-red-500/20 text-red-300"
+                                      : "bg-amber-500/20 text-amber-300"
+                                )}
+                              >
+                                {String(r.type).replace(/_/g, " ")}
+                              </span>
+                              <span className="text-zinc-500 truncate flex-1 text-right">
+                                {r.title || ""}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-                {entry.skipWarning && (
-                  <div className="flex gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-amber-400 uppercase">
-                        If you skip
-                      </p>
-                      <p className="text-sm text-zinc-400 mt-1">
-                        {entry.skipWarning}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {entry.fillerReason && (
-                  <div className="flex gap-2">
-                    <SkipForward className="w-4 h-4 text-zinc-500 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-semibold text-zinc-400 uppercase">
-                        Filler note
-                      </p>
-                      <p className="text-sm text-zinc-400">
-                        {entry.fillerReason}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {entry.innerOrder && entry.innerOrder.ranges.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-white uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                      <Layers className="w-3 h-3" /> Arc map
-                    </p>
-                    <div className="space-y-1 max-h-44 overflow-y-auto pr-1">
-                      {entry.innerOrder.ranges.slice(0, 20).map((r, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between text-xs bg-zinc-900/80 rounded-lg px-2.5 py-1.5 border border-zinc-800/50 gap-2"
-                        >
-                          <span className="font-mono text-zinc-300 shrink-0">
-                            {r.start}-{r.end}
-                          </span>
-                          <span
-                            className={cn(
-                              "px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0",
-                              r.type === "canon" || r.type === "none"
-                                ? "bg-emerald-500/20 text-emerald-300"
-                                : String(r.type).includes("filler")
-                                  ? "bg-red-500/20 text-red-300"
-                                  : "bg-amber-500/20 text-amber-300"
-                            )}
-                          >
-                            {String(r.type).replace(/_/g, " ")}
-                          </span>
-                          <span className="text-zinc-500 truncate flex-1 text-right">
-                            {r.title || ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              <div className="space-y-3">
-                {entry.synopsis && (
-                  <div>
-                    <p className="text-xs font-semibold text-white uppercase">
-                      Synopsis
-                    </p>
-                    <p className="text-sm text-zinc-400 mt-1 line-clamp-4 leading-relaxed">
-                      {entry.synopsis}
-                    </p>
-                  </div>
-                )}
-                {entry.genres && entry.genres.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-white uppercase mb-1">
-                      Genres
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {entry.genres.map((g) => (
-                        <span
-                          key={g}
-                          className="text-[11px] px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-full border border-zinc-700"
+                  <div className="space-y-3">
+                    {entry.synopsis && (
+                      <div>
+                        <p className="text-xs font-bold text-white uppercase">
+                          Synopsis
+                        </p>
+                        <p className="text-sm text-zinc-400 mt-1 line-clamp-4 leading-relaxed font-medium">
+                          {entry.synopsis}
+                        </p>
+                      </div>
+                    )}
+                    {entry.genres && entry.genres.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-white uppercase mb-1">
+                          Genres
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {entry.genres.map((g) => (
+                            <span
+                              key={g}
+                              className="text-[11px] px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-full border border-zinc-700"
+                            >
+                              {g}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {entry.watchIf && entry.watchIf.length > 0 && (
+                      <div>
+                        <p className="text-xs font-bold text-white uppercase mb-1">
+                          Watch if
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {entry.watchIf.map((t) => (
+                            <span
+                              key={t}
+                              className="text-[11px] px-2 py-0.5 bg-violet-500/10 text-violet-300 rounded-full border border-violet-500/20"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {entry.trailerUrl && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPlayTrailer(entry.trailerUrl!);
+                          }}
+                          className="btn-primary py-2 px-3 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
                         >
-                          {g}
-                        </span>
-                      ))}
+                          <Play className="w-3.5 h-3.5 fill-current" /> Trailer
+                        </button>
+                      )}
+                      {showFocus && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onFocus();
+                          }}
+                          className="btn-secondary py-2 px-3 text-xs font-semibold inline-flex items-center gap-1.5 border border-violet-500/40 text-violet-200 hover:bg-violet-500/10 cursor-pointer"
+                        >
+                          <Target className="w-3.5 h-3.5" /> Focus this season
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
-                {entry.watchIf && entry.watchIf.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-white uppercase mb-1">
-                      Watch if
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {entry.watchIf.map((t) => (
-                        <span
-                          key={t}
-                          className="text-[11px] px-2 py-0.5 bg-violet-500/10 text-violet-300 rounded-full border border-violet-500/20"
-                        >
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {entry.trailerUrl && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onPlayTrailer(entry.trailerUrl!);
-                      }}
-                      className="btn-primary py-2 px-3 text-xs font-semibold inline-flex items-center gap-1.5"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" /> Trailer
-                    </button>
-                  )}
-                  {showFocus && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onFocus();
-                      }}
-                      className="btn-secondary py-2 px-3 text-xs font-semibold inline-flex items-center gap-1.5 border border-violet-500/40 text-violet-200 hover:bg-violet-500/10"
-                    >
-                      <Target className="w-3.5 h-3.5" /> Focus this season
-                    </button>
-                  )}
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

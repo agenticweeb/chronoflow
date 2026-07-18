@@ -1,5 +1,5 @@
 /**
- * ChronoFlow Orchestrator V2.3 - Grounded Graph + Double-Safety Guards
+ * ChronoFlow Orchestrator V2.4 - Grounded Graph + Airing-Progress Grounded
  */
 
 import { buildRelationGraph, findAllowedTitleById, findAllowedTitleByFuzzy } from "@/lib/knowledge/relation-graph";
@@ -57,8 +57,12 @@ function parseDuration(d?: number | string, f?: string): number {
   return f === "MOVIE" ? 90 : 24;
 }
 
+// Fixed to calculate cumulative hours based strictly on currently watchable episodes
 function calcDuration(entries: WatchOrderEntryV2[]) {
-  const mins = entries.reduce((s, e) => s + (e.episodeCount || 1) * (e.durationMinutes || 24), 0);
+  const mins = entries.reduce((s, e) => {
+    const eps = typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 1;
+    return s + eps * (e.durationMinutes || 24);
+  }, 0);
   const h = Math.floor(mins / 60), m = mins % 60;
   return { text: h ? `${h}h ${m}m` : `${m}m`, minutes: mins };
 }
@@ -158,6 +162,7 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
       tier: "essential",
       tierReason: "You selected Focus This Season - exact season you asked for",
       episodeCount: eps,
+      releasedEpisodeCount: eps,
       durationMinutes: dur,
       timeEstimate: `${eps} eps × ${dur}m`,
       year: (single as any).year,
@@ -394,12 +399,13 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     classification: (aiData as any).classification || classification.shape,
     classificationReason: (aiData as any).classificationReason || classification.reasoning,
     summary: (aiData as any).summary || `Complete watch order for ${root.title}`,
-    whyConfusing: (aiData as any).whyConfusing || whyConfusing, // Correctly prioritizes Dynamic LLM analysis
+    whyConfusing: (aiData as any).whyConfusing || whyConfusing, 
     recommendedPathId: recommended,
     paths: filteredPaths as any,
     totalGroups: filteredPaths.reduce((s: number, p: any) => s + p.groups.length, 0),
     totalEntries: allFlat.length,
-    totalEpisodes: allFlat.reduce((s: number, e: any) => s + (e.episodeCount || 0), 0),
+    // GROUNDED SUM OF RELEASED WATCHABLE EPISODES ONLY
+    totalEpisodes: allFlat.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
     totalDuration: totalText,
     totalDurationMinutes: totalMins,
     allEntriesFlat: allFlat as any,
@@ -475,7 +481,6 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         let episodes = node?.episodes || (allowed as any)?.episodes || 12;
 
         // MULTI-TIER MATH SEGMENTATION GUARDS
-        // Try parsing range from episodeRange, fallback to title/arc regex scans if LLM omitted properties
         let rangeStr = entry.episodeRange;
         if (!rangeStr) {
           const titleMatch = (entry.title || "").match(/Eps?\s*(\d+)\s*-\s*(\d+)/i);
@@ -497,6 +502,21 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           episodes = entry.episodeCount;
         }
 
+        // AIRING PROGRESS CALCULATION HUB
+        const rawStatus = (node?.status || allowed?.status || "").toUpperCase();
+        let releasedEpisodes = episodes;
+
+        if (rawStatus === "NOT_YET_RELEASED") {
+          releasedEpisodes = 0; // Upcoming show has exactly 0 released episodes
+        } else if (rawStatus === "RELEASING") {
+          const nextAiring = (node as any)?.nextAiringEpisode?.episode;
+          if (nextAiring) {
+            releasedEpisodes = Math.min(episodes, nextAiring - 1);
+          } else {
+            releasedEpisodes = Math.max(1, Math.min(episodes, 1));
+          }
+        }
+
         const duration = parseDuration(node?.duration || (allowed as any)?.duration, format);
         const cover = node?.coverImage;
         const trailer = node?.trailer;
@@ -511,7 +531,9 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           title: allowed?.title || entry.title || "Unknown",
           titleJapanese: node?.titleNative, titleEnglish: allowed?.title, titleRomaji: node?.titleRomaji,
           format, type: format, tier: entry.tier, tierReason: entry.tierReason,
-          episodeCount: episodes, durationMinutes: duration, timeEstimate: timeEst,
+          episodeCount: episodes, 
+          releasedEpisodeCount: releasedEpisodes, // MAPS AIRING PROGRESS
+          durationMinutes: duration, timeEstimate: timeEst,
           year: (allowed as any)?.year, position: entry.position || idx + 1, groupPosition: entry.groupPosition || idx + 1,
           prerequisites: entry.prerequisites || [], unlocks: [], watchAfter: entry.watchAfter,
           contentTags: entry.contentTags || [], arcName: entry.arcName, episodeRange: rangeStr || entry.episodeRange,
@@ -526,7 +548,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           relationType: node?.relationType,
         } as any;
       });
-      const totEp = entries.reduce((s, e) => s + (e.episodeCount || 0), 0);
+      const totEp = entries.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0);
       const { text: totTime } = calcDuration(entries as any);
       return {
         id: group.id, name: group.name, description: group.description, timelineType: group.timelineType as any,
@@ -538,7 +560,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
     const { text: tt, minutes: tm } = calcDuration(all as any);
     return {
       id: path.id, name: path.name, description: path.description, longDescription: undefined,
-      groups, totalEntries: all.length, totalEpisodes: all.reduce((s, e) => s + (e.episodeCount || 0), 0),
+      groups, totalEntries: all.length, totalEpisodes: all.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: tt, totalTimeMinutes: tm, bestFor: path.bestFor || [], difficulty: path.difficulty || "beginner",
       isSpoilerFree: path.isSpoilerFree ?? true, isRecommended: path.isRecommended || false, warnings: path.warnings || [],
     } as any;
@@ -571,7 +593,7 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: { includeMovies: 
         );
       }
 
-      const totEp = e.reduce((s: number, x: any) => s + (x.episodeCount || 0), 0);
+      const totEp = e.reduce((s: number, x: any) => s + (typeof x.releasedEpisodeCount === "number" ? x.releasedEpisodeCount : x.episodeCount || 0), 0);
       const { text } = calcDuration(e as any);
       return {
         ...g,
@@ -588,7 +610,7 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: { includeMovies: 
       ...p,
       groups,
       totalEntries: all.length,
-      totalEpisodes: all.reduce((s: number, x: any) => s + (x.episodeCount || 0), 0),
+      totalEpisodes: all.reduce((s: number, x: any) => s + (typeof x.releasedEpisodeCount === "number" ? x.releasedEpisodeCount : x.episodeCount || 0), 0),
       totalTime: text,
       totalTimeMinutes: minutes,
     };
@@ -700,6 +722,21 @@ function buildDeterministicPaths(
       trailerUrl = `https://www.youtube.com/watch?v=${trailer.id}`;
     }
     const timeEst = format === "MOVIE" ? `${duration}m` : `${episodes} eps × ${duration}m`;
+    
+    // DETERMINISTIC AIRING PROGRESS COHERENCE MAPPING
+    const rawStatus = (node?.status || t.status || "").toUpperCase();
+    let releasedEpisodes = episodes;
+    if (rawStatus === "NOT_YET_RELEASED") {
+      releasedEpisodes = 0;
+    } else if (rawStatus === "RELEASING") {
+      const nextAiring = (node as any)?.nextAiringEpisode?.episode || (t as any)?.nextAiringEpisode?.episode;
+      if (nextAiring) {
+        releasedEpisodes = Math.min(episodes, nextAiring - 1);
+      } else {
+        releasedEpisodes = Math.max(1, Math.min(episodes, 1));
+      }
+    }
+
     return {
       id: t.id,
       malId: t.malId,
@@ -720,6 +757,7 @@ function buildDeterministicPaths(
             ? "Side content — watch if you want more of this world"
             : "Low priority / recap-style",
       episodeCount: episodes,
+      releasedEpisodeCount: releasedEpisodes, // MAPS AIRING PROGRESS FOR FALLBACK COHERENCE
       durationMinutes: duration,
       timeEstimate: timeEst,
       year: t.year,
@@ -767,7 +805,7 @@ function buildDeterministicPaths(
       orderNote: whyConfusing,
       entries: main.length ? main : entries,
       totalEntries: (main.length ? main : entries).length,
-      totalEpisodes: (main.length ? main : entries).reduce((s, e) => s + (e.episodeCount || 0), 0),
+      totalEpisodes: (main.length ? main : entries).reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: mainTime,
       isCollapsedByDefault: false,
       isSpoiler: false,
@@ -784,7 +822,7 @@ function buildDeterministicPaths(
       timelineType: "side_story",
       entries: side,
       totalEntries: side.length,
-      totalEpisodes: side.reduce((s, e) => s + (e.episodeCount || 0), 0),
+      totalEpisodes: side.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: sideTime,
       isCollapsedByDefault: true,
       isSpoiler: false,
@@ -801,7 +839,7 @@ function buildDeterministicPaths(
       description: "Release / year order that preserves story reveals",
       groups,
       totalEntries: all.length,
-      totalEpisodes: all.reduce((s, e) => s + (e.episodeCount || 0), 0),
+      totalEpisodes: all.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: text,
       totalTimeMinutes: minutes,
       bestFor: ["First time viewers"],

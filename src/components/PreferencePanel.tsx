@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Eye, Heart, Star, Zap, CalendarDays } from "lucide-react";
+import { Clock, Eye, Heart, Star, Zap, CalendarDays, Hash } from "lucide-react";
 import {
   UserPreferences,
   TimeBudget,
@@ -20,13 +20,14 @@ const PACE_OPTIONS: {
   value: TimeBudget;
   label: string;
   desc: string;
-  mins: number;
 }[] = [
-  { value: "casual", label: "Casual", desc: "30 min/day", mins: 30 },
-  { value: "regular", label: "Regular", desc: "1 hour/day", mins: 60 },
-  { value: "dedicated", label: "Dedicated", desc: "2 hours/day", mins: 120 },
-  { value: "binge", label: "Binge", desc: "4 hours/day", mins: 240 },
+  { value: "casual", label: "Casual", desc: "30 min/day" },
+  { value: "regular", label: "Regular", desc: "1 hour/day" },
+  { value: "dedicated", label: "Dedicated", desc: "2 hours/day" },
+  { value: "binge", label: "Binge", desc: "4 hours/day" },
 ];
+
+const EPISODES_OPTIONS = [1, 2, 3, 4, 6, 8];
 
 const SKIP_OPTIONS: {
   value: SkipPreference;
@@ -109,6 +110,9 @@ export function PreferencePanel({
   preferences,
   onChange,
 }: PreferencePanelProps) {
+  const activePaceType = preferences.paceType || "duration";
+  const activeEpsPerDay = preferences.episodesPerDay || 2;
+
   const toggleMood = (mood: Mood) => {
     if (mood === "all") {
       onChange({ ...preferences, mood: ["all"] });
@@ -139,61 +143,97 @@ export function PreferencePanel({
         </p>
       </div>
 
-      {/* Pace = finish dates only */}
-      <div className={cn(preferences.customSchedule?.enabled && "opacity-50 pointer-events-none")}>
-        <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted mb-2">
-          <Clock className="w-4 h-4 text-chrono-primary" />
-          Daily pace
-          <span className="text-[10px] font-normal text-chrono-text-dim ml-1">
-            · finish date only, not order (Overridden when Custom Weekly Schedule is enabled)
-          </span>
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {PACE_OPTIONS.map((opt) => (
+      {/* NEW PACE TYPE TOGGLER: Duration vs Episodes per day */}
+      <div className={cn("space-y-4", preferences.customSchedule?.enabled && "opacity-40 pointer-events-none")}>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted">
+            <Clock className="w-4 h-4 text-chrono-primary" />
+            Pace Format
+            <span className="text-[10px] font-normal text-chrono-text-dim ml-1">
+              · select how you track watch limits
+            </span>
+          </label>
+          <div className="flex rounded-xl bg-chrono-surface border border-chrono-border p-1">
             <button
-              key={opt.value}
               type="button"
-              onClick={() =>
-                onChange({ ...preferences, timeBudget: opt.value })
-              }
-              className={cn(
-                "flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl text-left transition-all border",
-                preferences.timeBudget === opt.value
-                  ? "bg-chrono-primary text-white border-chrono-primary shadow-lg shadow-chrono-primary/20"
-                  : "bg-chrono-surface text-chrono-text-muted border-chrono-border hover:border-chrono-primary/40 hover:text-chrono-text"
-              )}
+              onClick={() => onChange({ ...preferences, paceType: "duration" })}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer", activePaceType === "duration" ? "bg-chrono-primary text-white" : "text-chrono-text-dim hover:text-white")}
             >
-              <span className="text-sm font-semibold flex items-center gap-1.5">
-                {opt.value === "binge" ? (
-                  <Zap className="w-3.5 h-3.5" />
-                ) : (
-                  <Clock className="w-3.5 h-3.5 opacity-70" />
-                )}
-                {opt.label}
-              </span>
-              <span
+              Time Budget
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange({ ...preferences, paceType: "episodes" })}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer", activePaceType === "episodes" ? "bg-chrono-primary text-white" : "text-chrono-text-dim hover:text-white")}
+            >
+              Episodes / Day
+            </button>
+          </div>
+        </div>
+
+        {activePaceType === "duration" ? (
+          /* Time Budget Grid selector */
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 animate-fade-in">
+            {PACE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  onChange({ ...preferences, timeBudget: opt.value })
+                }
                 className={cn(
-                  "text-[11px]",
+                  "flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl text-left transition-all border cursor-pointer",
                   preferences.timeBudget === opt.value
-                    ? "text-white/70"
-                    : "text-chrono-text-dim"
+                    ? "bg-chrono-primary text-white border-chrono-primary shadow-lg shadow-chrono-primary/20"
+                    : "bg-chrono-surface text-chrono-text-muted border-chrono-border hover:border-chrono-primary/40 hover:text-chrono-text"
                 )}
               >
-                {opt.desc}
-              </span>
-            </button>
-          ))}
-        </div>
+                <span className="text-sm font-semibold flex items-center gap-1.5">
+                  {opt.value === "binge" ? <Zap className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5 opacity-70" />}
+                  {opt.label}
+                </span>
+                <span className={cn("text-[11px]", preferences.timeBudget === opt.value ? "text-white/70" : "text-chrono-text-dim")}>
+                  {opt.desc}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          /* Episodes Per Day Selector Scale */
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 animate-fade-in">
+            {EPISODES_OPTIONS.map((eps) => (
+              <button
+                key={eps}
+                type="button"
+                onClick={() => onChange({ ...preferences, episodesPerDay: eps })}
+                className={cn(
+                  "flex flex-col items-center justify-center p-3 rounded-xl transition-all border cursor-pointer",
+                  activeEpsPerDay === eps
+                    ? "bg-chrono-primary text-white border-chrono-primary shadow-lg shadow-chrono-primary/20"
+                    : "bg-chrono-surface text-chrono-text-muted border-chrono-border hover:border-chrono-primary/40 hover:text-chrono-text"
+                )}
+              >
+                <span className="text-sm font-bold flex items-center gap-1">
+                  <Hash className="w-3.5 h-3.5" />
+                  {eps}
+                </span>
+                <span className="text-[10px] text-chrono-text-dim font-medium mt-0.5">
+                  {eps === 1 ? "ep / day" : "eps / day"}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* New: Custom Day-by-Day Schedule Builder */}
+      {/* Custom Schedule Builder */}
       <div className="border-t border-chrono-border/20 pt-5">
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 text-sm font-medium text-chrono-text-muted">
             <CalendarDays className="w-4 h-4 text-chrono-primary" />
             Custom Weekly Schedule
             <span className="text-[10px] font-normal text-chrono-text-dim ml-1">
-              · custom watch blocks per day
+              · custom hours per day (Overrides standard pace settings)
             </span>
           </label>
           <button
@@ -209,7 +249,7 @@ export function PreferencePanel({
               });
             }}
             className={cn(
-              "px-3 py-1 text-xs font-semibold rounded-lg border transition-all",
+              "px-3 py-1 text-xs font-semibold rounded-lg border transition-all cursor-pointer",
               preferences.customSchedule?.enabled
                 ? "bg-chrono-primary/20 border-chrono-primary text-chrono-primary"
                 : "bg-chrono-surface border-chrono-border text-chrono-text-muted"
@@ -309,13 +349,13 @@ export function PreferencePanel({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SKIP_OPTIONS.map((opt) => (
             <button
-              key={opt.value}
               type="button"
+              key={opt.value}
               onClick={() =>
                 onChange({ ...preferences, skipPreference: opt.value })
               }
               className={cn(
-                "p-3 rounded-xl text-left transition-all border",
+                "p-3 rounded-xl text-left transition-all border cursor-pointer",
                 preferences.skipPreference === opt.value
                   ? "bg-chrono-primary/15 border-chrono-primary/50 text-chrono-text ring-1 ring-chrono-primary/30"
                   : "bg-chrono-surface border-chrono-border text-chrono-text-muted hover:border-chrono-text-dim"
@@ -339,13 +379,13 @@ export function PreferencePanel({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {PATH_OPTIONS.map((opt) => (
             <button
-              key={opt.value}
               type="button"
+              key={opt.value}
               onClick={() =>
                 onChange({ ...preferences, preferredPath: opt.value })
               }
               className={cn(
-                "p-3 rounded-xl text-left transition-all border",
+                "p-3 rounded-xl text-left transition-all border cursor-pointer",
                 preferences.preferredPath === opt.value
                   ? "bg-chrono-primary/15 border-chrono-primary/50 text-chrono-text ring-1 ring-chrono-primary/30"
                   : "bg-chrono-surface border-chrono-border text-chrono-text-muted hover:border-chrono-text-dim"
@@ -376,7 +416,7 @@ export function PreferencePanel({
               type="button"
               onClick={() => toggleMood(opt.value)}
               className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border",
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all border cursor-pointer",
                 preferences.mood?.includes(opt.value)
                   ? "bg-chrono-accent/15 text-chrono-accent border-chrono-accent/40"
                   : "bg-chrono-surface text-chrono-text-muted border-chrono-border hover:border-chrono-text-dim"
