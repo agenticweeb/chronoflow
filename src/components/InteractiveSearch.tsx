@@ -189,16 +189,17 @@ export function InteractiveSearch() {
   }, []);
 
   const handleSelectSuggestion = useCallback((s: typeof SUGGESTIONS[number] | AnimeSearchResult) => {
+    const item = s as any; // Cast as any to bypass strict union property checking
     handleSelect({
-      malId: s.malId,
-      anilistId: s.anilistId,
-      title: s.title,
+      malId: item.malId,
+      anilistId: item.anilistId,
+      title: item.title,
       type: "TV",
-      imageUrl: s.imageUrl,
-      score: s.score,
-      synopsis: s.synopsis || (s as any).desc || "",
+      imageUrl: item.imageUrl,
+      score: item.score,
+      synopsis: item.synopsis || item.desc || "",
       genres: [],
-      status: s.status || "Finished Airing",
+      status: item.status || "Finished Airing",
       isFranchise: true,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
