@@ -233,7 +233,7 @@ export function InteractiveSearch() {
       const delayPromise = new Promise((resolve) => setTimeout(resolve, 3500));
       const [res] = await Promise.all([actionPromise, delayPromise]);
 
-      if (res.success && res.data) {
+      if (res.success) { // Checked res.success directly for clean type narrowing
         setFinalData(res.data.dataV2);
         setProvider(res.data.provider);
         setLatency(Date.now() - startTime);
