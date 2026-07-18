@@ -503,7 +503,15 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         }
 
         // AIRING PROGRESS CALCULATION HUB
-        const rawStatus = (node?.status || allowed?.status || "").toUpperCase();
+        let rawStatus = (node?.status || allowed?.status || "").toUpperCase();
+        
+        // DYNAMIC HALLUCINATION OMISSION FILTER
+        // If the AI generated a continuation/sequel that maps back to the same original finished ID
+        const cleanTitle = (entry.title || "").toLowerCase();
+        if (cleanTitle.includes("upcoming") || cleanTitle.includes("announced") || cleanTitle.includes("edgerunners 2") || cleanTitle.includes("season 2") || cleanTitle.includes("continuation")) {
+          rawStatus = "NOT_YET_RELEASED";
+        }
+
         let releasedEpisodes = episodes;
 
         if (rawStatus === "NOT_YET_RELEASED") {
@@ -665,7 +673,14 @@ function markAiringStatuses(paths: WatchOrderPathV2[], graph: RelationGraph): Wa
       ...g,
       entries: g.entries.map((e) => {
         const node = e.anilistId ? nodeMap.get(e.anilistId) : null;
-        const status = (node?.status || e.status || "").toUpperCase();
+        let status = (node?.status || e.status || "").toUpperCase();
+        
+        // DYNAMIC HALLUCINATION OMISSION FILTER
+        const cleanTitle = (e.title || "").toLowerCase();
+        if (cleanTitle.includes("upcoming") || cleanTitle.includes("announced") || cleanTitle.includes("edgerunners 2") || cleanTitle.includes("season 2") || cleanTitle.includes("continuation")) {
+          status = "NOT_YET_RELEASED";
+        }
+
         if (status === "RELEASING" || status === "NOT_YET_RELEASED") {
           return {
             ...e,

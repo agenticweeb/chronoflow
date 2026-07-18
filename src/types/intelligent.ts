@@ -291,6 +291,8 @@ export interface AllowedTitle {
   popularity: number;
   relationType?: string;
   isMainEntry: boolean;
+  status?: string; // ADDED: Declared status safely
+  nextAiringEpisode?: { episode: number } | null; // ADDED: Declared next airing episode safely
 }
 
 // ── AI Generation Types - Strict Schema ──────────────────────
