@@ -267,6 +267,7 @@ export interface RawRelationNode {
   relationType?: string;
   sourceId?: number; // which node this was discovered from
   depth: number; // 0 = root, 1 = direct relation, 2 = relation of relation
+  nextAiringEpisode?: { episode: number } | null; // DECLARED: For progress grounding
 }
 
 export interface RelationGraph {
@@ -291,8 +292,8 @@ export interface AllowedTitle {
   popularity: number;
   relationType?: string;
   isMainEntry: boolean;
-  status?: string; // ADDED: Declared status safely
-  nextAiringEpisode?: { episode: number } | null; // ADDED: Declared next airing episode safely
+  status?: string; // DECLARED: For airing coherence
+  nextAiringEpisode?: { episode: number } | null; // DECLARED: For progress grounding
 }
 
 // ── AI Generation Types - Strict Schema ──────────────────────

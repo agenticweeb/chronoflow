@@ -289,8 +289,8 @@ export async function buildRelationGraph(params: BuildGraphParams) {
       popularity: node.popularity || 0,
       relationType: node.relationType,
       isMainEntry: node.depth === 0,
-      status: node.status,
-      nextAiringEpisode: node.nextAiringEpisode,
+      status: (node as any).status, // Safeguard lookup
+      nextAiringEpisode: (node as any).nextAiringEpisode, // Safeguard lookup
     };
   });
 
