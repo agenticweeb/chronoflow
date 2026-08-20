@@ -5,16 +5,15 @@ import { generateIntelligentWatchOrder } from "@/lib/ai/orchestrator";
 import FlowchartV2 from "@/components/FlowchartV2";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-// 1. Pre-render the top 20 pages at build time
 export async function generateStaticParams() {
   return SEO_FRANCHISES.map((franchise) => ({
     slug: franchise.slug,
   }));
 }
 
-// 2. Generate SEO Metadata
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const franchise = getFranchiseBySlug(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const franchise = getFranchiseBySlug(slug);
   if (!franchise) return {};
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://chronoflow-zeta.vercel.app";
@@ -35,12 +34,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-// 3. The Page Component
-export default async function WatchOrderPage({ params }: { params: { slug: string } }) {
-  const franchise = getFranchiseBySlug(params.slug);
+export default async function WatchOrderPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const franchise = getFranchiseBySlug(slug);
   if (!franchise) notFound();
 
-  // Fix: Add 'as const' to string literals
   const defaultPrefs = {
     timeBudget: "regular",
     mood: ["all"],
@@ -64,7 +62,6 @@ export default async function WatchOrderPage({ params }: { params: { slug: strin
     result = orchResult.result;
   } catch (e) {
     console.error(`Failed to generate SEO page for ${franchise.name}:`, e);
-    // Return a graceful fallback UI instead of crashing the build
     return (
       <main className="max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-3xl font-extrabold mb-4">{franchise.h1}</h1>
@@ -73,7 +70,6 @@ export default async function WatchOrderPage({ params }: { params: { slug: strin
     );
   }
 
-  // AI Optimization (AIO): FAQ Schema for LLM ingestion
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
