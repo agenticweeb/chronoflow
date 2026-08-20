@@ -5,13 +5,18 @@ import { generateIntelligentWatchOrder } from "@/lib/ai/orchestrator";
 import FlowchartV2 from "@/components/FlowchartV2";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-// This tells Next.js to build the page on-demand (ISR) and cache it for 1 hour
-export const revalidate = 3600; 
-export const dynamicParams = true; 
+export const revalidate = 3600; // Revalidate cache every hour
+export const dynamicParams = true; // Allow on-demand generation for non-prerendered slugs
 
-// 2. Generate SEO Metadata
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const franchise = getFranchiseBySlug(params.slug);
+// ✅ FIX: Register the route in the build manifest by pre-rendering just ONE page.
+// This prevents the 404 error without triggering AniList rate limits or Vercel timeouts.
+export async function generateStaticParams() {
+  return [{ slug: 'fate-series' }];
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const franchise = getFranchiseBySlug(slug);
   if (!franchise) return {};
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://chronoflow-zeta.vercel.app";
@@ -20,9 +25,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   return {
     title: franchise.h1,
     description: franchise.description,
-    alternates: {
-      canonical: canonicalUrl,
-    },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title: franchise.h1,
       description: franchise.description,
@@ -32,12 +35,11 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-// 3. The Page Component
-export default async function WatchOrderPage({ params }: { params: { slug: string } }) {
-  const franchise = getFranchiseBySlug(params.slug);
+export default async function WatchOrderPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const franchise = getFranchiseBySlug(slug);
   if (!franchise) notFound();
 
-  // Fix: Add 'as const' to string literals
   const defaultPrefs = {
     timeBudget: "regular",
     mood: ["all"],
@@ -61,7 +63,6 @@ export default async function WatchOrderPage({ params }: { params: { slug: strin
     result = orchResult.result;
   } catch (e) {
     console.error(`Failed to generate SEO page for ${franchise.name}:`, e);
-    // Return a graceful fallback UI instead of crashing the build
     return (
       <main className="max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-3xl font-extrabold mb-4">{franchise.h1}</h1>
