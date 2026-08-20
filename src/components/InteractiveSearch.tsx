@@ -61,6 +61,20 @@ const SUGGESTIONS = [
   { title: "JoJo's Bizarre Adventure", malId: 14719, anilistId: 14719, imageUrl: "/suggestions/JoJo's Bizarre Adventure.jpeg", score: 8.2, tag: "Generational", desc: "Each Part shifts art, genre, and protagonist.", slug: "jojo-bizarre-adventure" },
   { title: "Neon Genesis Evangelion", malId: 30, anilistId: 30, imageUrl: "/suggestions/Neon Genesis Evangelion.jpeg", score: 8.3, tag: "Alt Reality", desc: "TV, End of Eva, and Rebuilds — three endings.", slug: "neon-genesis-evangelion" },
   { title: "Gundam (Universal Century)", malId: 80, anilistId: 80, imageUrl: "/suggestions/Gundam (Universal Century).jpeg", score: 7.8, tag: "Decades", desc: "40+ years of UC media. Jump carefully.", slug: "gundam-uc" },
+  { title: "One Piece", malId: 21, anilistId: 21, imageUrl: "", score: 9.0, tag: "Long Runner", desc: "1100+ episodes. Skip filler, keep G-8.", slug: "one-piece" },
+  { title: "Naruto", malId: 20, anilistId: 20, imageUrl: "", score: 8.5, tag: "Filler Heavy", desc: "Skip massive multi-season blocks of filler.", slug: "naruto" },
+  { title: "Bleach", malId: 269, anilistId: 269, imageUrl: "", score: 8.2, tag: "Filler Heavy", desc: "Cut away from canonical battles to skip filler.", slug: "bleach" },
+  { title: "Dragon Ball", malId: 223, anilistId: 223, imageUrl: "", score: 8.0, tag: "Decades", desc: "Mix of main stories, non-canon films, and Kai.", slug: "dragon-ball" },
+  { title: "Code Geass", malId: 1575, anilistId: 1575, imageUrl: "", score: 8.7, tag: "Split Timeline", desc: "Film trilogy rewrites key deaths for modern sequels.", slug: "code-geass" },
+  { title: "Haruhi Suzumiya", malId: 849, anilistId: 849, imageUrl: "", score: 8.0, tag: "Non-Linear", desc: "Broadcast order intentionally jumps through time.", slug: "haruhi-suzumiya" },
+  { title: "Durarara!!", malId: 6746, anilistId: 6746, imageUrl: "", score: 8.0, tag: "Multi-POV", desc: "Non-linear narrative chunks with confusing suffixes.", slug: "durarara" },
+  { title: "Toaru (Index & Railgun)", malId: 4654, anilistId: 4654, imageUrl: "", score: 7.5, tag: "Overlap", desc: "Spin-offs take place simultaneously from different POVs.", slug: "toaru-series" },
+  { title: "Horimiya", malId: 124041, anilistId: 124041, imageUrl: "", score: 8.1, tag: "Intercut", desc: "Second season adapts chapters skipped in the first.", slug: "horimiya" },
+  { title: "My Hero Academia", malId: 21459, anilistId: 21459, imageUrl: "", score: 8.0, tag: "Canon Movies", desc: "Know exactly which episode to pause to watch movies.", slug: "my-hero-academia" },
+  { title: "Baccano!", malId: 3603, anilistId: 3603, imageUrl: "", score: 8.5, tag: "Anachronistic", desc: "Skips across multiple different decades simultaneously.", slug: "baccano" },
+  { title: "Danganronpa", malId: 16592, anilistId: 16592, imageUrl: "", score: 7.5, tag: "Swap Order", desc: "Swap back and forth between two airing seasons.", slug: "danganronpa" },
+  { title: "Clannad", malId: 2167, anilistId: 2167, imageUrl: "", score: 8.5, tag: "Alt Routes", desc: "OVA episodes completely change the final outcome.", slug: "clannad" },
+  { title: "Haikyu!!", malId: 20883, anilistId: 20883, imageUrl: "", score: 8.7, tag: "Canon Movies", desc: "Critical story progression hidden between seasons.", slug: "haikyu" },
 ] as const;
 
 const GENRES = ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Mystery", "Psychological", "Romance", "Sci-Fi", "Supernatural", "Thriller"];
