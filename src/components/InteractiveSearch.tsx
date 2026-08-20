@@ -10,7 +10,7 @@ import React, {
   useRef, 
   useMemo 
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Clock,
@@ -19,7 +19,6 @@ import {
   Map,
   RotateCcw,
   Search,
-  Sparkles,
   X,
   Compass,
   LayoutGrid,
@@ -39,7 +38,6 @@ import { cn } from "@/lib/utils";
 import type { AnimeSearchResult, UserPreferences } from "@/types";
 import type { WatchOrderResultV2, CustomSchedule } from "@/types/intelligent";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
-
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "regular",
   mood: ["all"],
@@ -348,7 +346,32 @@ export function InteractiveSearch() {
     });
   };
 
-  const displayedSuggestions = showAllSuggestions ? SUGGESTIONS : SUGGESTIONS.slice(0, 6);
+  // Automatically fetch missing cover images from AniList for the hardcoded suggestions
+  const imageQueries = useQueries({
+    queries: SUGGESTIONS.map((s) => ({
+      queryKey: ['suggestion-image', s.anilistId],
+      queryFn: async () => {
+        // If we already have a local image, use it
+        if (s.imageUrl) return s.imageUrl;
+        
+        // Otherwise, fetch from AniList via our Server Action
+        const res = await searchAnimeAction(s.title);
+        if (res.success && res.data.length > 0) {
+          return res.data[0].imageUrl;
+        }
+        return ""; // Fallback to empty string (will render monogram)
+      },
+      staleTime: 1000 * 60 * 60, // Cache these for 1 hour
+    }))
+  });
+
+  // Enrich the suggestions with the fetched images
+  const enrichedSuggestions = SUGGESTIONS.map((s, i) => ({
+    ...s,
+    imageUrl: imageQueries[i]?.data || s.imageUrl || ""
+  }));
+
+  const displayedSuggestions = showAllSuggestions ? enrichedSuggestions : enrichedSuggestions.slice(0, 6);
 
   return (
     <div className="space-y-8 w-full relative">
