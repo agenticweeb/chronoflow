@@ -208,8 +208,8 @@ export function InteractiveSearch() {
     setLatency(null);
   }, [setSelectedId]);
 
-  const handleSelectSuggestion = useCallback((s: typeof SUGGESTIONS[number] | AnimeSearchResult) => {
-    const item = s as any;
+  const handleSelectSuggestion = useCallback((s: any) => {
+    const item = s as any; // Cast as any to bypass strict union property checking
     // If the item has a slug, navigate to the SEO page instead of the search UI
     if (item.slug) {
       window.location.href = `/watch-order/${item.slug}`;
