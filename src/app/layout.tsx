@@ -10,7 +10,50 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+// AI Optimization (AIO) Schema Graph
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://chronoflow-zeta.vercel.app";
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": `${siteUrl}/#organization`,
+      "name": "ChronoFlow",
+      "url": siteUrl,
+      "logo": `${siteUrl}/logo.png`,
+      "sameAs": [
+        "https://x.com/agenticweeb",
+        "https://github.com/agenticweeb/chronoflow"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": `${siteUrl}/#website`,
+      "url": siteUrl,
+      "name": "ChronoFlow",
+      "publisher": { "@id": `${siteUrl}/#organization` },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": `${siteUrl}/?q={search_term_string}`,
+        "query-input": "required name=search_term_string"
+      }
+    },
+    {
+      "@type": "WebApplication",
+      "@id": `${siteUrl}/#webapp`,
+      "url": siteUrl,
+      "name": "ChronoFlow Anime Watch Order Generator",
+      "applicationCategory": "EntertainmentApplication",
+      "operatingSystem": "Web",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "publisher": { "@id": `${siteUrl}/#organization` }
+    }
+  ]
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "ChronoFlow — Anime Watch Order Engine",
     template: "%s · ChronoFlow",
@@ -33,6 +76,7 @@ export const metadata: Metadata = {
     description:
       "The ultimate grounded watch-order engine. AI-powered pathfinding, relation graph mapping, and smart skip for any anime franchise.",
     siteName: "ChronoFlow",
+    url: siteUrl,
   },
   twitter: {
     card: "summary_large_image",
@@ -65,6 +109,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} dark antialiased`}>
       <body className="bg-background text-foreground min-h-dvh relative overflow-x-hidden font-sans selection:bg-chrono-primary/30 selection:text-white">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
         <div
           className="fixed inset-0 kinetic-grid pointer-events-none z-0"
           aria-hidden="true"

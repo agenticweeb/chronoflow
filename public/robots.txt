@@ -1,0 +1,18 @@
+# Explicitly allow AI Crawlers to force Knowledge Graph ingestion
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: *
+# Block internal API endpoints that return raw JSON
+Disallow: /api/
+
+Sitemap: https://chronoflow-zeta.vercel.app/sitemap.xml
