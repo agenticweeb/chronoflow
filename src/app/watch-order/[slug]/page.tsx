@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SEO_FRANCHISES, getFranchiseBySlug } from "@/lib/seo/franchises";
 import { generateIntelligentWatchOrder } from "@/lib/ai/orchestrator";
-import { FlowchartV2 } from "@/components/FlowchartV2";
+import FlowchartV2 from "@/components/FlowchartV2";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // 1. Pre-render the top 20 pages at build time
@@ -40,11 +40,11 @@ export default async function WatchOrderPage({ params }: { params: { slug: strin
   const franchise = getFranchiseBySlug(params.slug);
   if (!franchise) notFound();
 
-  // Fetch the watch order data on the server
+  // Fix: Add 'as const' to string literals
   const defaultPrefs = {
     timeBudget: "regular",
     mood: ["all"],
-    skipPreference: "smart-skip",
+    skipPreference: "smart-skip" as const,
     includeMovies: true,
     includeOVAs: true,
     includeSpecials: true,
