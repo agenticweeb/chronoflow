@@ -1034,10 +1034,10 @@ function interleaveMoviesIntoMainTimeline(
   detPaths: WatchOrderPathV2[]
 ): WatchOrderPathV2[] {
   if (!aiPaths.length) return detPaths;
-  const main = aiPaths[0]?.groups?.find((g) => g.timelineType === "main_timeline");
+  const main = aiPaths[0]?.groups?.find((g: any) => g.timelineType === "main_timeline");
   const hasCanonMovie =
     main?.entries?.some(
-      (e) =>
+      (e: any) =>
         (e.format === "MOVIE" || e.format === "OVA") &&
         (e.tier === "essential" || e.tier === "recommended")
     ) ?? false;

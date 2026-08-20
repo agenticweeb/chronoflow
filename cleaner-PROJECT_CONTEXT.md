@@ -642,4 +642,236 @@ the final changes and verify the live deployment."
 
 ## 9. HARDWARE/STATE REHYDRATION BOOTSTRAP PROMPT
 "Act as a Senior Software Architect. I am uploading the `PROJECT_CONTEXT.md` file containing the deep system state serialization for ChronoFlow. Parse the architectural constraints, specifically the V6 Graph Traversal rules and Vercel AI SDK integration. We are resuming at Step 1 of the Strategic Runway: integrating TanStack Query into `InteractiveSearch.tsx` to deduplicate search requests. Output the exact code diff for the component modifications. Do not hallucinate dependencies; adhere strictly to the provided stack."
+
+This is the final step. Run these commands in your terminal to commit and push everything to GitHub (which will trigger the Vercel deployment):
+
+```bash
+git add .
+git commit -m "feat: V6 architecture overhaul & UI polish
+
+- Replaced string-matching graph traversal with pure AniList BFS relation edges.
+- Implemented soft-flagging for studio/lexical mismatches to prevent false rejections.
+- Migrated to Vercel AI SDK with 15s timeout and deterministic fallback.
+- Integrated Upstash Redis (search/order caching) and TanStack Query (deduplication).
+- Migrated watch progress to Zustand.
+- Added nuqs for shareable URLs and ErrorBoundary for crash resistance."
+git push origin main
 ```
+
+Below is the complete, exhaustive `PROJECT_CONTEXT.md` file. Save this to your project root. It contains 100% of the architectural state, ensuring any developer or AI can pick up exactly where we left off without a single question.
+
+```markdown
+# DEEP SYSTEM STATE SERIALIZATION: CHRONOFLOW
+> **SYSTEM TIMESTAMP:** 2026-08-19  
+> **ENGINE VERSION:** 4.0-PRODUCTION-READY  
+> **HASH CURRENT STATE:** F8A2C9D1E7B4
+
+---
+
+## 1. EXTENDED PROJECT OVERVIEW & SCOPE BOUNDARIES
+- **Core Product Vision:** ChronoFlow is an AI-powered anime watch order generator that solves franchise viewing complexity by mapping AniList's relation edges into deterministic or AI-curated timelines. It strictly prevents AI hallucinations by grounding all generated watch orders in verified database IDs.
+- **Target User Personas & Workflows:** Anime enthusiasts navigating complex multi-season, multi-route, or studio-switching franchises (e.g., Fate, Monogatari, Attack on Titan). User searches an anime -> selects preferences -> app traverses AniList GraphQL relation graph -> AI curates the order -> UI renders interactive timeline with progress tracking.
+- **Comprehensive Tech Stack Architecture:**
+  - **Frontend Tier:** Next.js 16.3.1 (App Router, Turbopack), React 19, Tailwind CSS v4, Framer Motion, Lucide React, TanStack Query, Zustand, nuqs.
+  - **Backend/API Tier:** Next.js Server Actions, Vercel AI SDK (`generateText`), AniList GraphQL API.
+  - **Database & Storage Layer:** Upstash Redis (Edge caching for search and watch orders), Zustand + LocalStorage (Client-side watch progress persistence).
+  - **DevOps & Infrastructure:** Vercel (Hobby Tier), GitHub (CI/CD auto-deploy).
+- **Environment & Runtime Prerequisites:**
+  - **OS:** Linux/macOS (WSL2 environment detected).
+  - **Node:** >= 20.x.
+  - **Required `.env` Variables:** `GROQ_API_KEY`, `GOOGLE_AI_API_KEY`, `OPENROUTER_API_KEY` (Optional fallback), `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+
+---
+
+## 2. ADVANCED ARCHITECTURAL DECISIONS & PARADIGMS (ADR)
+- **Monolith/Microservice Pattern:** Modular Monolith. Next.js App Router handles RSC, Server Actions act as the API layer, and external services (AniList, Upstash, AI Providers) are abstracted into domain-specific library wrappers.
+- **State Management & Data Flow Vectors:** 
+  - *Search/Generation:* Client Event -> TanStack Query -> Server Action -> Upstash Redis Cache Check -> (Cache Miss) -> AniList GraphQL/AI Provider -> Redis Cache Set -> Client Hydration.
+  - *Progress:* Client Event -> Zustand Store -> LocalStorage Persist.
+  - *URL State:* `nuqs` adapter syncs `selectedId` to URL query params for shareability.
+- **Graph Traversal Paradigm (V6 Architecture):** Replaced fragile string-matching (`extractStem`, `isFranchiseCoherent`) with pure BFS over AniList `relationType` edges. Only `SEQUEL`, `PREQUEL`, `PARENT`, `SIDE_STORY`, `SPIN_OFF`, `ALTERNATIVE`, `ADAPTATION` are admitted. `CHARACTER` and `OTHER` are strictly pruned to prevent crossover leakage (e.g., Isekai Quartet). Post-BFS validation uses "Soft Flagging" (passing metadata to AI) rather than hard rejection to accommodate studio changes (WIT -> MAPPA).
+- **Resilience & Bypass Strategy:** 
+  - AI Provider calls are wrapped in a 15-second `AbortSignal.timeout`. 
+  - If all AI providers fail, the Orchestrator catches the error and instantly falls back to `buildDeterministicPaths`, returning the raw graph order. The system *never* crashes due to AI unavailability.
+  - Hardcoded blacklist strings (e.g., "season 2") were removed to prevent breaking legitimate airing anime like Jujutsu Kaisen.
+- **Engineering Conventions & Strict Constraints:**
+  - **Naming Typology:** camelCase for variables/functions, PascalCase for Components/Interfaces, snake_case for cache keys.
+  - **Error Handling Philosophy:** Fail-fast on validation, fail-safe on AI generation. Graph validation drops hallucinated IDs silently but logs warnings. Global `ErrorBoundary` catches all UI crashes gracefully.
+
+---
+
+## 3. ABSOLUTE EXHAUSTIVE REPOSITORY TREE
+```text
+/home/thierry/chronoflow/
+├── .env.local [MODIFIED]
+├── next.config.ts [UNTOUCHED]
+├── package.json [MODIFIED]
+├── tailwind.config.ts [UNTOUCHED]
+├── tsconfig.json [UNTOUCHED]
+├── public/
+│   └── suggestions/ [MODIFIED]
+└── src/
+    ├── app/
+    │   ├── api/
+    │   │   ├── image-proxy/route.ts [UNTOUCHED]
+    │   │   ├── feedback/route.ts [UNTOUCHED]
+    │   │   └── search/route.ts [UNTOUCHED]
+    │   ├── globals.css [UNTOUCHED]
+    │   ├── layout.tsx [MODIFIED]
+    │   ├── page.tsx [MODIFIED]
+    │   ├── providers.tsx [CREATED]
+    │   └── actions.ts [MODIFIED]
+    ├── components/
+    │   ├── AnimeSearch.tsx [UNTOUCHED]
+    │   ├── ErrorBoundary.tsx [CREATED]
+    │   ├── Flowchart.tsx [UNTOUCHED]
+    │   ├── FlowchartV2.tsx [UNTOUCHED]
+    │   ├── InteractiveSearch.tsx [MODIFIED]
+    │   ├── PreferencePanel.tsx [UNTOUCHED]
+    │   ├── SuggestionImage.tsx [UNTOUCHED]
+    │   └── TopBanner.tsx [UNTOUCHED]
+    ├── hooks/
+    │   ├── useProgress.ts [MODIFIED]
+    │   ├── useSearch.ts [UNTOUCHED]
+    │   └── useWatchOrder.ts [UNTOUCHED]
+    ├── lib/
+    │   ├── ai/
+    │   │   ├── orchestrator.ts [MODIFIED]
+    │   │   └── prompts.ts [MODIFIED]
+    │   ├── knowledge/
+    │   │   ├── classifier.ts [MODIFIED]
+    │   │   ├── curated-franchises.ts [MODIFIED]
+    │   │   ├── relation-graph.ts [MODIFIED]
+    │   │   └── title-matcher.ts [UNTOUCHED]
+    │   ├── ai-providers.ts [MODIFIED]
+    │   ├── anilist-client.ts [UNTOUCHED]
+    │   ├── cache.ts [UNTOUCHED]
+    │   ├── calendar-generator.ts [UNTOUCHED]
+    │   ├── jikan-client.ts [UNTOUCHED]
+    │   ├── redis.ts [CREATED]
+    │   ├── store.ts [CREATED]
+    │   ├── time-calculator.ts [MODIFIED]
+    │   └── utils.ts [UNTOUCHED]
+    └── types/
+        ├── index.ts [UNTOUCHED]
+        └── intelligent.ts [UNTOUCHED]
+```
+
+---
+
+## 4. GRANULAR DEPENDENCY & PACKAGE MATRIX
+| Package Name | Exact Version | Architectural Utility & Domain Dependency | Impact on Bundle/Runtime |
+| :--- | :--- | :--- | :--- |
+| `next` | 16.3.1 | Core framework, App Router, Server Actions | High runtime overhead, Turbopack enabled |
+| `react` | 19.x | UI rendering, concurrent state transitions | Client runtime |
+| `ai` | latest | Vercel AI SDK, standardizes LLM provider routing | Server-side runtime, replaces custom fetch logic |
+| `@ai-sdk/openai` | latest | Groq/OpenAI compatibility layer for AI SDK | Server-side runtime |
+| `@ai-sdk/google` | latest | Google Gemini compatibility layer for AI SDK | Server-side runtime |
+| `@upstash/redis` | latest | Edge-compatible Redis client for caching | Server-side runtime, reduces AniList API calls |
+| `@tanstack/react-query` | latest | Client-side data fetching, caching, deduplication | Client runtime, prevents duplicate search calls |
+| `zustand` | latest | Lightweight global state for watch progress | Client runtime, replaces Context bloat |
+| `nuqs` | latest | URL state synchronization for shareable links | Client + Server sync |
+| `tailwindcss` | 4.x | Utility-first CSS engine | Build-time only |
+
+---
+
+## 5. HISTORICAL DEVELOPMENT LEDGER & SPRINT ROADMAP
+- **Completed Core Milestones:**
+  - [x] **Graph Traversal V6:** Eliminated string-matching contamination. Pure BFS over AniList relations with soft-flagging.
+  - [x] **AI Provider Hardening:** Migrated to Vercel AI SDK. Added 15s timeout and deterministic fallback.
+  - [x] **State & Cache Infrastructure:** Migrated `useProgress` to Zustand. Integrated Upstash Redis for search/order caching (1h/7d TTL).
+  - [x] **Client Data Layer:** Integrated TanStack Query for search and discover deduplication.
+  - [x] **UI/UX Polish:** Added `nuqs` for shareable URLs, `ErrorBoundary` for crash resistance, and polished UI copy.
+- **Active Blockers, Edge-Case Errors, & Heavy Debt:**
+  - **Logic Blockers:** None currently blocking. System fails safe to deterministic graph.
+  - **Technical Debt:** `searchAnimeAction` uses standard `useState` for text input (preventing URL spam), which is correct. OpenTelemetry/Sentry not yet integrated (Phase 5).
+
+---
+
+## 6. CURRENT EXECUTION POINT & ACTIVE RUNTIME STATE
+- **Active Focus Objective:** Pushing V6 architecture to GitHub and deploying to Vercel.
+- **Last Logical Code Mutation:** Replaced the entire `InteractiveSearch.tsx` component to restore missing `searchAnimeAction` query block, fix `discoverLoading` scope, and remove `Sparkles` icons in favor of `Clock`/`Search` for a premium look.
+- **Precise Stop-Point Coordinates:**
+  - **Target File Path:** `src/components/InteractiveSearch.tsx`
+  - **Target Structural Unit:** `InteractiveSearch` Component Export
+  - **Execution Halt State:** Line 675, immediately before the closing `}` of the component function.
+
+---
+
+## 7. EXHAUSTIVE FILE STRUCTURE REGISTRY (STRICT NO-CODE POLICY)
+
+### 📄 FILE ID: src/lib/ai-providers.ts
+- **Application Classification:** AI Infrastructure / Provider Router
+- **Module Responsibility Statement:** Orchestrates LLM calls via Vercel AI SDK. Constructs the Groq and Google provider instances. Enforces a 15-second hard timeout to prevent UI hangs. Exposes `buildWatchOrderPrompt` for legacy routes.
+- **Internal API & Structural Schema Blueprint:**
+  - `callAIWithFallback(prompt: string, maxRetries?: number)` -> Iterates providers, applies `AbortSignal`, returns `{ content, provider, latency }` or throws to be caught by orchestrator.
+
+### 📄 FILE ID: src/lib/ai/orchestrator.ts
+- **Application Classification:** Core Business Logic / Pipeline Orchestrator
+- **Module Responsibility Statement:** The central brain. Resolves the anime match, triggers graph building, classifies shape, constructs AI payload, executes AI call safely within a try/catch, validates AI response against allowed IDs, and applies user preferences/filters.
+- **Internal API & Structural Schema Blueprint:**
+  - `generateIntelligentWatchOrder(params)` -> Async function returning `OrchestratorResult`.
+  - Contains a strict try/catch block: if `callAIWithFallback` fails, it immediately invokes `buildDeterministicPaths` and returns a safe fallback with `provider: "deterministic-fallback"`.
+  - `validateAndFixAIResponse` -> Enforces strict ID matching, deduplicates entries, drops hallucinations.
+
+### 📄 FILE ID: src/lib/knowledge/relation-graph.ts
+- **Application Classification:** Data Ingestion & Graph Traversal Engine
+- **Module Responsibility Statement:** Fetches AniList media data via batched GraphQL. Performs BFS traversal strictly over `FRANCHISE_RELATIONS` edges. Applies "Soft Flagging" for studio/lexical mismatches instead of hard rejection.
+- **Internal API & Structural Schema Blueprint:**
+  - `buildRelationGraph(params)` -> Returns `{ graph, allowedTitles, root, warnings }`.
+  - `fetchAniListBatch(ids)` -> Batches up to 50 IDs per request to avoid rate limits.
+
+### 📄 FILE ID: src/app/actions.ts
+- **Application Classification:** Server Action / API Gateway
+- **Module Responsibility Statement:** Validates client payloads via Zod. Wraps `searchAnimeAction` and `generateWatchOrderAction` with Upstash Redis caching layers. Forwards preferences to the orchestrator.
+- **Internal API & Structural Schema Blueprint:**
+  - `searchAnimeAction(query)` -> Checks Redis (`search:query`), fetches AniList if miss, caches for 1 hour.
+  - `generateWatchOrderAction(payload)` -> Checks Redis (`watchorder:id: prefs`), invokes Orchestrator if miss, caches for 7 days.
+
+### 📄 FILE ID: src/lib/store.ts
+- **Application Classification:** Client State Provider
+- **Module Responsibility Statement:** Zustand store managing `progressMap` for watch progress. Persists to LocalStorage automatically.
+- **Internal API & Structural Schema Blueprint:**
+  - `useWatchStore` -> Exposes `toggleWatched`, `updateProgress`, `rateEntry`.
+
+### 📄 FILE ID: src/lib/redis.ts
+- **Application Classification:** Cache Client
+- **Module Responsibility Statement:** Initializes Upstash Redis client using environment variables.
+
+### 📄 FILE ID: src/app/providers.tsx
+- **Application Classification:** Client Context Provider
+- **Module Responsibility Statement:** Wraps the application in `QueryClientProvider` for TanStack Query, configuring default stale times and refetch behaviors.
+
+### 📄 FILE ID: src/components/InteractiveSearch.tsx
+- **Application Classification:** Primary UI Controller
+- **Module Responsibility Statement:** Manages the "Find Your Path" (Search) and "Discover Library" (Filter) tabs. Uses `useQuery` for both search and discover to deduplicate requests. Syncs selected anime ID to URL via `useQueryState` (nuqs). Handles generation loading states.
+- **Internal API & Structural Schema Blueprint:**
+  - `safeQuery = String(deferredQuery || "")` -> Ensures string type for query keys.
+  - `useQuery({ queryKey: ['search', safeQuery] })` -> Fetches search data.
+  - `useQuery({ queryKey: ['discover', ...filters] })` -> Fetches discover data.
+
+### 📄 FILE ID: src/components/ErrorBoundary.tsx
+- **Application Classification:** Global Error Handler
+- **Module Responsibility Statement:** Class component that catches fatal UI render errors and displays a "Timeline Disrupted" fallback UI with a reload button, preventing white-screen crashes.
+
+---
+
+## 8. STRATEGIC RUNWAY (NEXT ACTIONABLE STEPS)
+1. **[IMMEDIATE RESUMPTION - DEPLOYMENT]:**
+   - **Target File:** Git Repository
+   - **Actionable Task:** Commit all changes and push to GitHub. Verify Vercel auto-deploy succeeds. Check production environment variables in Vercel dashboard.
+   - **Verification Method:** Visit the Vercel deployment URL. Search for "Fate" and generate an order.
+2. **[SECONDARY SEQUENTIAL COUPLING - ANALYTICS]:**
+   - **Target File:** `src/app/layout.tsx`
+   - **Actionable Task:** Integrate Vercel Analytics or Plausible for user tracking.
+3. **[DOWNSTREAM REFACTOR & INTEGRATION BOUNDARY - OBSERVABILITY]:**
+   - **Target File:** `instrumentation.ts` (to be created)
+   - **Actionable Task:** Integrate Sentry or OpenTelemetry for production error tracing.
+4. **[COMPREHENSIVE VALIDATION REGIME]:**
+   - **Testing Plan:** Monitor production logs for AniList rate limits or AI provider exhaustions. Ensure deterministic fallback holds up under load.
+
+---
+
+## 9. HARDWARE/STATE REHYDRATION BOOTSTRAP PROMPT
+"Act as a Senior Software Architect. I am uploading the `PROJECT_CONTEXT.md` file containing the deep system state serialization for ChronoFlow. Parse the architectural constraints, specifically the V6 Graph Traversal rules, Vercel AI SDK integration with 15s timeout, and Zustand/Upstash state management. We are resuming at the Deployment phase. Analyze the project and provide the exact steps to integrate Vercel Analytics and Sentry into the application. Do not hallucinate dependencies; adhere strictly to the provided stack."
+

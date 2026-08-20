@@ -180,7 +180,7 @@ export async function callAIWithFallback(
       const { text, finishReason } = await generateText({
         model: p.model,
         prompt: prompt,
-        maxTokens: 4000,
+        maxOutputTokens: 4000, // Changed from maxTokens
         temperature: 0.1,
         abortSignal: AbortSignal.timeout(15000) 
       });
