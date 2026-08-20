@@ -723,7 +723,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           relationType: node?.relationType,
         } as any;
       });
-      const totEp = entries.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0);
+      const totEp = entries.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0);
       const { text: totTime } = calcDuration(entries as any);
       return {
         id: group.id, name: group.name, description: group.description, timelineType: group.timelineType as any,
@@ -735,7 +735,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
     const { text: tt, minutes: tm } = calcDuration(all as any);
     return {
       id: path.id, name: path.name, description: path.description, longDescription: undefined,
-      groups, totalEntries: all.length, totalEpisodes: all.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
+      groups, totalEntries: all.length, totalEpisodes: all.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: tt, totalTimeMinutes: tm, bestFor: path.bestFor || [], difficulty: path.difficulty || "beginner",
       isSpoilerFree: path.isSpoilerFree ?? true, isRecommended: path.isRecommended || false, warnings: path.warnings || [],
     } as any;
@@ -785,7 +785,7 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: { includeMovies: 
       ...p,
       groups,
       totalEntries: all.length,
-      totalEpisodes: all.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
+      totalEpisodes: all.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: text,
       totalTimeMinutes: minutes,
     };
@@ -983,7 +983,7 @@ function buildDeterministicPaths(
       orderNote: whyConfusing,
       entries: main.length ? main : entries,
       totalEntries: (main.length ? main : entries).length,
-      totalEpisodes: (main.length ? main : entries).reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
+      totalEpisodes: (main.length ? main : entries).reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: mainTime,
       isCollapsedByDefault: false,
       isSpoiler: false,
@@ -1000,7 +1000,7 @@ function buildDeterministicPaths(
       timelineType: "side_story",
       entries: side,
       totalEntries: side.length,
-      totalEpisodes: side.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
+      totalEpisodes: side.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: sideTime,
       isCollapsedByDefault: true,
       isSpoiler: false,
@@ -1017,7 +1017,7 @@ function buildDeterministicPaths(
       description: "Release / year order that preserves story reveals",
       groups,
       totalEntries: all.length,
-      totalEpisodes: all.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
+      totalEpisodes: all.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: text,
       totalTimeMinutes: minutes,
       bestFor: ["First time viewers"],
