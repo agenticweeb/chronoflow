@@ -95,7 +95,7 @@ export function InteractiveSearch() {
   const [results, setResults] = useState<AnimeSearchResult[]>([]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
-  const [selectedId, setSelectedId] = useQueryState('id', parseAsInteger.nullable());
+  const [selectedId, setSelectedId] = useQueryState('id', parseAsInteger);
 
   const safeQuery = String(deferredQuery || "");
 
