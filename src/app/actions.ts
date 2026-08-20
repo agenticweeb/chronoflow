@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { generateIntelligentWatchOrder } from "@/lib/ai/orchestrator";
 import { searchAniList } from "@/lib/anilist-client";
-import { searchAnime } from "@/lib/jikan-client";
+import { redis } from "@/lib/redis";
 import type { AnimeSearchResult } from "@/types";
 import type { WatchOrderResultV2 } from "@/types/intelligent";
 
@@ -87,49 +87,26 @@ export async function searchAnimeAction(
   try {
     const validatedQuery = SearchSchema.parse(query);
 
-    const [anilistResults, jikanResults] = await Promise.allSettled([
-      searchAniList(validatedQuery, 8),
-      searchAnime(validatedQuery, 8),
-    ]);
-
-    const anilistData =
-      anilistResults.status === "fulfilled" ? anilistResults.value : [];
-    const jikanData =
-      jikanResults.status === "fulfilled" ? jikanResults.value : [];
-
-    if (anilistResults.status === "rejected" && jikanResults.status === "rejected") {
-      return {
-        success: false,
-        error: "Both anime databases are unreachable. Try again shortly.",
-      };
+    // 1. Check Redis Cache (1 hour TTL)
+    const cacheKey = `search:${validatedQuery.toLowerCase()}`;
+    const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
+    if (cached) {
+      console.log(`✅ Cache HIT for search: ${validatedQuery}`);
+      return { success: true, data: cached };
     }
 
-    const merged: AnimeSearchResult[] = [...jikanData];
-    for (const ani of anilistData) {
-      const existing = merged.find(
-        (j) => j.malId && ani.malId && j.malId === ani.malId
-      );
-      if (existing) {
-        if (ani.anilistId) existing.anilistId = ani.anilistId;
-        if (ani.imageUrl) existing.imageUrl = ani.imageUrl;
-        if (ani.score && !existing.score) existing.score = ani.score;
-        if (ani.episodes && !existing.episodes) existing.episodes = ani.episodes;
-        if (ani.isFranchise) existing.isFranchise = true;
-      } else {
-        merged.push(ani);
-      }
+    // 2. Fetch ONLY from AniList (Jikan is too slow for autocomplete)
+    const anilistResults = await searchAniList(validatedQuery, 8);
+    
+    if (anilistResults.length === 0) {
+      return { success: true, data: [] };
     }
 
-    const low = validatedQuery.toLowerCase();
-    const words = low.split(/\s+/).filter((w) => w.length >= 2);
-    const filtered = merged.filter((c) => {
-      const title = (c.title || "").toLowerCase();
-      if (words.length === 0) return true;
-      const hits = words.filter((w) => title.includes(w)).length;
-      return hits / words.length >= 0.25 || c.score >= 7 || c.isFranchise;
-    });
+    const list = anilistResults.slice(0, 8);
+    
+    // 3. Save to Redis Cache
+    await redis.set(cacheKey, list, { ex: 3600 }); // 1 hour TTL
 
-    const list = (filtered.length > 0 ? filtered : merged).slice(0, 10);
     return { success: true, data: list };
   } catch (err) {
     return {
@@ -158,6 +135,14 @@ export async function discoverAnimeAction(filters: {
   language: string; // JP, US, CN, KR, FR etc
 }): Promise<SearchActionResult> {
   try {
+    // Cache key for discover based on filters
+    const cacheKey = `discover:${JSON.stringify(filters)}`;
+    const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
+    if (cached) {
+      console.log(`✅ Cache HIT for discover filters`);
+      return { success: true, data: cached };
+    }
+
     let queryArgs = "type: ANIME";
     const variables: Record<string, any> = {};
 
@@ -258,6 +243,9 @@ export async function discoverAnimeAction(filters: {
         .sort((a: any, b: any) => (b._gemScore || 0) - (a._gemScore || 0));
     }
 
+    // Save discover results to cache (1 hour TTL)
+    await redis.set(cacheKey, mapped, { ex: 3600 });
+
     return { success: true, data: mapped };
   } catch (err) {
     return {
@@ -273,6 +261,17 @@ export async function generateWatchOrderAction(
   try {
     const validated = GenerateWatchOrderSchema.parse(payload);
 
+    // 1. Check Redis Cache for AI Watch Order (7 day TTL)
+    const prefHash = JSON.stringify(validated.preferences);
+    const cacheKey = `watchorder:${validated.anilistId || validated.animeName}:${validated.scope}:${prefHash}`;
+    const cached = await redis.get<{ result: WatchOrderResultV2; provider: string; latency: number }>(cacheKey);
+    
+    if (cached) {
+      console.log(`✅ Cache HIT for watch order: ${validated.animeName}`);
+      return { success: true, data: { dataV2: cached.result, provider: cached.provider, latency: 0, debug: { cached: true } } };
+    }
+
+    // 2. Generate if not cached
     const result = await generateIntelligentWatchOrder({
       animeName: validated.animeName,
       anilistId: validated.anilistId,
@@ -288,8 +287,14 @@ export async function generateWatchOrderAction(
         includeRecaps: validated.preferences.includeRecaps,
         preferredPath: validated.preferences.preferredPath,
         language: validated.preferences.language,
+        customSchedule: validated.preferences.customSchedule,
+        paceType: validated.preferences.paceType,
+        episodesPerDay: validated.preferences.episodesPerDay,
       },
     });
+
+    // 3. Save to Redis Cache
+    await redis.set(cacheKey, { result: result.result, provider: result.provider, latency: result.latency }, { ex: 604800 }); // 7 days TTL
 
     return {
       success: true,

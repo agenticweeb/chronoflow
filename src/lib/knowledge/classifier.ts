@@ -55,38 +55,14 @@ export function classifyAnimeShape(graph: RelationGraph, allowed: AllowedTitle[]
   let reasons:string[]=[];
 
   // ── STRONG OVERRIDES FIRST ────────────────────────────────
-  // Fate is ALWAYS mega_franchise
   if (lower.includes("fate")) {
     return { shape:"mega_franchise", confidence:95, reasoning:"Override: Fate franchise is always mega_franchise with multiple timelines", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:true, hasMultipleRoutes:true, hasRemakes:signals.duplicateTitles>0 } };
   }
-  // Monogatari always mega
   if (lower.includes("monogatari")) {
     return { shape:"mega_franchise", confidence:96, reasoning:"Override: Monogatari is always mega_franchise", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:false, hasMultipleRoutes:false, hasRemakes:false } };
   }
-  // JoJo is always mega franchise
-  if (lower.includes("jojo")) {
-    return { shape:"mega_franchise", confidence:94, reasoning:"Override: JoJo's Bizarre Adventure spans generations and alternate universes", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:false, hasMultipleRoutes:false, hasRemakes:false } };
-  }
-  // Gundam is a mega franchise of timelines and alternate universes
-  if (lower.includes("gundam")) {
-    return { shape:"mega_franchise", confidence:92, reasoning:"Override: Gundam spans multiple universes and timelines across many series", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:false, hasMultipleRoutes:true, hasRemakes:false } };
-  }
-  // Long runner staples should not be misclassified as routes
-  if (
-    lower.includes("one piece") ||
-    lower.includes("naruto") ||
-    lower.includes("bleach") ||
-    lower.includes("dragon ball") ||
-    lower.includes("hunter x hunter")
-  ) {
-    return { shape:"long_runner", confidence:92, reasoning:"Override: This title is a long runner with many episodes and filler arcs, not route branching", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:false, hasMultipleRoutes:false, hasRemakes:false } };
-  }
-  // Re:Zero is ALWAYS canon_movie_sandwich (linear + canon OVAs Memory Snow / Frozen Bond)
   if (lower.includes("re:zero") || lower.includes("rezero") || lower.includes("re zero")) {
     return { shape:"canon_movie_sandwich", confidence:92, reasoning:"Override: Re:Zero is linear story with canon OVAs Memory Snow and Frozen Bond between seasons, not route branching", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:true, hasMultipleRoutes:false, hasRemakes:false } };
-  }
-  if (lower.includes("demon slayer") || lower.includes("kimetsu") || lower.includes("jujutsu kaisen") || lower.includes("boku no hero") || lower.includes("my hero academia")) {
-    return { shape:"canon_movie_sandwich", confidence:90, reasoning:"Override: This franchise has canon movies or OVAs that belong in the main story order", signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:true, hasMultipleRoutes:false, hasRemakes:false } };
   }
 
   // ── Mega Franchise ────────────────────────────────────────
@@ -102,7 +78,6 @@ export function classifyAnimeShape(graph: RelationGraph, allowed: AllowedTitle[]
   if (LONG_TITLES.some(k=>lower.includes(k))) scores.long_runner+=30;
 
   // ── Canon Movie Sandwich ──────────────────────────────────
-  // Re:Zero, Demon Slayer, Jujutsu pattern: many sequels + movies/OVAs that are canon and sit between seasons
   if (signals.movieCount>=1 && signals.ovaCount>=1 && signals.sequelCount>=2){ scores.canon_movie_sandwich+=40; reasons.push(`movies ${signals.movieCount} + OVAs ${signals.ovaCount} + sequels ${signals.sequelCount}`); }
   else if (signals.movieCount>=1 && signals.sequelCount>=2){ scores.canon_movie_sandwich+=30; }
   else if (signals.movieCount>=1 && signals.hasSideStory) scores.canon_movie_sandwich+=20;
@@ -110,11 +85,9 @@ export function classifyAnimeShape(graph: RelationGraph, allowed: AllowedTitle[]
   if (signals.sideStoryCount>=2 && signals.sequelCount>=1) scores.canon_movie_sandwich+=15;
 
   // ── Route Branching ───────────────────────────────────────
-  // Must have multiple alternatives AND low sequel chain, otherwise it's just Director's Cut alternative
   const altCount = Array.from(graph.edges).filter(e=>e.type.toLowerCase().includes("alternative")).length;
   if (altCount>=2 && signals.sequelCount<=2){ scores.route_branching+=35; reasons.push(`${altCount} alternatives, few sequels`); }
   else if (altCount>=2 && signals.sequelCount>=3){
-    // If many sequels, alternative is likely Director's Cut, not true route branching
     scores.route_branching+=5; scores.canon_movie_sandwich+=15;
     reasons.push(`Alternatives likely Director's Cut, boosting canon sandwich`);
   } else if (altCount>=1) scores.route_branching+=10;
@@ -134,7 +107,6 @@ export function classifyAnimeShape(graph: RelationGraph, allowed: AllowedTitle[]
   const sorted=Object.entries(scores).sort((a,b)=>b[1]-a[1]); const second=sorted[1]?.[1]||0; const gap=bestScore-second;
   let confidence=Math.min(95,Math.max(40,50+gap)); if(bestScore<20) confidence=40;
 
-  // Final safety: if sequel chain >=3, prefer canon_movie_sandwich over route_branching
   if (signals.sequelCount>=3 && best==="route_branching"){ best="canon_movie_sandwich"; confidence=80; reasons.unshift(`Override: sequel chain ${signals.sequelCount} indicates linear story with canon movies, not routes`); }
 
   return { shape:best, confidence, reasoning:reasons.join(" | ")||`Classified as ${best} score ${bestScore}`, signals:{ totalNodes:signals.totalNodes, episodeCount:signals.totalEpisodesSum, relationTypes:Array.from(signals.relationTypes), hasMoviesAsCanon:signals.movieCount>0, hasMultipleRoutes:altCount>=2, hasRemakes:signals.duplicateTitles>0 } };

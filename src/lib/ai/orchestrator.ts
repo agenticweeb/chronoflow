@@ -1,5 +1,5 @@
 /**
- * ChronoFlow Orchestrator V2.4 - Grounded Graph + Airing-Progress Grounded
+ * ChronoFlow Orchestrator V2.8 - Strict ID Validation, Deduplication & Safe Fallback
  */
 
 import { buildRelationGraph, findAllowedTitleById, findAllowedTitleByFuzzy } from "@/lib/knowledge/relation-graph";
@@ -57,7 +57,6 @@ function parseDuration(d?: number | string, f?: string): number {
   return f === "MOVIE" ? 90 : 24;
 }
 
-// Fixed to calculate cumulative hours based strictly on currently watchable episodes
 function calcDuration(entries: WatchOrderEntryV2[]) {
   const mins = entries.reduce((s, e) => {
     const eps = typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 1;
@@ -82,6 +81,9 @@ export interface OrchestratorParams {
     includeRecaps: boolean;
     preferredPath: "release" | "chronological" | "optimal" | "manga";
     language: "english" | "japanese" | "both";
+    customSchedule?: any;
+    paceType?: "duration" | "episodes";
+    episodesPerDay?: number;
   };
 }
 
@@ -121,7 +123,6 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     if (!bestMatch) throw new Error(`No anime found matching "${params.animeName}"`);
   }
 
-  // Season scope - single entry focus
   if (params.scope === "season") {
     const { graph, allowedTitles, root } = await buildRelationGraph({
       title: bestMatch.title || params.animeName,
@@ -250,37 +251,6 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     };
   }
 
-  // Curated ground truth check - for top confusing franchises
-  if (params.scope === "franchise") {
-    const curated = findCuratedFranchise(params.animeName);
-    if (curated) {
-      let rootImage: any = null;
-      try {
-        const rootData = await buildRelationGraph({
-          title: bestMatch.title || params.animeName,
-          anilistId: bestMatch.anilistId,
-          malId: bestMatch.malId,
-          scope: "season",
-          maxDepth: 0,
-        });
-        rootImage = rootData.root;
-      } catch {}
-      const result = curatedToV2Result(curated, rootImage);
-      return {
-        result,
-        provider: "curated-ground-truth",
-        latency: Date.now() - start,
-        debug: {
-          graphSize: result.totalEntries,
-          classification: { shape: curated.classification as any, confidence: 100, reasoning: "curated ground truth - verified", signals: {} as any },
-          validation: { isValid: true, errors: [], warnings: [], fixedEntries: 0, droppedEntries: [] },
-          warnings: [`Used curated ground truth for ${curated.franchise}`],
-        },
-      };
-    }
-  }
-
-  // Franchise scope - depth 4 to capture long chains like Re:Zero S1->S2->S3->S4
   const { graph, allowedTitles: rawAllowed, root, warnings: gWarn } = await buildRelationGraph({
     title: bestMatch.title || params.animeName,
     anilistId: bestMatch.anilistId,
@@ -290,6 +260,24 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
   });
   warnings.push(...gWarn);
 
+  if (params.scope === "franchise") {
+    const curated = findCuratedFranchise(params.animeName);
+    if (curated) {
+      const result = curatedToV2Result(curated, graph);
+      return {
+        result,
+        provider: "curated-ground-truth",
+        latency: Date.now() - start,
+        debug: {
+          graphSize: graph.nodes.size,
+          classification: { shape: curated.classification as any, confidence: 100, reasoning: "curated ground truth - verified", signals: {} as any },
+          validation: { isValid: true, errors: [], warnings: [], fixedEntries: 0, droppedEntries: [] },
+          warnings: [`Used curated ground truth for ${curated.franchise}`],
+        },
+      };
+    }
+  }
+
   const allowedTitles = rawAllowed.filter((t: any) => {
     if (isMangaTitle(t)) { warnings.push(`Filtered manga: ${t.title}`); return false; }
     const fmt = (t.format as any)?.toString().toUpperCase();
@@ -298,6 +286,111 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
   });
 
   if (allowedTitles.length === 0) throw new Error("Failed to build franchise graph - no anime titles after filtering");
+
+  if (root.format === "MOVIE" && allowedTitles.length <= 2) {
+    warnings.push("Single movie detected. Bypassing AI franchise prompt.");
+    const movieEntry = allowedTitles.find(t => t.anilistId === root.anilistId) || allowedTitles[0];
+    const eps = 1;
+    const dur = parseDuration(root.duration, "MOVIE");
+    const totalMins = eps * dur;
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    const totalDurText = h ? `${h}h ${m}m` : `${m}m`;
+    
+    const entry: WatchOrderEntryV2 = {
+      id: movieEntry.id,
+      malId: movieEntry.malId,
+      anilistId: movieEntry.anilistId,
+      title: movieEntry.title,
+      format: "MOVIE" as any,
+      type: "MOVIE" as any,
+      tier: "essential",
+      tierReason: "Standalone movie",
+      episodeCount: eps,
+      releasedEpisodeCount: eps,
+      durationMinutes: dur,
+      timeEstimate: `${dur}m`,
+      year: movieEntry.year,
+      position: 1,
+      groupPosition: 1,
+      prerequisites: [],
+      unlocks: [],
+      contentTags: [],
+      isFiller: false,
+      fillerType: "none" as any,
+      whyWatch: `${movieEntry.title} is a standalone movie. No prequels or sequels required.`,
+      watchIf: [],
+      imageUrl: root.coverImage?.large || "",
+      coverImage: root.coverImage,
+      malScore: root.averageScore ? root.averageScore / 10 : undefined,
+      anilistScore: root.averageScore ? root.averageScore / 10 : undefined,
+      synopsis: root.description?.replace(/<[^>]*>/g, "").slice(0, 300),
+      status: root.status,
+      watched: false,
+      progress: 0,
+    } as any;
+
+    const group: WatchOrderGroup = {
+      id: "movie_group",
+      name: movieEntry.title,
+      description: "Standalone movie",
+      timelineType: "main_timeline" as any,
+      entries: [entry],
+      totalEntries: 1,
+      totalEpisodes: eps,
+      totalTime: totalDurText,
+      isCollapsedByDefault: false,
+      isSpoiler: false,
+      bestFor: [],
+    } as any;
+    
+    const path: WatchOrderPathV2 = {
+      id: "path_movie",
+      name: "Movie",
+      description: "Standalone viewing",
+      groups: [group],
+      totalEntries: 1,
+      totalEpisodes: eps,
+      totalTime: totalDurText,
+      totalTimeMinutes: totalMins,
+      bestFor: ["Movie fans"],
+      difficulty: "beginner" as any,
+      isSpoilerFree: true,
+      isRecommended: true,
+      warnings: [],
+    } as any;
+    
+    const result: WatchOrderResultV2 = {
+      franchise: movieEntry.title,
+      franchiseId: `fr_${movieEntry.anilistId}`,
+      franchiseImage: root.coverImage?.large,
+      classification: "single_core" as any,
+      classificationReason: "Standalone movie with no complex franchise relations.",
+      summary: `${movieEntry.title} is a standalone movie.`,
+      whyConfusing: "Not confusing, just watch the movie.",
+      recommendedPathId: "path_movie",
+      paths: [path],
+      totalGroups: 1,
+      totalEntries: 1,
+      totalEpisodes: eps,
+      totalDuration: totalDurText,
+      totalDurationMinutes: totalMins,
+      allEntriesFlat: [entry],
+      graphStats: { totalNodesDiscovered: allowedTitles.length, totalNodesUsed: 1, sources: ["anilist"] as any, maxDepthTraversed: 0 },
+      generatedAt: new Date().toISOString(),
+      aiProvider: "movie-short-circuit",
+      confidence: 100,
+      warnings,
+      debug: { classification: { shape: "single_core" as any, confidence: 100, reasoning: "movie", signals: {} as any }, allowedTitlesCount: 1, validationAttempts: 1 },
+    } as any;
+
+    return {
+      result,
+      provider: "movie-short-circuit",
+      latency: Date.now() - start,
+      debug: { graphSize: allowedTitles.length, classification: result.debug!.classification as any, validation: { isValid: true, errors: [], warnings: [], fixedEntries: 0, droppedEntries: [] }, warnings },
+    };
+  }
 
   const classification = classifyAnimeShape(graph, allowedTitles as any, root.title);
   const groupTemplates = getGroupTemplateForShape(classification.shape, graph as any);
@@ -327,10 +420,67 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
   });
 
   const prompt = buildPromptForShape(classification.shape, payload);
-  const aiResponse = await callAIWithFallback(prompt, 2);
-  let aiData: AIGeneratedOrderV2;
-  try { aiData = cleanAndParseJSON(aiResponse.content); }
-  catch (e) { console.error("AI parse failed", aiResponse.content.slice(0, 1000)); throw new Error("AI returned invalid JSON"); }
+  
+  // FIXED: Safe AI execution with scoped variables and deterministic fallback
+  let aiData: AIGeneratedOrderV2 | null = null;
+  let aiProviderName = "deterministic-fallback";
+
+  try {
+    const aiResponse = await callAIWithFallback(prompt, 2);
+    aiProviderName = aiResponse.provider;
+    aiData = cleanAndParseJSON(aiResponse.content);
+  } catch (aiError) {
+    console.error("AI generation failed, using deterministic fallback:", aiError);
+    warnings.push("AI generation failed. Falling back to deterministic graph order.");
+  }
+
+  if (!aiData) {
+    const det = buildDeterministicPaths(
+      root as any,
+      allowedTitles as any,
+      graph as any,
+      classification.shape,
+      whyConfusing
+    );
+    
+    let fallbackPaths = markAiringStatuses(det, graph as any);
+    fallbackPaths = applyFiltersToPaths(fallbackPaths, params.preferences);
+    fallbackPaths = applyPathPreference(fallbackPaths, params.preferences.preferredPath, params.preferences.mood);
+    
+    const allFlat = fallbackPaths.flatMap((p: any) => p.groups.flatMap((g: any) => g.entries));
+    const { text: totalText, minutes: totalMins } = calcDuration(allFlat as any);
+    
+    const fallbackResult: WatchOrderResultV2 = {
+      franchise: root.title,
+      franchiseId: `fr_${(root as any).anilistId || (root as any).malId || Date.now()}`,
+      franchiseImage: (root as any).coverImage?.large,
+      classification: classification.shape,
+      classificationReason: "Deterministic fallback due to AI unavailability.",
+      summary: `Complete watch order for ${root.title}`,
+      whyConfusing: whyConfusing, 
+      recommendedPathId: fallbackPaths[0]?.id || "path_main",
+      paths: fallbackPaths as any,
+      totalGroups: fallbackPaths.reduce((s: number, p: any) => s + p.groups.length, 0),
+      totalEntries: allFlat.length,
+      totalEpisodes: allFlat.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
+      totalDuration: totalText,
+      totalDurationMinutes: totalMins,
+      allEntriesFlat: allFlat as any,
+      graphStats: { totalNodesDiscovered: (graph as any).totalDiscovered, totalNodesUsed: allowedTitles.length, sources: ["anilist"] as any, maxDepthTraversed: (graph as any).maxDepth },
+      generatedAt: new Date().toISOString(),
+      aiProvider: "deterministic-fallback",
+      confidence: 50,
+      warnings,
+      debug: { classification, allowedTitlesCount: allowedTitles.length, validationAttempts: 0 },
+    } as any;
+
+    return { 
+      result: fallbackResult, 
+      provider: "deterministic-fallback", 
+      latency: Date.now() - start, 
+      debug: { graphSize: graph.nodes.size, classification, validation: { isValid: true, errors: [], warnings: [], fixedEntries: 0, droppedEntries: [] }, warnings } 
+    };
+  }
 
   const validation = validateAndFixAIResponse(aiData, allowedTitles as any, graph as any);
   warnings.push(...validation.warnings);
@@ -350,7 +500,7 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     p.groups.some((g) => g.timelineType === "main_timeline" && g.entries.length > 0)
   );
   const enoughEntries = enrichedPaths.some(
-    (p) => p.totalEntries >= Math.max(3, Math.floor(allowedTitles.length * 0.4))
+    (p) => p.totalEntries >= Math.max(3, Math.floor(allowedTitles.length * 0.5))
   );
   const rootPresent = rootId
     ? enrichedPaths.some((p) =>
@@ -404,20 +554,19 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     paths: filteredPaths as any,
     totalGroups: filteredPaths.reduce((s: number, p: any) => s + p.groups.length, 0),
     totalEntries: allFlat.length,
-    // GROUNDED SUM OF RELEASED WATCHABLE EPISODES ONLY
     totalEpisodes: allFlat.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
     totalDuration: totalText,
     totalDurationMinutes: totalMins,
     allEntriesFlat: allFlat as any,
     graphStats: { totalNodesDiscovered: (graph as any).totalDiscovered, totalNodesUsed: allowedTitles.length, sources: ["anilist", "jikan"] as any, maxDepthTraversed: (graph as any).maxDepth },
     generatedAt: new Date().toISOString(),
-    aiProvider: aiResponse.provider,
+    aiProvider: aiProviderName,
     confidence: (aiData as any).confidence || classification.confidence,
     warnings: [...((aiData as any).warnings || []), ...warnings],
     debug: { classification, allowedTitlesCount: allowedTitles.length, validationAttempts: 1 },
   } as any;
 
-  return { result, provider: aiResponse.provider, latency: Date.now() - start, debug: { graphSize: graph.nodes.size, classification, validation, warnings } };
+  return { result, provider: aiProviderName, latency: Date.now() - start, debug: { graphSize: graph.nodes.size, classification, validation, warnings } };
 }
 
 function buildWhyConfusing(shape: any, title: string, graph: RelationGraph): string {
@@ -435,31 +584,54 @@ function validateAndFixAIResponse(aiData: AIGeneratedOrderV2, allowedTitles: All
   const errors: string[] = []; const warnings: string[] = []; let fixed = 0; const dropped: string[] = [];
   const allowedIds = new Set(allowedTitles.map(t => t.id));
   const allowedAnilistIds = new Set(allowedTitles.map(t => String(t.anilistId)));
+  const seenIds = new Set<string>();
+
   for (const path of (aiData as any).paths || []) {
     for (const group of path.groups || []) {
       const valid: any[] = [];
       for (const entry of (group as any).entries || []) {
         const idStr = String(entry.id);
-        if (isMangaTitle(idStr)) { errors.push(`Dropped manga ${idStr}`); dropped.push(idStr); continue; }
+        if (seenIds.has(idStr)) {
+          errors.push("Dropped duplicate " + idStr);
+          dropped.push(idStr);
+          continue;
+        }
+        if (isMangaTitle(idStr)) { errors.push("Dropped manga " + idStr); dropped.push(idStr); continue; }
         const titleCheck = (entry as any).title || "";
-        if (isMangaTitle(titleCheck)) { errors.push(`Dropped manga title ${titleCheck}`); dropped.push(idStr); continue; }
-        if (allowedIds.has(idStr) || allowedAnilistIds.has(idStr) || idStr.startsWith("ani_")) {
+        if (isMangaTitle(titleCheck)) { errors.push("Dropped manga title " + titleCheck); dropped.push(idStr); continue; }
+        
+        if (allowedIds.has(idStr) || allowedAnilistIds.has(idStr)) {
           const found = findAllowedTitleById(allowedTitles, entry.id);
-          if (found) { entry.id = found.id; valid.push(entry); }
-          else if (allowedIds.has(idStr)) { valid.push(entry); }
-          else {
+          if (found) { 
+            entry.id = found.id; 
+            seenIds.add(idStr);
+            valid.push(entry); 
+          } else if (allowedIds.has(idStr)) { 
+            seenIds.add(idStr);
+            valid.push(entry); 
+          } else {
             const fuzzy = findAllowedTitleByFuzzy(allowedTitles, (entry as any).title || "");
-            if (fuzzy) { warnings.push(`Fixed ${entry.id} -> ${fuzzy.id}`); entry.id = fuzzy.id; valid.push(entry); fixed++; }
-            else { errors.push(`Dropped unallowed ${entry.id}`); dropped.push(idStr); }
+            if (fuzzy) { 
+              warnings.push("Fixed " + entry.id + " -> " + fuzzy.id); 
+              entry.id = fuzzy.id; 
+              seenIds.add(fuzzy.id);
+              valid.push(entry); 
+              fixed++; 
+            } else { errors.push("Dropped unallowed " + entry.id); dropped.push(idStr); }
           }
         } else {
           const fuzzy = findAllowedTitleByFuzzy(allowedTitles, (entry as any).title || "");
-          if (fuzzy) { warnings.push(`Rescued "${(entry as any).title}" ${entry.id} -> ${fuzzy.id}`); entry.id = fuzzy.id; valid.push(entry); fixed++; }
-          else { errors.push(`Dropped hallucinated ${entry.id}`); dropped.push(idStr); }
+          if (fuzzy) { 
+            warnings.push("Rescued \"" + (entry as any).title + "\" " + entry.id + " -> " + fuzzy.id); 
+            entry.id = fuzzy.id; 
+            seenIds.add(fuzzy.id);
+            valid.push(entry); 
+            fixed++; 
+          } else { errors.push("Dropped hallucinated " + entry.id); dropped.push(idStr); }
         }
       }
       (group as any).entries = valid;
-      if (valid.length === 0) warnings.push(`Group ${group.id} empty after validation`);
+      if (valid.length === 0) warnings.push("Group " + group.id + " empty after validation");
     }
   }
   return { isValid: errors.length === 0 || fixed > 0, errors, warnings, fixedEntries: fixed, droppedEntries: dropped };
@@ -480,12 +652,11 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         
         let episodes = node?.episodes || (allowed as any)?.episodes || 12;
 
-        // MULTI-TIER MATH SEGMENTATION GUARDS
         let rangeStr = entry.episodeRange;
         if (!rangeStr) {
           const titleMatch = (entry.title || "").match(/Eps?\s*(\d+)\s*-\s*(\d+)/i);
           if (titleMatch) {
-            rangeStr = `${titleMatch[1]}-${titleMatch[2]}`;
+            rangeStr = titleMatch[1] + "-" + titleMatch[2];
           }
         }
 
@@ -502,11 +673,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           episodes = entry.episodeCount;
         }
 
-        // AIRING PROGRESS CALCULATION HUB
         let rawStatus = (node?.status || allowed?.status || "").toUpperCase();
-        
-        // DYNAMIC HALLUCINATION OMISSION FILTER
-        // If the AI generated a continuation/sequel that maps back to the same original finished ID
         const cleanTitle = (entry.title || "").toLowerCase();
         if (cleanTitle.includes("upcoming") || cleanTitle.includes("announced") || cleanTitle.includes("edgerunners 2") || cleanTitle.includes("season 2") || cleanTitle.includes("continuation")) {
           rawStatus = "NOT_YET_RELEASED";
@@ -515,7 +682,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         let releasedEpisodes = episodes;
 
         if (rawStatus === "NOT_YET_RELEASED") {
-          releasedEpisodes = 0; // Upcoming show has exactly 0 released episodes
+          releasedEpisodes = 0;
         } else if (rawStatus === "RELEASING") {
           const nextAiring = (node as any)?.nextAiringEpisode?.episode;
           if (nextAiring) {
@@ -529,9 +696,9 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         const cover = node?.coverImage;
         const trailer = node?.trailer;
         let trailerUrl: string | null = null;
-        if (trailer?.site?.toLowerCase() === "youtube" && trailer?.id) trailerUrl = `https://www.youtube.com/watch?v=${trailer.id}`;
+        if (trailer?.site?.toLowerCase() === "youtube" && trailer?.id) trailerUrl = "https://www.youtube.com/watch?v=" + trailer.id;
         
-        const timeEst = format === "MOVIE" ? `${duration}m` : `${episodes} eps × ${duration}m`;
+        const timeEst = format === "MOVIE" ? duration + "m" : episodes + " eps × " + duration + "m";
         const entryImage = entry.imageUrl || cover?.large || cover?.medium || "";
         
         return {
@@ -540,7 +707,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           titleJapanese: node?.titleNative, titleEnglish: allowed?.title, titleRomaji: node?.titleRomaji,
           format, type: format, tier: entry.tier, tierReason: entry.tierReason,
           episodeCount: episodes, 
-          releasedEpisodeCount: releasedEpisodes, // MAPS AIRING PROGRESS
+          releasedEpisodeCount: releasedEpisodes,
           durationMinutes: duration, timeEstimate: timeEst,
           year: (allowed as any)?.year, position: entry.position || idx + 1, groupPosition: entry.groupPosition || idx + 1,
           prerequisites: entry.prerequisites || [], unlocks: [], watchAfter: entry.watchAfter,
@@ -618,7 +785,7 @@ function applyFiltersToPaths(paths: WatchOrderPathV2[], prefs: { includeMovies: 
       ...p,
       groups,
       totalEntries: all.length,
-      totalEpisodes: all.reduce((s: number, x: any) => s + (typeof x.releasedEpisodeCount === "number" ? x.releasedEpisodeCount : x.episodeCount || 0), 0),
+      totalEpisodes: all.reduce((s, e) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0),
       totalTime: text,
       totalTimeMinutes: minutes,
     };
@@ -675,18 +842,15 @@ function markAiringStatuses(paths: WatchOrderPathV2[], graph: RelationGraph): Wa
         const node = e.anilistId ? nodeMap.get(e.anilistId) : null;
         let status = (node?.status || e.status || "").toUpperCase();
         
-        // DYNAMIC HALLUCINATION OMISSION FILTER
-        const cleanTitle = (e.title || "").toLowerCase();
-        if (cleanTitle.includes("upcoming") || cleanTitle.includes("announced") || cleanTitle.includes("edgerunners 2") || cleanTitle.includes("season 2") || cleanTitle.includes("continuation")) {
-          status = "NOT_YET_RELEASED";
-        }
+        // FIX: Removed the hardcoded "season 2" string blacklist. 
+        // It was breaking Jujutsu Kaisen Season 2. Trust AniList's status field.
 
         if (status === "RELEASING" || status === "NOT_YET_RELEASED") {
           return {
             ...e,
             status: status === "RELEASING" ? "Airing" : "Upcoming",
             whyWatch:
-              (e.whyWatch || "") +
+              e.whyWatch +
               (status === "RELEASING"
                 ? " Currently airing — total time will increase as more episodes drop."
                 : " Announced / upcoming — not fully out yet."),
@@ -734,11 +898,10 @@ function buildDeterministicPaths(
     const trailer = node?.trailer;
     let trailerUrl: string | null = null;
     if (trailer?.site?.toLowerCase() === "youtube" && trailer?.id) {
-      trailerUrl = `https://www.youtube.com/watch?v=${trailer.id}`;
+      trailerUrl = "https://www.youtube.com/watch?v=" + trailer.id;
     }
-    const timeEst = format === "MOVIE" ? `${duration}m` : `${episodes} eps × ${duration}m`;
+    const timeEst = format === "MOVIE" ? duration + "m" : episodes + " eps × " + duration + "m";
     
-    // DETERMINISTIC AIRING PROGRESS COHERENCE MAPPING
     const rawStatus = (node?.status || t.status || "").toUpperCase();
     let releasedEpisodes = episodes;
     if (rawStatus === "NOT_YET_RELEASED") {
@@ -772,7 +935,7 @@ function buildDeterministicPaths(
             ? "Side content — watch if you want more of this world"
             : "Low priority / recap-style",
       episodeCount: episodes,
-      releasedEpisodeCount: releasedEpisodes, // MAPS AIRING PROGRESS FOR FALLBACK COHERENCE
+      releasedEpisodeCount: releasedEpisodes,
       durationMinutes: duration,
       timeEstimate: timeEst,
       year: t.year,
@@ -780,11 +943,11 @@ function buildDeterministicPaths(
       groupPosition: idx + 1,
       prerequisites: [],
       unlocks: [],
-      watchAfter: idx > 0 ? `Watch after ${sorted[idx - 1].title}` : undefined,
+      watchAfter: idx > 0 ? "Watch after " + sorted[idx - 1].title : undefined,
       contentTags: [],
       isFiller: tier === "skip",
       fillerType: tier === "skip" ? "recap" : "none",
-      whyWatch: `${t.title}${t.year ? ` (${t.year})` : ""}. ${format}${episodes ? ` · ${episodes} eps` : ""}. Grounded from AniList relation graph.`,
+      whyWatch: t.title + (t.year ? " (" + t.year + ")" : "") + ". " + format + (episodes ? " · " + episodes + " eps" : "") + ". Grounded from AniList relation graph.",
       watchIf: [],
       imageUrl: cover?.large || cover?.medium || "",
       coverImage: cover,
@@ -824,7 +987,7 @@ function buildDeterministicPaths(
       totalTime: mainTime,
       isCollapsedByDefault: false,
       isSpoiler: false,
-      bestFor: ["First time"],
+      bestFor: [],
     } as any,
   ];
 

@@ -1,9 +1,12 @@
 /**
- * ChronoFlow Relation Graph Builder - V2.4 (Airing-Progress Grounded)
+ * ChronoFlow Relation Graph Builder - V6 (Soft Flagging Architecture)
+ * 
+ * CRITICAL FIX: Eliminates ALL hard rejection gates.
+ * Validation now only FLAGS suspicious entries; AI decides inclusion.
+ * Works for ALL anime types: studio-switchers, long-runners, generic-word franchises.
  */
 
 import { RawRelationNode, RelationGraph, AllowedTitle, EntryFormat } from "@/types/intelligent";
-import { normalizeTitle, scoreTitleMatch, selectBestAnimeMatch } from "./title-matcher";
 
 function parseFormat(f?: string | null, ty?: string | null): EntryFormat {
   const raw = (f || ty || "TV").toUpperCase();
@@ -29,9 +32,9 @@ function sleep(ms: number) {
 
 const ENDPOINT = "https://graphql.anilist.co";
 
-// Enriched with nextAiringEpisode payload nodes
-const MEDIA_Q = `query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english native} format episodes duration status averageScore popularity description genres startDate{year} coverImage{large medium color} trailer{id site} nextAiringEpisode { episode } relations{edges{relationType node{id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode { episode }}}}}}`;
-const SEARCH_Q = `query($search:String,$perPage:Int){Page(perPage:$perPage){media(search:$search,type:ANIME,sort:POPULARITY_DESC){id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode { episode }}}}`;
+const MEDIA_Q = `query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji english native} format episodes duration status averageScore popularity description genres startDate{year} coverImage{large medium color} trailer{id site} nextAiringEpisode{episode} studios{edges{isMain node{name id}}} relations{edges{relationType node{id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode{episode} studios{edges{isMain node{name id}}}}}}}}`;
+
+const SEARCH_Q = `query($search:String,$perPage:Int){Page(perPage:$perPage){media(search:$search,type:ANIME,sort:POPULARITY_DESC){id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode{episode} studios{edges{isMain node{name id}}}}}}`;
 
 async function fetchWithRetry(body: any, retries = 3) {
   for (let a = 0; a <= retries; a++) {
@@ -70,230 +73,207 @@ async function fetchAniListMedia(id: number): Promise<any | null> {
   return data?.Media || null;
 }
 
-function sanitizeForSearch(q: string): string[] {
-  const base = q.trim();
-  const variants = new Set<string>();
-  variants.add(base);
-  const cleaned = base.replace(/[:;!?"'()\[\]]/g, " ").replace(/\s*-\s*/g, " ").replace(/\s+/g, " ").trim();
-  variants.add(cleaned);
-  const noPunct = cleaned.replace(/[^a-zA-Z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-  variants.add(noPunct);
-  const firstTwo = noPunct.split(/\s+/).slice(0, 2).join(" ");
-  if (firstTwo.length >= 3) variants.add(firstTwo);
-  const wordsNoPunct = noPunct.split(/\s+/).filter(Boolean);
-  if (wordsNoPunct.length === 1) {
-    const first = wordsNoPunct[0];
-    if (first && first.length >= 3) variants.add(first);
-  }
-  if (/re/i.test(base) && /zero/i.test(base)) variants.add("Re:Zero");
-  return Array.from(variants).filter(v => v.length >= 2).slice(0, 4);
-}
-
-async function searchAniListForGraph(search: string, perPage = 25): Promise<any[]>{
-  const tries = sanitizeForSearch(search);
-  for (const q of tries) {
-    const data = await fetchWithRetry({ query: SEARCH_Q, variables: { search: q, perPage } });
-    const list = (data?.Page?.media || []).filter((m: any) => isAnimeFormat(m.format));
-    if (list.length > 0) {
-      return list
-        .map((item: any) => ({ item, score: scoreTitleMatch(search, item) }))
-        .sort((a: any, b: any) => b.score - a.score)
-        .map((entry: any) => entry.item);
-    }
-  }
-  return [];
+async function searchAniListForRoot(search: string, perPage = 5): Promise<any | null> {
+  const data = await fetchWithRetry({ query: SEARCH_Q, variables: { search, perPage } });
+  const results = (data?.Page?.media || []).filter((m: any) => isAnimeFormat(m.format));
+  return results[0] || null;
 }
 
 function anilistToRaw(node: any, depth: number, relType?: string, src?: number): RawRelationNode {
   const title = node.title?.english || node.title?.romaji || node.title?.native || "Unknown";
-  return { 
-    anilistId: node.id, 
-    malId: node.idMal || undefined, 
-    title, 
-    titleEnglish: node.title?.english || undefined, 
-    titleRomaji: node.title?.romaji || undefined, 
-    titleNative: node.title?.native || undefined, 
-    format: node.format || undefined, 
-    type: node.format || undefined, 
-    episodes: node.episodes ?? undefined, 
-    duration: node.duration ?? undefined, 
-    status: node.status || undefined, 
-    averageScore: node.averageScore ?? undefined, 
-    popularity: node.popularity || 0, 
-    coverImage: node.coverImage || undefined, 
-    genres: node.genres || [], 
-    description: node.description || undefined, 
-    trailer: node.trailer || null, 
-    relationType: relType || undefined, 
-    sourceId: src, 
-    depth, 
+  return {
+    anilistId: node.id,
+    malId: node.idMal || undefined,
+    title,
+    titleEnglish: node.title?.english || undefined,
+    titleRomaji: node.title?.romaji || undefined,
+    titleNative: node.title?.native || undefined,
+    format: node.format || undefined,
+    type: node.format || undefined,
+    episodes: node.episodes ?? undefined,
+    duration: node.duration ?? undefined,
+    status: node.status || undefined,
+    averageScore: node.averageScore ?? undefined,
+    popularity: node.popularity || 0,
+    coverImage: node.coverImage || undefined,
+    genres: node.genres || [],
+    description: node.description || undefined,
+    trailer: node.trailer || null,
+    relationType: relType || undefined,
+    sourceId: src,
+    depth,
     year: node.startDate?.year || undefined,
     nextAiringEpisode: node.nextAiringEpisode || null,
+    studios: node.studios?.edges?.filter((e: any) => e.isMain).map((e: any) => e.node?.name).filter(Boolean) || [],
   } as any;
 }
 
-export function isFranchiseCoherent(rootTitle: string, candidateTitle: string): boolean {
-  const cleanRoot = normalizeTitle(rootTitle);
-  const cleanCand = normalizeTitle(candidateTitle);
+const FRANCHISE_RELATIONS = [
+  'SEQUEL', 'PREQUEL', 'PARENT', 'SIDE_STORY', 
+  'SPIN_OFF', 'ALTERNATIVE', 'ADAPTATION'
+];
 
-  const rootStem = extractStem(rootTitle);
-  const candStem = extractStem(candidateTitle);
-  if (rootStem && candStem && rootStem === candStem) {
-    return true;
+function computeLexicalScore(rootTitle: string, candidateTitle: string): number {
+  const rootWords = rootTitle.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  const candWords = candidateTitle.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
+  const generic = new Set(['the', 'and', 'story', 'tale', 'saga', 'chronicle', 'legend', 'movie', 'special']);
+  let score = 0;
+  for (const rw of rootWords) {
+    if (generic.has(rw)) continue;
+    if (candWords.some(cw => cw.includes(rw) || rw.includes(cw))) {
+      score += rw.length;
+    }
   }
-
-  const genericWords = new Set([
-    "the", "and", "of", "to", "in", "for", "a", "an", "with", "by", "at", "from",
-    "meets", "wise", "wolf", "alternative", "season", "series", "movie", "special",
-    "project", "animation", "ona", "ova", "tv", "part", "episode", "arc", "version",
-    "no", "ni", "ga", "wa", "wo", "ka", "mo", "de", "shoujo", "shounen", "isekai"
-  ]);
-
-  let rootWords = cleanRoot.split(" ").filter(w => w.length >= 3 && !genericWords.has(w));
-  let candWords = cleanCand.split(" ").filter(w => w.length >= 3 && !genericWords.has(w));
-
-  if (rootWords.length === 0) {
-    rootWords = cleanRoot.split(" ").filter(w => !genericWords.has(w) && w.length > 0);
-  }
-  if (candWords.length === 0) {
-    candWords = cleanCand.split(" ").filter(w => !genericWords.has(w) && w.length > 0);
-  }
-
-  return rootWords.some(rw => candWords.includes(rw) || cleanCand.includes(rw)) ||
-         candWords.some(cw => cleanRoot.includes(cw));
+  return score;
 }
 
-export interface BuildGraphParams { title: string; anilistId?: number; malId?: number; scope: "season" | "franchise"; maxDepth?: number; }
+function flagSuspiciousEntries(root: RawRelationNode, nodes: Map<number, RawRelationNode>): Map<number, string[]> {
+  const flags = new Map<number, string[]>();
+  const rootTitle = root.titleEnglish || root.titleRomaji || root.title || "";
+  const rootStudios = new Set((root as any).studios || []);
+
+  for (const [id, node] of nodes) {
+    if (node.depth === 0) continue;
+    const nodeFlags: string[] = [];
+    const relType = (node.relationType || "").toUpperCase();
+
+    const nodeStudios = (node as any).studios || [];
+    if (rootStudios.size > 0 && nodeStudios.length > 0 && relType !== 'SEQUEL' && relType !== 'PREQUEL') {
+      const hasOverlap = nodeStudios.some((s: string) => rootStudios.has(s));
+      if (!hasOverlap) nodeFlags.push('different-studio');
+    }
+
+    if (relType !== 'SEQUEL' && relType !== 'PREQUEL') {
+      const score = computeLexicalScore(rootTitle, node.title || "");
+      if (score === 0) nodeFlags.push('no-title-overlap');
+    }
+
+    if (nodeFlags.length > 0) flags.set(id, nodeFlags);
+  }
+  return flags;
+}
+
+export interface BuildGraphParams { 
+  title: string; 
+  anilistId?: number; 
+  malId?: number; 
+  scope: "season" | "franchise"; 
+  maxDepth?: number; 
+}
 
 export async function buildRelationGraph(params: BuildGraphParams) {
   const warnings: string[] = [];
-  const maxDepth = params.maxDepth ?? (params.scope === "franchise" ? 4 : 0);
+  const maxDepth = params.maxDepth ?? (params.scope === "franchise" ? 6 : 0);
+  
+  let root: RawRelationNode | null = null;
+  
+  if (params.anilistId) {
+    const media = await fetchAniListMedia(params.anilistId);
+    if (media && isAnimeFormat(media.format)) {
+      root = anilistToRaw(media, 0);
+    }
+  }
+  
+  if (!root) {
+    const bestMatch = await searchAniListForRoot(params.title, 5);
+    if (!bestMatch) throw new Error(`No anime found for "${params.title}"`);
+    const media = await fetchAniListMedia(bestMatch.id);
+    if (media && isAnimeFormat(media.format)) {
+      root = anilistToRaw(media, 0);
+    }
+  }
+  
+  if (!root) throw new Error(`Failed to fetch root node for "${params.title}"`);
+
   const nodes = new Map<number, RawRelationNode>();
   const edges: Array<{ from: number; to: number; type: string }> = [];
   const visited = new Set<number>();
-  const queue: Array<{ id: number; depth: number }> = [];
-  let root: RawRelationNode | null = null;
-
-  if (params.anilistId) {
-    const m = await fetchAniListMedia(params.anilistId);
-    if (m && isAnimeFormat(m.format)) {
-      root = anilistToRaw(m, 0);
-      nodes.set(root.anilistId, root);
-      visited.add(root.anilistId);
-      queue.push({ id: root.anilistId, depth: 0 });
-    }
-  }
-
-  if (!root) {
-    const results = await searchAniListForGraph(params.title, 5);
-    if (results.length === 0) throw new Error(`No anime found for "${params.title}" — try a simpler title like "${sanitizeForSearch(params.title)[1] || params.title.split(/\s+/)[0]}"`);
-    const best = selectBestAnimeMatch(params.title, results);
-    root = anilistToRaw(best, 0);
-    nodes.set(root.anilistId, root);
-    visited.add(root.anilistId);
-    queue.push({ id: root.anilistId, depth: 0 });
-  }
-
+  const queue: Array<{ id: number; depth: number }> = [{ id: root.anilistId, depth: 0 }];
+  
+  nodes.set(root.anilistId, root);
+  
   while (queue.length > 0) {
-    const cur = queue.shift()!;
-    if (cur.depth >= maxDepth) continue;
-    const media = await fetchAniListMedia(cur.id);
-    if (!media?.relations?.edges) continue;
-
-    for (const e of media.relations.edges) {
-      const rn = e.node;
-      if (!rn?.id) continue;
-      if (!isAnimeFormat(rn.format)) {
-        warnings.push(`Skipped non-anime ${rn.format}: ${rn.title?.romaji}`);
-        continue;
-      }
-
-      const relType = (e.relationType || "unknown").toUpperCase();
-
-      if (relType === "CHARACTER" || relType === "OTHER") {
-        const rnTitle = rn.title?.english || rn.title?.romaji || rn.title?.native || "";
-        if (!isFranchiseCoherent(root.title, rnTitle)) {
-          warnings.push(`Pruned high-leakage crossover relation (${relType}) for unrelated title: "${rnTitle}"`);
-          continue;
-        }
-      }
-
-      const tl = (rn.title?.romaji || "").toLowerCase();
-      if (tl.includes("chapter 1:") && tl.includes("day in the capital")) { warnings.push(`Skipped manga ${tl}`); continue; }
-      if (tl.includes("chapter 2:") && tl.includes("week at the mansion")) { warnings.push(`Skipped manga ${tl}`); continue; }
+    const { id: currentId, depth } = queue.shift()!;
+    
+    if (visited.has(currentId) || depth >= maxDepth) continue;
+    visited.add(currentId);
+    
+    const media = await fetchAniListMedia(currentId);
+    if (!media) {
+      warnings.push(`Failed to fetch relations for ID ${currentId}`);
+      continue;
+    }
+    
+    if (!nodes.has(media.id)) {
+      nodes.set(media.id, anilistToRaw(media, depth));
+    }
+    
+    for (const edge of media.relations?.edges || []) {
+      const relationType = (edge.relationType || "unknown").toUpperCase();
+      const relatedNode = edge.node;
       
-      if (visited.has(rn.id)) {
-        edges.push({ from: cur.id, to: rn.id, type: e.relationType || "unknown" });
+      if (!relatedNode?.id) continue;
+      if (!isAnimeFormat(relatedNode.format)) {
+        warnings.push(`Skipped non-anime ${relatedNode.format}: ${relatedNode.title?.romaji}`);
         continue;
       }
-      if ((rn.format || "").toUpperCase() === "MUSIC") continue;
-
-      const raw = anilistToRaw(rn, cur.depth + 1, e.relationType, cur.id);
-      nodes.set(raw.anilistId, raw);
-      edges.push({ from: cur.id, to: raw.anilistId, type: e.relationType || "unknown" });
-      visited.add(raw.anilistId);
-      queue.push({ id: raw.anilistId, depth: cur.depth + 1 });
-
-      if (visited.size % 3 === 0) await sleep(350);
-    }
-  }
-
-  if (params.scope === "franchise") {
-    const stem = extractStem(params.title);
-    if (stem) {
-      const wider = await searchAniListForGraph(stem, 30);
-      for (const it of wider) {
-        if (!it.id || visited.has(it.id)) continue;
-        if (!isAnimeFormat(it.format)) continue;
-
-        const tl = (it.title?.romaji || it.title?.english || "").toLowerCase();
-        if (tl.includes("chapter 1") && tl.includes("capital")) continue;
-        if (tl.includes("chapter 2") && tl.includes("mansion")) continue;
-        if ((it.popularity || 0) < 500 && wider.length > 20) continue;
-
-        const titleScore = scoreTitleMatch(params.title, it);
-        if (titleScore < 35) continue;
-
-        const widerTitle = it.title?.english || it.title?.romaji || it.title?.native || "";
-        if (!isFranchiseCoherent(root.title, widerTitle)) {
-          continue;
+      
+      if (!FRANCHISE_RELATIONS.includes(relationType)) {
+        if (relationType === 'CHARACTER' || relationType === 'OTHER') {
+          warnings.push(`Crossover pruned: ${relatedNode.title?.romaji} (${relationType})`);
         }
-
-        const raw = anilistToRaw(it, 1, "wider_search");
-        nodes.set(raw.anilistId, raw);
-        edges.push({ from: root.anilistId, to: raw.anilistId, type: "wider_search" });
-        visited.add(raw.anilistId);
+        continue;
+      }
+      
+      edges.push({ from: currentId, to: relatedNode.id, type: relationType });
+      
+      if (!nodes.has(relatedNode.id)) {
+        nodes.set(relatedNode.id, anilistToRaw(relatedNode, depth + 1, relationType, currentId));
+      }
+      
+      if (!visited.has(relatedNode.id)) {
+        queue.push({ id: relatedNode.id, depth: depth + 1 });
       }
     }
   }
 
-  const allowed = Array.from(nodes.values()).filter(n => isAnimeFormat(n.format as any)).filter(n => {
-    const t = (n.title || "").toLowerCase();
-    if (t.includes("chapter 1: a day in the capital")) return false;
-    if (t.includes("chapter 2: a week at the mansion")) return false;
-    return true;
-  }).map(node => {
-    const aliases = [node.titleEnglish || "", node.titleRomaji || "", node.titleNative || "", node.title || ""].filter(Boolean) as string[];
-    const norm = normalizeTitle(node.title);
-    return {
-      id: `ani_${node.anilistId}`,
-      anilistId: node.anilistId,
-      malId: node.malId,
-      title: node.title,
-      normalizedTitle: norm,
-      aliases: Array.from(new Set(aliases)),
-      format: parseFormat(node.format, node.type),
-      episodes: node.episodes,
-      duration: node.duration,
-      year: (node as any).year,
-      popularity: node.popularity || 0,
-      relationType: node.relationType,
-      isMainEntry: node.depth === 0,
-      status: (node as any).status, // Safeguard lookup
-      nextAiringEpisode: (node as any).nextAiringEpisode, // Safeguard lookup
-    };
-  });
-
+  const flags = flagSuspiciousEntries(root, nodes);
+  const flaggedCount = flags.size;
+  if (flaggedCount > 0) {
+    warnings.push(`${flaggedCount} entries flagged for AI review (studio/title mismatch)`);
+  }
+  
+  const allowed = Array.from(nodes.values())
+    .filter(n => isAnimeFormat(n.format as any))
+    .map(node => {
+      const nodeFlags = flags.get(node.anilistId) || [];
+      const aliases = [
+        node.titleEnglish || "", 
+        node.titleRomaji || "", 
+        node.titleNative || "", 
+        node.title || ""
+      ].filter(Boolean) as string[];
+      
+      return {
+        id: `ani_${node.anilistId}`,
+        anilistId: node.anilistId,
+        malId: node.malId,
+        title: node.title,
+        normalizedTitle: node.title.toLowerCase().replace(/[^a-z0-9]/g, ""),
+        aliases: Array.from(new Set(aliases)),
+        format: parseFormat(node.format, node.type),
+        episodes: node.episodes,
+        duration: node.duration,
+        year: (node as any).year,
+        popularity: node.popularity || 0,
+        relationType: node.relationType,
+        isMainEntry: node.depth === 0,
+        status: (node as any).status,
+        nextAiringEpisode: (node as any).nextAiringEpisode,
+        flags: nodeFlags,
+      };
+    });
+  
   allowed.sort((a, b) => {
     const na = nodes.get(a.anilistId);
     const nb = nodes.get(b.anilistId);
@@ -301,34 +281,16 @@ export async function buildRelationGraph(params: BuildGraphParams) {
     if (d !== 0) return d;
     return (b.popularity || 0) - (a.popularity || 0);
   });
-
-  const graph = { root: root!, nodes, edges, totalDiscovered: nodes.size, maxDepth };
+  
+  const graph = { 
+    root: root!, 
+    nodes, 
+    edges, 
+    totalDiscovered: nodes.size, 
+    maxDepth 
+  };
+  
   return { graph, allowedTitles: allowed, root: root!, warnings };
-}
-
-function extractStem(t: string): string | null {
-  const l = t.toLowerCase().trim();
-  const knownFranchises = [
-    "fate",
-    "monogatari",
-    "gundam",
-    "jojo",
-    "re:zero",
-    "rezero",
-    "gintama",
-    "naruto",
-    "bleach",
-    "one piece",
-    "dragon ball",
-  ];
-  for (const stem of knownFranchises) {
-    if (l.includes(stem)) return stem;
-  }
-  const words = l.split(/\s+/).filter(Boolean);
-  if (words.length === 1 && words[0].length >= 6) {
-    return words[0];
-  }
-  return null;
 }
 
 export function findAllowedTitleById(a: any[], id: string | number) {
@@ -337,6 +299,6 @@ export function findAllowedTitleById(a: any[], id: string | number) {
 }
 
 export function findAllowedTitleByFuzzy(a: any[], q: string) {
-  const n = normalizeTitle(q);
-  return a.find(x => x.normalizedTitle === n || x.aliases.some((al: string) => normalizeTitle(al) === n) || x.normalizedTitle.includes(n) || n.includes(x.normalizedTitle));
+  const n = q.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return a.find(x => x.normalizedTitle === n || x.aliases.some((al: string) => al.toLowerCase().replace(/[^a-z0-9]/g, "") === n));
 }

@@ -1,14 +1,15 @@
-import { Sparkles } from "lucide-react";
+import { Clock } from "lucide-react";
 import { CinematicHero } from "@/components/CinematicHero";
 import { InteractiveSearch } from "@/components/InteractiveSearch";
 import { TopBanner } from "@/components/TopBanner";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export const dynamic = "force-dynamic";
 
 export default function Page() {
   return (
     <main className="min-h-dvh relative flex flex-col">
-      {/* Dimissible Brand Marquee Banner */}
+      {/* Dismissible Brand Marquee Banner */}
       <TopBanner />
 
       <header className="sticky top-0 z-50 border-b border-chrono-border/20 bg-background/70 backdrop-blur-xl">
@@ -18,7 +19,7 @@ export default function Page() {
               className="w-9 h-9 rounded-xl bg-gradient-to-br from-chrono-primary to-fuchsia-600 flex items-center justify-center shadow-lg shadow-chrono-primary/25"
               aria-hidden="true"
             >
-              <Sparkles className="w-4 h-4 text-white" />
+              <Clock className="w-4 h-4 text-white" />
             </div>
             <div>
               <span className="font-extrabold text-sm tracking-tight text-white block leading-none">
@@ -55,8 +56,10 @@ export default function Page() {
 
       {/* Primary Experience Container */}
       <section className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-12">
-        <CinematicHero />
-        <InteractiveSearch />
+        <ErrorBoundary>
+          <CinematicHero />
+          <InteractiveSearch />
+        </ErrorBoundary>
       </section>
 
       {/* Fully Informative Footer System */}

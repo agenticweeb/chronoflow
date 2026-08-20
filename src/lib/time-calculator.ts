@@ -1,10 +1,5 @@
 /**
- * Time-Budget & Episode-Pace Calculator - Rebuilt V2.4
- * Order never changes here — only finish dates from daily pace or custom schedules.
- * Finish dates use local noon + ceil(days) to avoid off-by-one.
- * 
- * Supports both Duration (Minutes/Day) and strict Episode-Pace (Episodes/Day)
- * converting long movies mathematically to standard episode weights.
+ * Time-Budget & Episode-Pace Calculator - Rebuilt V2.4 (UX Fix)
  */
 
 import { CustomSchedule } from "@/types";
@@ -24,9 +19,9 @@ export interface PaceEstimate {
   minutesPerDay: number;
   duration: string;
   durationShort: string;
-  finishDate: string; // YYYY-MM-DD local
+  finishDate: string;
   daysCeil: number;
-  relativeLabel: string; // "in 1w 2d"
+  relativeLabel: string;
 }
 
 export interface TimeBudgetResult {
@@ -51,20 +46,10 @@ export const PACES = [
 
 export type PaceLabel = (typeof PACES)[number]["label"] | "Custom" | "Episodes";
 
-/** Map UserPreferences.timeBudget → pace label */
-export function paceFromTimeBudget(
-  budget?: string | null
-): PaceLabel {
+export function paceFromTimeBudget(budget?: string | null): PaceLabel {
   const map: Record<string, PaceLabel> = {
-    casual: "Casual",
-    regular: "Regular",
-    dedicated: "Dedicated",
-    binge: "Binge",
-    // legacy
-    "1hour": "Casual",
-    "3hours": "Regular",
-    "1day": "Dedicated",
-    "1week": "Dedicated",
+    casual: "Casual", regular: "Regular", dedicated: "Dedicated", binge: "Binge",
+    "1hour": "Casual", "3hours": "Regular", "1day": "Dedicated", "1week": "Dedicated",
   };
   return map[budget || "regular"] || "Regular";
 }
@@ -79,65 +64,34 @@ function formatHM(minutes: number): string {
 }
 
 function formatDurationFromDays(fractionalDays: number): { full: string; short: string } {
-  if (!Number.isFinite(fractionalDays) || fractionalDays < 0) {
-    return { full: "—", short: "—" };
+  if (!Number.isFinite(fractionalDays) || fractionalDays < 0) return { full: "—", short: "—" };
+  if (fractionalDays === 0) return { full: "0 minutes", short: "0m" };
+  
+  // UX FIX: If it takes less than a day at the selected pace, say "Today" to avoid confusing hour math
+  if (fractionalDays < 1.0) {
+    return { full: "Today", short: "Today" };
   }
-  if (fractionalDays === 0) {
-    return { full: "0 minutes", short: "0m" };
-  }
-  if (fractionalDays < 1) {
-    const hours = Math.max(1, Math.ceil(fractionalDays * 24));
-    return {
-      full: `${hours} hour${hours === 1 ? "" : "s"}`,
-      short: `${hours}h`,
-    };
-  }
+  
   const d = Math.ceil(fractionalDays);
-  if (d < 7) {
-    return { full: `${d} day${d === 1 ? "" : "s"}`, short: `${d}d` };
-  }
+  if (d < 7) return { full: `${d} day${d === 1 ? "" : "s"}`, short: `${d}d` };
   if (d < 30) {
     const weeks = Math.floor(d / 7);
     const remaining = d % 7;
-    if (remaining === 0) {
-      return {
-        full: `${weeks} week${weeks === 1 ? "" : "s"}`,
-        short: `${weeks}w`,
-      };
-    }
-    return {
-      full: `${weeks} week${weeks === 1 ? "" : "s"} ${remaining} day${remaining === 1 ? "" : "s"}`,
-      short: `${weeks}w ${remaining}d`,
-    };
+    if (remaining === 0) return { full: `${weeks} week${weeks === 1 ? "" : "s"}`, short: `${weeks}w` };
+    return { full: `${weeks} week${weeks === 1 ? "" : "s"} ${remaining} day${remaining === 1 ? "" : "s"}`, short: `${weeks}w ${remaining}d` };
   }
   if (d < 365) {
     const months = Math.floor(d / 30);
     const remaining = d % 30;
     const weeks = Math.floor(remaining / 7);
-    if (weeks === 0) {
-      return {
-        full: `${months} month${months === 1 ? "" : "s"}`,
-        short: `${months}mo`,
-      };
-    }
-    return {
-      full: `${months} month${months === 1 ? "" : "s"} ${weeks} week${weeks === 1 ? "" : "s"}`,
-      short: `${months}mo ${weeks}w`,
-    };
+    if (weeks === 0) return { full: `${months} month${months === 1 ? "" : "s"}`, short: `${months}mo` };
+    return { full: `${months} month${months === 1 ? "" : "s"} ${weeks} week${weeks === 1 ? "" : "s"}`, short: `${months}mo ${weeks}w` };
   }
   const years = Math.floor(d / 365);
   const remaining = d % 365;
   const months = Math.floor(remaining / 30);
-  if (months === 0) {
-    return {
-      full: `${years} year${years === 1 ? "" : "s"}`,
-      short: `${years}y`,
-    };
-  }
-  return {
-    full: `${years} year${years === 1 ? "" : "s"} ${months} month${months === 1 ? "" : "s"}`,
-    short: `${years}y ${months}mo`,
-  };
+  if (months === 0) return { full: `${years} year${years === 1 ? "" : "s"}`, short: `${years}y` };
+  return { full: `${years} year${years === 1 ? "" : "s"} ${months} month${months === 1 ? "" : "s"}`, short: `${years}y ${months}mo` };
 }
 
 function localNoon(d: Date): Date {
@@ -165,10 +119,6 @@ function isSavingsTier(tier: SkipTier): boolean {
   return tier === "skip";
 }
 
-/**
- * Mathematically steps through calendar days to calculate the exact finish date
- * taking into account the user's specific weekly availability hours.
- */
 function calculateCustomScheduleFinish(
   watchableMinutes: number,
   startDate: Date,
@@ -187,9 +137,7 @@ function calculateCustomScheduleFinish(
       const [startH, startM] = daily.startTime.split(":").map(Number);
       const [endH, endM] = daily.endTime.split(":").map(Number);
       const totalMins = (endH * 60 + endM) - (startH * 60 + startM);
-      if (totalMins > 0) {
-        activeMinutesPerWeek += totalMins;
-      }
+      if (totalMins > 0) activeMinutesPerWeek += totalMins;
     }
   });
 
@@ -204,9 +152,7 @@ function calculateCustomScheduleFinish(
       const [startH, startM] = daily.startTime.split(":").map(Number);
       const [endH, endM] = daily.endTime.split(":").map(Number);
       const minsAvailable = (endH * 60 + endM) - (startH * 60 + startM);
-      if (minsAvailable > 0) {
-        remainingMinutes -= minsAvailable;
-      }
+      if (minsAvailable > 0) remainingMinutes -= minsAvailable;
     }
 
     if (remainingMinutes > 0) {
@@ -239,8 +185,6 @@ export function calculateTimeBudget(
   let totalEpisodes = 0;
   let skippedMinutes = options?.preSkippedMinutes || 0;
   let skippedEpisodes = options?.preSkippedEpisodes || 0;
-
-  // Track episode-based weighted lengths to avoid movie bloats
   let watchableWeightedEpisodes = 0;
 
   for (const e of entries) {
@@ -256,8 +200,6 @@ export function calculateTimeBudget(
       skippedMinutes += m;
       skippedEpisodes += e.episodes;
     } else {
-      // DYNAMIC MOVIE WEIGHTING SAFETY GATE:
-      // If duration per episode > 40 minutes (Movies/Large OVAs), calculate equivalents
       if (e.durationMin > 40) {
         const equivalentEps = Math.max(1, Math.ceil(e.durationMin / 24)) * e.episodes;
         watchableWeightedEpisodes += equivalentEps;
@@ -273,7 +215,6 @@ export function calculateTimeBudget(
 
   const noonStart = localNoon(startDate);
 
-  // Default Standard Paces
   const paces: PaceEstimate[] = PACES.map((p) => {
     const fractional = watchableMinutes / p.minutesPerDay;
     const daysCeil = watchableMinutes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
@@ -291,7 +232,6 @@ export function calculateTimeBudget(
     };
   });
 
-  // Calculate Episode-Based Pace
   if (options?.paceType === "episodes" && options.episodesPerDay && options.episodesPerDay > 0) {
     const fractional = watchableWeightedEpisodes / options.episodesPerDay;
     const daysCeil = watchableWeightedEpisodes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
@@ -301,7 +241,7 @@ export function calculateTimeBudget(
 
     paces.unshift({
       label: "Episodes",
-      minutesPerDay: options.episodesPerDay, // Represented as episodes/day in UI rendering
+      minutesPerDay: options.episodesPerDay,
       duration: full,
       durationShort: short,
       finishDate: formatLocalYMD(finish),
@@ -310,7 +250,6 @@ export function calculateTimeBudget(
     });
   }
 
-  // Calculate Custom Schedule if active and valid
   if (options?.customSchedule?.enabled) {
     const customEst = calculateCustomScheduleFinish(watchableMinutes, startDate, options.customSchedule);
     if (customEst.activeMinutesPerWeek > 0) {

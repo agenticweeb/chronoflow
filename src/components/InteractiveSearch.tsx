@@ -10,6 +10,7 @@ import React, {
   useRef, 
   useMemo 
 } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Clock,
@@ -37,6 +38,7 @@ import { VisualFlowchart } from "@/components/VisualFlowchart";
 import { cn } from "@/lib/utils";
 import type { AnimeSearchResult, UserPreferences } from "@/types";
 import type { WatchOrderResultV2, CustomSchedule } from "@/types/intelligent";
+import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "regular",
@@ -91,9 +93,11 @@ export function InteractiveSearch() {
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [results, setResults] = useState<AnimeSearchResult[]>([]);
-  const [searching, startSearch] = useTransition();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [selectedId, setSelectedId] = useQueryState('id', parseAsInteger.withDefault(null));
+
+  const safeQuery = String(deferredQuery || "");
 
   // Generator States
   const [selected, setSelected] = useState<AnimeSearchResult | null>(null);
@@ -106,18 +110,17 @@ export function InteractiveSearch() {
   const [error, setError] = useState<string | null>(null);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
-  // Discover Filters State (Multi-genre array instead of single string)
+  // Discover Filters State
   const [discoverLayout, setDiscoverLayout] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"popularity" | "score" | "title" | "underrated">("popularity");
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]); // Multi-select array
-  const [minRating, setMinRating] = useState<number>(0); // Star value selector (0 to 10)
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [minRating, setMinRating] = useState<number>(0);
   const [selectedYear, setSelectedYear] = useState<string>("All");
-  const [selectedLang, setSelectedYearLang] = useState<string>("All"); // Language matrix
-  const [showFilters, setShowFilters] = useState(true); // Default open
+  const [selectedLang, setSelectedYearLang] = useState<string>("All");
+  const [showFilters, setShowFilters] = useState(true);
 
   // Discover Results Streaming States
   const [discoverList, setDiscoverList] = useState<AnimeSearchResult[]>([]);
-  const [discoverLoading, startDiscoverQuery] = useTransition();
 
   // Feedback State
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -139,46 +142,51 @@ export function InteractiveSearch() {
     return () => clearInterval(interval);
   }, [generating]);
 
-  // Query database dynamically as user types
+  // Query database dynamically as user types using TanStack Query
+  const { data: searchData, isFetching: isSearching } = useQuery({
+    queryKey: ['search', safeQuery],
+    queryFn: () => searchAnimeAction(safeQuery.trim()),
+    enabled: safeQuery.trim().length >= 3, 
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
+  });
+
   useEffect(() => {
-    if (deferredQuery.trim().length < 2) {
+    if (searchData && searchData.success) {
+      setResults(searchData.data);
+      setDropdownOpen(true);
+      setHighlight(0);
+    } else if (searchData && !searchData.success) {
       setResults([]);
-      return;
     }
-    startSearch(async () => {
-      const res = await searchAnimeAction(deferredQuery.trim());
-      if (res.success) {
-        setResults(res.data);
-        setDropdownOpen(true);
-        setHighlight(0);
-      } else {
-        setResults([]);
-      }
-    });
-  }, [deferredQuery]);
+  }, [searchData]);
 
   // DYNAMIC COMPILATION STREAMING: Query AniList based on Discover filters
-  useEffect(() => {
-    if (activeTab !== "discover") return;
+  const { data: discoverData, isFetching: discoverLoading } = useQuery({
+    queryKey: ['discover', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
+    queryFn: () => discoverAnimeAction({
+      genres: selectedGenres,
+      minRating,
+      yearEra: selectedYear,
+      sortBy,
+      language: selectedLang,
+    }),
+    enabled: activeTab === 'discover',
+    staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev, 
+  });
 
-    startDiscoverQuery(async () => {
-      const res = await discoverAnimeAction({
-        genres: selectedGenres,
-        minRating,
-        yearEra: selectedYear,
-        sortBy,
-        language: selectedLang,
-      });
-      if (res.success && res.data) {
-        setDiscoverList(res.data);
-      } else {
-        setDiscoverList([]);
-      }
-    });
-  }, [activeTab, selectedGenres, minRating, selectedYear, sortBy, selectedLang]);
+  useEffect(() => {
+    if (discoverData && discoverData.success && discoverData.data) {
+      setDiscoverList(discoverData.data);
+    } else {
+      setDiscoverList([]);
+    }
+  }, [discoverData]);
 
   const handleSelect = useCallback((anime: AnimeSearchResult) => {
     setSelected(anime);
+    setSelectedId(anime.anilistId || null);
     setQuery("");
     setResults([]);
     setDropdownOpen(false);
@@ -186,10 +194,10 @@ export function InteractiveSearch() {
     setError(null);
     setProvider(null);
     setLatency(null);
-  }, []);
+  }, [setSelectedId]);
 
   const handleSelectSuggestion = useCallback((s: typeof SUGGESTIONS[number] | AnimeSearchResult) => {
-    const item = s as any; // Cast as any to bypass strict union property checking
+    const item = s as any;
     handleSelect({
       malId: item.malId,
       anilistId: item.anilistId,
@@ -233,7 +241,7 @@ export function InteractiveSearch() {
       const delayPromise = new Promise((resolve) => setTimeout(resolve, 3500));
       const [res] = await Promise.all([actionPromise, delayPromise]);
 
-      if (res.success) { // Checked res.success directly for clean type narrowing
+      if (res.success) {
         setFinalData(res.data.dataV2);
         setProvider(res.data.provider);
         setLatency(Date.now() - startTime);
@@ -245,6 +253,7 @@ export function InteractiveSearch() {
 
   const handleReset = useCallback(() => {
     setSelected(null);
+    setSelectedId(null);
     setFinalData(null);
     setQuery("");
     setError(null);
@@ -252,7 +261,7 @@ export function InteractiveSearch() {
     setLatency(null);
     setPreferences(DEFAULT_PREFERENCES);
     inputRef.current?.focus();
-  }, []);
+  }, [setSelectedId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!dropdownOpen || results.length === 0) {
@@ -337,7 +346,7 @@ export function InteractiveSearch() {
                 : "border-transparent text-chrono-text-dim hover:text-chrono-text"
             )}
           >
-            <Sparkles className="w-4 h-4" />
+            <Search className="w-4 h-4" />
             Find Your Path
           </button>
           <button
@@ -378,10 +387,10 @@ export function InteractiveSearch() {
               aria-controls={listboxId}
               className="input-field w-full pl-12 pr-12 py-4 text-base sm:text-lg font-medium shadow-2xl shadow-black/40"
             />
-            {searching && (
+            {isSearching && (
               <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-chrono-primary animate-spin" />
             )}
-            {query && !searching && (
+            {query && !isSearching && (
               <button
                 type="button"
                 onClick={() => { setQuery(""); setResults([]); inputRef.current?.focus(); }}
@@ -642,7 +651,7 @@ export function InteractiveSearch() {
               <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
                 <div className="absolute inset-0 bg-chrono-primary/15 rounded-full animate-ping" />
                 <div className="w-16 h-16 bg-gradient-to-br from-chrono-primary to-chrono-accent rounded-full flex items-center justify-center shadow-lg shadow-chrono-primary/30">
-                  <Sparkles className="w-7 h-7 text-white animate-pulse" />
+                  <Clock className="w-7 h-7 text-white animate-pulse" />
                 </div>
               </div>
 
@@ -707,7 +716,7 @@ export function InteractiveSearch() {
               onClick={handleGenerate}
               className="btn-primary text-base px-8 py-4 shadow-xl shadow-chrono-primary/25 cursor-pointer"
             >
-              <Sparkles className="w-5 h-5" />
+              <Clock className="w-5 h-5" />
               <span>Generate watch order</span>
             </button>
           </div>
@@ -853,7 +862,7 @@ export function InteractiveSearch() {
                   className="input-field text-sm"
                 />
                 <button type="submit" disabled={feedbackSubmitting || !feedbackMsg.trim()} className="btn-primary w-full text-sm py-2.5 cursor-pointer">
-                  {feedbackSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {feedbackSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   Send
                 </button>
               </form>

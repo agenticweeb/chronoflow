@@ -1,6 +1,6 @@
 /**
  * Intelligent Client-Side Cache
- * Uses localStorage with TTL, compression, and LRU eviction
+ * Uses localStorage with TTL, compression, and non-destructive LRU eviction
  * No server needed, zero cost
  */
 
@@ -43,18 +43,24 @@ export class ChronoCache {
     ttl: number = DEFAULT_TTL,
     provider: string = "unknown"
   ): void {
-    try {
-      const entry: CacheEntry<T> = {
-        data,
-        timestamp: Date.now(),
-        ttl,
-        provider,
-      };
+    const entry: CacheEntry<T> = {
+      data,
+      timestamp: Date.now(),
+      ttl,
+      provider,
+    };
 
+    try {
       this.evictIfNeeded();
       localStorage.setItem(this.getKey(key), JSON.stringify(entry));
     } catch (e) {
-      console.warn("Cache write failed (storage full?)", e);
+      console.warn("ChronoCache: Primary write failed. Initiating non-destructive emergency LRU purge of oldest caches...", e);
+      this.emergencyPurge();
+      try {
+        localStorage.setItem(this.getKey(key), JSON.stringify(entry));
+      } catch (retryError) {
+        console.error("ChronoCache: Emergency cache purge insufficient to free local quota.", retryError);
+      }
     }
   }
 
@@ -79,7 +85,7 @@ export class ChronoCache {
     }
 
     if (totalSize > MAX_CACHE_SIZE) {
-      // LRU eviction: remove oldest entries first
+      // LRU eviction: remove oldest entries first, strictly target only chronoflow_ cache keys
       items.sort((a, b) => a.timestamp - b.timestamp);
       let freed = 0;
       for (const item of items) {
@@ -87,6 +93,29 @@ export class ChronoCache {
         localStorage.removeItem(item.key);
         freed += item.size;
       }
+    }
+  }
+
+  private emergencyPurge(): void {
+    if (typeof window === "undefined") return;
+    const items: { key: string; timestamp: number }[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(this.prefix)) {
+        try {
+          const entry = JSON.parse(localStorage.getItem(key) || "{}");
+          items.push({ key, timestamp: entry.timestamp || 0 });
+        } catch {
+          items.push({ key, timestamp: 0 });
+        }
+      }
+    }
+    // Sort oldest first
+    items.sort((a, b) => a.timestamp - b.timestamp);
+    // Purge the oldest 50% of cached watch orders ONLY, strictly protecting user progress notes
+    const countToRemove = Math.ceil(items.length * 0.5);
+    for (let i = 0; i < countToRemove; i++) {
+      localStorage.removeItem(items[i].key);
     }
   }
 
