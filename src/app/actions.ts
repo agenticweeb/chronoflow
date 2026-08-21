@@ -87,7 +87,6 @@ export async function searchAnimeAction(
   try {
     const validatedQuery = SearchSchema.parse(query);
 
-    // 1. Check Redis Cache (1 hour TTL)
     const cacheKey = `search_v2:${validatedQuery.toLowerCase()}`;
     const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
     if (cached) {
@@ -95,7 +94,6 @@ export async function searchAnimeAction(
       return { success: true, data: cached };
     }
 
-    // 2. Fetch ONLY from AniList (Jikan is too slow for autocomplete)
     const anilistResults = await searchAniList(validatedQuery, 8);
     
     if (anilistResults.length === 0) {
@@ -104,11 +102,11 @@ export async function searchAnimeAction(
 
     const list = anilistResults.slice(0, 8);
     
-    // 3. Save to Redis Cache (FIX: Never cache empty arrays)
+    // FIX: Never cache empty arrays
     if (list.length > 0) {
-      await redis.set(cacheKey, list, { ex: 3600 }); // 1 hour TTL
+      await redis.set(cacheKey, list, { ex: 3600 });
     } else {
-      await redis.del(cacheKey); // Clear stale empty cache if it exists
+      await redis.del(cacheKey);
     }
     
     // ANALYTICS: Increment the search term score in a Redis sorted set
@@ -123,94 +121,77 @@ export async function searchAnimeAction(
   }
 }
 
-function getGraphQLType(v: string): string {
-  if (v === "genres") return "[String]";
-  if (v === "scoreGreater" || v === "yearGreater" || v === "yearLesser") return "Int";
-  if (v === "sort") return "[MediaSort]";
-  if (v === "countryOfOrigin") return "CountryCode";
-  return "String";
-}
+// FIX: Use a static, safe GraphQL query instead of dynamic string concatenation
+const DISCOVER_QUERY = `
+  query(
+    $genres: [String],
+    $scoreGreater: Int,
+    $yearGreater: FuzzyDateInt,
+    $yearLesser: FuzzyDateInt,
+    $countryOfOrigin: CountryCode,
+    $sort: [MediaSort]
+  ) {
+    Page(perPage: 25) {
+      media(
+        type: ANIME
+        genre_in: $genres
+        averageScore_greater: $scoreGreater
+        startDate_greater: $yearGreater
+        startDate_lesser: $yearLesser
+        countryOfOrigin: $countryOfOrigin
+        sort: $sort
+      ) {
+        id idMal title { english romaji native } format episodes coverImage { large } averageScore description startDate { year } status popularity
+        relations { edges { relationType } }
+      }
+    }
+  }
+`;
 
-/**
- * Real-time, dynamic compiled AniList Explorer with Language Matrix
- */
 export async function discoverAnimeAction(filters: {
   genres: string[];
   minRating: number;
   yearEra: string;
   sortBy: string;
-  language: string; // JP, US, CN, KR, FR etc
+  language: string;
 }): Promise<SearchActionResult> {
   try {
-    // Cache key for discover based on filters
-    // Cache key for discover based on filters
-    const cacheKey = `discover_v4:${JSON.stringify(filters)}`;
+    const cacheKey = `discover_v5:${JSON.stringify(filters)}`;
     const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
     if (cached) {
       console.log(`✅ Cache HIT for discover filters`);
       return { success: true, data: cached };
     }
 
-    let queryArgs = "type: ANIME";
-    const variables: Record<string, any> = {};
+    const { getEraDates } = await import("@/lib/eras");
+    const eraDates = filters.yearEra !== "All Time" 
+      ? getEraDates(filters.yearEra) 
+      : { startDateGreater: undefined, startDateLesser: undefined };
 
-    // Dynamic Multi-Genre compilation
-    if (filters.genres && filters.genres.length > 0 && !filters.genres.includes("All")) {
-      queryArgs += ", genre_in: $genres";
-      variables.genres = filters.genres;
-    }
+    const variables: Record<string, any> = {
+      genres: filters.genres?.length > 0 && !filters.genres.includes("All") 
+        ? filters.genres 
+        : undefined,
+      scoreGreater: filters.minRating > 0 ? Math.round(filters.minRating * 10) : undefined,
+      yearGreater: eraDates.startDateGreater,
+      yearLesser: eraDates.startDateLesser,
+      countryOfOrigin: filters.language !== "All" ? filters.language : undefined,
+      sort: filters.sortBy === "score" || filters.sortBy === "underrated" 
+        ? ["SCORE_DESC", "POPULARITY_DESC"] 
+        : filters.sortBy === "title" 
+          ? ["TITLE_ROMAJI"] 
+          : ["POPULARITY_DESC"],
+    };
 
-    // Dynamic Rating compilation
-    if (filters.minRating > 0) {
-      queryArgs += ", averageScore_greater: $scoreGreater";
-      variables.scoreGreater = Math.round(filters.minRating * 10);
-    }
-
-    // Dynamic Era compilation (Fixed: Use FuzzyDateInt YYYYMMDD format)
-    if (filters.yearEra && filters.yearEra !== "All Time") {
-      const { getEraDates } = await import("@/lib/eras");
-      const eraDates = getEraDates(filters.yearEra);
-      
-      queryArgs += ", startDate_greater: $yearGreater, startDate_lesser: $yearLesser";
-      variables.yearGreater = eraDates.startDateGreater;
-      variables.yearLesser = eraDates.startDateLesser;
-    }
-
-    // Dynamic Language / Country of origin compilation
-    if (filters.language && filters.language !== "All") {
-      queryArgs += ", countryOfOrigin: $countryOfOrigin";
-      variables.countryOfOrigin = filters.language;
-    }
-
-    // Dynamic Sort compilation
-    queryArgs += ", sort: $sort";
-    if (filters.sortBy === "score" || filters.sortBy === "underrated") {
-      variables.sort = ["SCORE_DESC", "POPULARITY_DESC"];
-    } else if (filters.sortBy === "title") {
-      variables.sort = ["TITLE_ROMAJI"];
-    } else {
-      variables.sort = ["POPULARITY_DESC"];
-    }
-
-    const varSignature = Object.keys(variables)
-      .map((v) => `$${v}: ${getGraphQLType(v)}`)
-      .join(", ");
-
-    const q = `
-      query(${varSignature}) {
-        Page(perPage: 25) {
-          media(${queryArgs}) {
-            id idMal title { english romaji native } format episodes coverImage { large } averageScore description startDate { year } status popularity
-            relations { edges { relationType } }
-          }
-        }
-      }
-    `;
+    // Remove undefined values so AniList doesn't receive nulls
+    const cleanVariables = Object.fromEntries(
+      Object.entries(variables).filter(([, v]) => v !== undefined)
+    );
 
     const res = await fetch("https://graphql.anilist.co", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: q, variables }),
+      body: JSON.stringify({ query: DISCOVER_QUERY, variables: cleanVariables }),
       next: { revalidate: 3600 } as any,
     });
 
@@ -235,7 +216,6 @@ export async function discoverAnimeAction(filters: {
       popularity: item.popularity || 0,
     }));
 
-    // Algorithmic Underrated Gems Sorter (IMDb High Score + Mainstream Popularity Penalty)
     if (filters.sortBy === "underrated") {
       mapped = mapped
         .map((item: any) => {
@@ -246,11 +226,11 @@ export async function discoverAnimeAction(filters: {
         .sort((a: any, b: any) => (b._gemScore || 0) - (a._gemScore || 0));
     }
 
-    // Save discover results to cache (FIX: Never cache empty arrays)
+    // FIX: Never cache empty arrays
     if (mapped.length > 0) {
       await redis.set(cacheKey, mapped, { ex: 3600 });
     } else {
-      await redis.del(cacheKey); // Clear stale empty cache if it exists
+      await redis.del(cacheKey);
     }
 
     return { success: true, data: mapped };
@@ -268,7 +248,6 @@ export async function generateWatchOrderAction(
   try {
     const validated = GenerateWatchOrderSchema.parse(payload);
 
-    // 1. Check Redis Cache for AI Watch Order (7 day TTL)
     const prefHash = JSON.stringify(validated.preferences);
     const cacheKey = `watchorder_v2:${validated.anilistId || validated.animeName}:${validated.scope}:${prefHash}`;
     const cached = await redis.get<{ result: WatchOrderResultV2; provider: string; latency: number }>(cacheKey);
@@ -278,7 +257,6 @@ export async function generateWatchOrderAction(
       return { success: true, data: { dataV2: cached.result, provider: cached.provider, latency: 0, debug: { cached: true } } };
     }
 
-    // 2. Generate if not cached
     const result = await generateIntelligentWatchOrder({
       animeName: validated.animeName,
       anilistId: validated.anilistId,
@@ -300,8 +278,7 @@ export async function generateWatchOrderAction(
       },
     });
 
-    // 3. Save to Redis Cache
-    await redis.set(cacheKey, { result: result.result, provider: result.provider, latency: result.latency }, { ex: 604800 }); // 7 days TTL
+    await redis.set(cacheKey, { result: result.result, provider: result.provider, latency: result.latency }, { ex: 604800 });
 
     return {
       success: true,
