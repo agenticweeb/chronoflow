@@ -141,11 +141,9 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
     }
     return () => clearInterval(interval);
   }, [generating]);
-
   // Query database dynamically as user types using TanStack Query
-  const { data: discoverData, isFetching: discoverLoading } = useQuery({
-    queryKey: ['discover_v4', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
-    // ... rest of query
+  const { data: searchData, isFetching: isSearching } = useQuery({
+    queryKey: ['search', safeQuery],
     queryFn: () => searchAnimeAction(safeQuery.trim()),
     enabled: safeQuery.trim().length >= 3, 
     staleTime: 1000 * 60 * 5,
@@ -165,7 +163,7 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
 
   // DYNAMIC COMPILATION STREAMING: Query AniList based on Discover filters
   const { data: discoverData, isFetching: discoverLoading } = useQuery({
-    queryKey: ['discover', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
+    queryKey: ['discover_v4', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
     queryFn: () => discoverAnimeAction({
       genres: selectedGenres,
       minRating,
