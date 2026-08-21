@@ -104,8 +104,12 @@ export async function searchAnimeAction(
 
     const list = anilistResults.slice(0, 8);
     
-    // 3. Save to Redis Cache
-    await redis.set(cacheKey, list, { ex: 3600 }); // 1 hour TTL
+    // 3. Save to Redis Cache (FIX: Never cache empty arrays)
+    if (list.length > 0) {
+      await redis.set(cacheKey, list, { ex: 3600 }); // 1 hour TTL
+    } else {
+      await redis.del(cacheKey); // Clear stale empty cache if it exists
+    }
     
     // ANALYTICS: Increment the search term score in a Redis sorted set
     await redis.zincrby("analytics:searches", 1, validatedQuery.toLowerCase());
@@ -242,8 +246,12 @@ export async function discoverAnimeAction(filters: {
         .sort((a: any, b: any) => (b._gemScore || 0) - (a._gemScore || 0));
     }
 
-    // Save discover results to cache (1 hour TTL)
-    await redis.set(cacheKey, mapped, { ex: 3600 });
+    // Save discover results to cache (FIX: Never cache empty arrays)
+    if (mapped.length > 0) {
+      await redis.set(cacheKey, mapped, { ex: 3600 });
+    } else {
+      await redis.del(cacheKey); // Clear stale empty cache if it exists
+    }
 
     return { success: true, data: mapped };
   } catch (err) {

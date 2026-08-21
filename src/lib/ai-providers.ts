@@ -183,11 +183,9 @@ export async function callAIWithFallback(
   // 2. Provider Chain (Groq -> Google -> OpenRouter -> GitHub)
   const providers = [
     { name: "groq", model: groq("openai/gpt-oss-120b"), apiKey: process.env.GROQ_API_KEY },
-    // FIX: Updated to gemini-3.5-flash-lite as requested by Google's API
     { name: "google", model: google("gemini-3.5-flash-lite"), apiKey: process.env.GOOGLE_AI_API_KEY },
-    // FIX: Restored OpenRouter (Free Llama 3.3 70B)
-    { name: "openrouter", model: openrouter("meta-llama/llama-3.3-70b-instruct:free"), apiKey: process.env.OPENROUTER_API_KEY },
-    // FIX: Restored GitHub (GPT-4o-mini)
+    // FIX: Switched to stealth/ox-alpha
+    { name: "openrouter", model: openrouter("stealth/ox-alpha"), apiKey: process.env.OPENROUTER_API_KEY },
     { name: "github", model: github("gpt-4o-mini"), apiKey: process.env.GITHUB_MODELS_TOKEN }
   ];
 
