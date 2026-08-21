@@ -55,6 +55,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   episodesPerDay: 2,
 };
 
+// FIX: Use ONLY official AniList genres to prevent 0-result API errors
 const GENRES = [
   "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", 
   "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", 
@@ -87,10 +88,8 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
   const inputRef = useRef<HTMLInputElement>(null);
   const { play } = useAudioCue();
 
-  // Tab State
   const [activeTab, setActiveTab] = useState<"builder" | "discover">("builder");
 
-  // Search Core States
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
   const [results, setResults] = useState<AnimeSearchResult[]>([]);
@@ -100,7 +99,6 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
 
   const safeQuery = String(deferredQuery || "");
 
-  // Generator States
   const [selected, setSelected] = useState<AnimeSearchResult | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [generating, startGenerating] = useTransition();
@@ -110,19 +108,16 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
   const [latency, setLatency] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Discover Filters State
   const [discoverLayout, setDiscoverLayout] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<"popularity" | "score" | "title" | "underrated">("popularity");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<number>(0);
-  const [selectedYear, setSelectedYear] = useState<string>("All");
+  const [selectedYear, setSelectedYear] = useState<string>("All Time");
   const [selectedLang, setSelectedYearLang] = useState<string>("All");
   const [showFilters, setShowFilters] = useState(true);
 
-  // Discover Results Streaming States
   const [discoverList, setDiscoverList] = useState<AnimeSearchResult[]>([]);
 
-  // Feedback State
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion">("suggestion");
   const [feedbackMsg, setFeedbackMsg] = useState("");
@@ -130,7 +125,6 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  // Sync stage steps during generation
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (generating) {
@@ -141,7 +135,8 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
     }
     return () => clearInterval(interval);
   }, [generating]);
-  // Query database dynamically as user types using TanStack Query
+
+  // Search Query
   const { data: searchData, isFetching: isSearching } = useQuery({
     queryKey: ['search', safeQuery],
     queryFn: () => searchAnimeAction(safeQuery.trim()),
@@ -161,9 +156,9 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
     }
   }, [searchData, play]);
 
-  // DYNAMIC COMPILATION STREAMING: Query AniList based on Discover filters
+  // Discover Query
   const { data: discoverData, isFetching: discoverLoading } = useQuery({
-    queryKey: ['discover_v4', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
+    queryKey: ['discover_v5', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
     queryFn: () => discoverAnimeAction({
       genres: selectedGenres,
       minRating,
@@ -477,7 +472,7 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
                 className="overflow-hidden"
               >
                 <div className="glass-card p-6 grid grid-cols-1 md:grid-cols-3 gap-6 rounded-2xl border border-chrono-border/20">
-                  {/* Genre multi-select selector (IMDb style) */}
+                  {/* Genre multi-select selector */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">Genres (Multi-select)</label>
                     <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
@@ -504,7 +499,7 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
                     </div>
                   </div>
 
-                  {/* Discrete Star selector (IMDb style) */}
+                  {/* Minimum Rating */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-[#f1f0f7] uppercase tracking-wider block">Minimum Rating</label>
                     <div className="flex flex-wrap gap-1 max-h-44 overflow-y-auto">
@@ -568,7 +563,7 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
             )}
           </AnimatePresence>
 
-          {/* Dynamic Results Grid (keeps old data visible while loading new) */}
+          {/* Dynamic Results Grid (FIXED: removed nested grids to prevent layout collapse) */}
           <div className={cn(
             discoverLayout === "grid" ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "space-y-2",
             discoverLoading && discoverList.length > 0 && "opacity-50 pointer-events-none transition-opacity duration-200"
@@ -789,7 +784,6 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
                 {tier.anime.map((a) => {
                   const suggestion = initialSuggestions.find(s => s.title === a.title);
                   const imageUrl = suggestion?.imageUrl || "";
-                  // If slug exists, link to static page. Otherwise, link to homepage search.
                   const href = a.slug ? `/watch-order/${a.slug}` : `/?q=${encodeURIComponent(a.title)}`;
                   return (
                     <a
