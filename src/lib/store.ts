@@ -4,6 +4,10 @@ import { UserProgress, EntryProgress } from "@/types";
 
 interface WatchStoreState {
   progressMap: Record<string, UserProgress>;
+  // Audio Settings
+  isAudioEnabled: boolean;
+  toggleAudio: () => void;
+  // Progress Actions
   toggleWatched: (franchiseId: string, entryId: string, episodeCount: number) => void;
   updateProgress: (franchiseId: string, entryId: string, episodesWatched: number, maxEpisodes: number) => void;
   rateEntry: (franchiseId: string, entryId: string, rating: number) => void;
@@ -16,6 +20,10 @@ export const useWatchStore = create<WatchStoreState>()(
     (set, get) => ({
       progressMap: {},
       
+      // Audio Settings Implementation
+      isAudioEnabled: false, // Default to false (browser autoplay policy)
+      toggleAudio: () => set((state) => ({ isAudioEnabled: !state.isAudioEnabled })),
+
       getProgress: (franchiseId) => {
         return get().progressMap[franchiseId] || null;
       },

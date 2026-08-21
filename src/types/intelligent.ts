@@ -204,6 +204,7 @@ export interface WatchOrderResultV2 {
   franchise: string;
   franchiseId: string;
   franchiseImage?: string;
+  franchiseColor?: string;
   classification: AnimeShape;
   classificationReason: string;
 

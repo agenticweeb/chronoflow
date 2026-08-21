@@ -10,7 +10,7 @@ import React, {
   useRef, 
   useMemo 
 } from "react";
-import { useQuery, useQueries } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Clock,
@@ -38,6 +38,9 @@ import { cn } from "@/lib/utils";
 import type { AnimeSearchResult, UserPreferences } from "@/types";
 import type { WatchOrderResultV2, CustomSchedule } from "@/types/intelligent";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
+import { useAudioCue } from "@/hooks/useAudioCue";
+import { SEO_TIERS } from "@/lib/seo/tiers";
+
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "regular",
   mood: ["all"],
@@ -52,30 +55,11 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   episodesPerDay: 2,
 };
 
-const SUGGESTIONS = [
-  { title: "Fate Series", malId: 10087, anilistId: 10087, imageUrl: "/suggestions/fate.jpg", score: 8.3, tag: "Multiverse", desc: "Routes are parallel realities, not sequels.", slug: "fate-series" },
-  { title: "Monogatari Series", malId: 5081, anilistId: 5081, imageUrl: "/suggestions/monogatari.jpeg", score: 8.4, tag: "Non-Linear", desc: "Release vs chronological is a real debate.", slug: "monogatari-series" },
-  { title: "Steins;Gate", malId: 9253, anilistId: 9253, imageUrl: "/suggestions/Steins;Gate.jpeg", score: 9.1, tag: "Time Travel", desc: "Routes are not linear sequels.", slug: "steins-gate" },
-  { title: "JoJo's Bizarre Adventure", malId: 14719, anilistId: 14719, imageUrl: "/suggestions/JoJo's Bizarre Adventure.jpeg", score: 8.2, tag: "Generational", desc: "Each Part shifts art, genre, and protagonist.", slug: "jojo-bizarre-adventure" },
-  { title: "Neon Genesis Evangelion", malId: 30, anilistId: 30, imageUrl: "/suggestions/Neon Genesis Evangelion.jpeg", score: 8.3, tag: "Alt Reality", desc: "TV, End of Eva, and Rebuilds — three endings.", slug: "neon-genesis-evangelion" },
-  { title: "Gundam (Universal Century)", malId: 80, anilistId: 80, imageUrl: "/suggestions/Gundam (Universal Century).jpeg", score: 7.8, tag: "Decades", desc: "40+ years of UC media. Jump carefully.", slug: "gundam-uc" },
-  { title: "One Piece", malId: 21, anilistId: 21, imageUrl: "", score: 9.0, tag: "Long Runner", desc: "1100+ episodes. Skip filler, keep G-8.", slug: "one-piece" },
-  { title: "Naruto", malId: 20, anilistId: 20, imageUrl: "", score: 8.5, tag: "Filler Heavy", desc: "Skip massive multi-season blocks of filler.", slug: "naruto" },
-  { title: "Bleach", malId: 269, anilistId: 269, imageUrl: "", score: 8.2, tag: "Filler Heavy", desc: "Cut away from canonical battles to skip filler.", slug: "bleach" },
-  { title: "Dragon Ball", malId: 223, anilistId: 223, imageUrl: "", score: 8.0, tag: "Decades", desc: "Mix of main stories, non-canon films, and Kai.", slug: "dragon-ball" },
-  { title: "Code Geass", malId: 1575, anilistId: 1575, imageUrl: "", score: 8.7, tag: "Split Timeline", desc: "Film trilogy rewrites key deaths for modern sequels.", slug: "code-geass" },
-  { title: "Haruhi Suzumiya", malId: 849, anilistId: 849, imageUrl: "", score: 8.0, tag: "Non-Linear", desc: "Broadcast order intentionally jumps through time.", slug: "haruhi-suzumiya" },
-  { title: "Durarara!!", malId: 6746, anilistId: 6746, imageUrl: "", score: 8.0, tag: "Multi-POV", desc: "Non-linear narrative chunks with confusing suffixes.", slug: "durarara" },
-  { title: "Toaru (Index & Railgun)", malId: 4654, anilistId: 4654, imageUrl: "", score: 7.5, tag: "Overlap", desc: "Spin-offs take place simultaneously from different POVs.", slug: "toaru-series" },
-  { title: "Horimiya", malId: 124041, anilistId: 124041, imageUrl: "", score: 8.1, tag: "Intercut", desc: "Second season adapts chapters skipped in the first.", slug: "horimiya" },
-  { title: "My Hero Academia", malId: 21459, anilistId: 21459, imageUrl: "", score: 8.0, tag: "Canon Movies", desc: "Know exactly which episode to pause to watch movies.", slug: "my-hero-academia" },
-  { title: "Baccano!", malId: 3603, anilistId: 3603, imageUrl: "", score: 8.5, tag: "Anachronistic", desc: "Skips across multiple different decades simultaneously.", slug: "baccano" },
-  { title: "Danganronpa", malId: 16592, anilistId: 16592, imageUrl: "", score: 7.5, tag: "Swap Order", desc: "Swap back and forth between two airing seasons.", slug: "danganronpa" },
-  { title: "Clannad", malId: 2167, anilistId: 2167, imageUrl: "", score: 8.5, tag: "Alt Routes", desc: "OVA episodes completely change the final outcome.", slug: "clannad" },
-  { title: "Haikyu!!", malId: 20883, anilistId: 20883, imageUrl: "", score: 8.7, tag: "Canon Movies", desc: "Critical story progression hidden between seasons.", slug: "haikyu" },
-] as const;
-
-const GENRES = ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Mystery", "Psychological", "Romance", "Sci-Fi", "Supernatural", "Thriller"];
+const GENRES = [
+  "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", 
+  "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", 
+  "Sports", "Supernatural", "Thriller"
+];
 
 const GENERATION_STAGES = [
   { step: "01/05", label: "Querying AniList & Jikan Graph nodes..." },
@@ -94,9 +78,14 @@ const LANGUAGES = [
   { code: "FR", label: "French (Co-productions)" },
 ];
 
-export function InteractiveSearch() {
+interface InteractiveSearchProps {
+  initialSuggestions: any[]; 
+}
+
+export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps) {
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const { play } = useAudioCue();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<"builder" | "discover">("builder");
@@ -120,7 +109,6 @@ export function InteractiveSearch() {
   const [provider, setProvider] = useState<string | null>(null);
   const [latency, setLatency] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
 
   // Discover Filters State
   const [discoverLayout, setDiscoverLayout] = useState<"grid" | "list">("grid");
@@ -168,10 +156,11 @@ export function InteractiveSearch() {
       setResults(searchData.data);
       setDropdownOpen(true);
       setHighlight(0);
+      play("click");
     } else if (searchData && !searchData.success) {
       setResults([]);
     }
-  }, [searchData]);
+  }, [searchData, play]);
 
   // DYNAMIC COMPILATION STREAMING: Query AniList based on Discover filters
   const { data: discoverData, isFetching: discoverLoading } = useQuery({
@@ -208,13 +197,8 @@ export function InteractiveSearch() {
     setLatency(null);
   }, [setSelectedId]);
 
-  const handleSelectSuggestion = useCallback((s: any) => {
-    const item = s as any; // Cast as any to bypass strict union property checking
-    // If the item has a slug, navigate to the SEO page instead of the search UI
-    if (item.slug) {
-      window.location.href = `/watch-order/${item.slug}`;
-      return;
-    }
+  const handleSelectSuggestion = useCallback((s: typeof initialSuggestions[number] | AnimeSearchResult) => {
+    const item = s as any;
     handleSelect({
       malId: item.malId,
       anilistId: item.anilistId,
@@ -228,10 +212,11 @@ export function InteractiveSearch() {
       isFranchise: true,
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [handleSelect]);
+  }, [handleSelect, initialSuggestions]);
 
   const handleGenerate = useCallback(() => {
     if (!selected) return;
+    play("click");
     startGenerating(async () => {
       setError(null);
       const startTime = Date.now();
@@ -266,7 +251,7 @@ export function InteractiveSearch() {
         setError(res.error || "Generation execution failed");
       }
     });
-  }, [selected, preferences]);
+  }, [selected, preferences, play]);
 
   const handleReset = useCallback(() => {
     setSelected(null);
@@ -345,33 +330,6 @@ export function InteractiveSearch() {
       }
     });
   };
-
-  // Automatically fetch missing cover images from AniList for the hardcoded suggestions
-  const imageQueries = useQueries({
-    queries: SUGGESTIONS.map((s) => ({
-      queryKey: ['suggestion-image', s.anilistId],
-      queryFn: async () => {
-        // If we already have a local image, use it
-        if (s.imageUrl) return s.imageUrl;
-        
-        // Otherwise, fetch from AniList via our Server Action
-        const res = await searchAnimeAction(s.title);
-        if (res.success && res.data.length > 0) {
-          return res.data[0].imageUrl;
-        }
-        return ""; // Fallback to empty string (will render monogram)
-      },
-      staleTime: 1000 * 60 * 60, // Cache these for 1 hour
-    }))
-  });
-
-  // Enrich the suggestions with the fetched images
-  const enrichedSuggestions = SUGGESTIONS.map((s, i) => ({
-    ...s,
-    imageUrl: imageQueries[i]?.data || s.imageUrl || ""
-  }));
-
-  const displayedSuggestions = showAllSuggestions ? enrichedSuggestions : enrichedSuggestions.slice(0, 6);
 
   return (
     <div className="space-y-8 w-full relative">
@@ -576,16 +534,18 @@ export function InteractiveSearch() {
                   {/* Era Selector & Language Selection Matrix */}
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">Production Era / Year</label>
+                      <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">Production Era</label>
                       <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
                         className="bg-chrono-surface border border-chrono-border text-chrono-text text-xs rounded-xl w-full p-2.5 cursor-pointer font-semibold"
                       >
-                        <option value="All">All Years</option>
-                        <option value="2020s">Modern Era (2020s)</option>
-                        <option value="2010s">Era Golden (2010s)</option>
-                        <option value="2000s">Classic Era (2000s)</option>
+                        <option value="All Time">All Time</option>
+                        <option value="2020s">2020s (Modern)</option>
+                        <option value="2010s">2010s (Golden Era)</option>
+                        <option value="2000s">2000s (Classic)</option>
+                        <option value="1990s">1990s (Retro)</option>
+                        <option value="Classic (Pre-1990)">Pre-1990 (Vintage)</option>
                       </select>
                     </div>
 
@@ -609,74 +569,68 @@ export function InteractiveSearch() {
             )}
           </AnimatePresence>
 
-          {/* Dynamic Shimmering Skeletons */}
-          {discoverLoading ? (
-            <div className={cn(discoverLayout === "grid" ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "space-y-2")}>
-              {[...Array(6)].map((_, i) => (
+          {/* Dynamic Results Grid (keeps old data visible while loading new) */}
+          <div className={cn(
+            discoverLayout === "grid" ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "space-y-2",
+            discoverLoading && discoverList.length > 0 && "opacity-50 pointer-events-none transition-opacity duration-200"
+          )}>
+            {discoverLoading && discoverList.length === 0 ? (
+              [...Array(6)].map((_, i) => (
                 <div key={i} className={cn("skeleton h-44 border border-chrono-border/10 shadow-lg", discoverLayout === "grid" ? "rounded-2xl" : "rounded-xl")} />
-              ))}
-            </div>
-          ) : (
-            <>
-              {discoverList.length === 0 ? (
-                <div className="glass-card p-8 text-center text-chrono-text-muted rounded-2xl">
-                  No anime found matching your dynamic filter criteria. Try expanding your search [1].
-                </div>
-              ) : (
-                <>
-                  {discoverLayout === "grid" ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {discoverList.map((s) => (
-                        <div
-                          key={s.anilistId}
-                          onClick={() => handleSelectSuggestion(s)}
-                          className="glass-card overflow-hidden group cursor-pointer border border-chrono-border/20 hover:border-chrono-primary/30"
-                        >
-                          <div className="aspect-[16/10] relative overflow-hidden bg-chrono-surface">
-                            <SuggestionImage src={s.imageUrl} alt={s.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                            <span className="absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-chrono-primary/80 text-white">
-                              ★ {s.score.toFixed(1)}
-                            </span>
+              ))
+            ) : discoverList.length === 0 ? (
+              <div className="glass-card p-8 text-center text-chrono-text-muted rounded-2xl md:col-span-3">
+                No anime found matching your dynamic filter criteria. Try expanding your search.
+              </div>
+            ) : (
+              <>
+                {discoverList.map((s) => (
+                  <div
+                    key={s.anilistId}
+                    onClick={() => handleSelectSuggestion(s)}
+                    className={cn(
+                      "glass-card cursor-pointer border border-chrono-border/10 hover:border-chrono-primary/30 group",
+                      discoverLayout === "grid" ? "overflow-hidden rounded-2xl" : "p-3 flex items-center justify-between gap-4 rounded-xl"
+                    )}
+                  >
+                    {discoverLayout === "grid" ? (
+                      <>
+                        <div className="aspect-[16/10] relative overflow-hidden bg-chrono-surface">
+                          <SuggestionImage src={s.imageUrl} alt={s.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <span className="absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-chrono-primary/80 text-white">
+                            ★ {s.score.toFixed(1)}
+                          </span>
+                        </div>
+                        <div className="p-4 space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="font-bold text-white group-hover:text-chrono-primary transition-colors text-sm truncate">{s.title}</h4>
+                            <span className="text-[10px] bg-zinc-800 text-chrono-text-muted px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 border border-zinc-700/50">{s.type}</span>
                           </div>
-                          <div className="p-4 space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <h4 className="font-bold text-white group-hover:text-chrono-primary transition-colors text-sm truncate">{s.title}</h4>
-                              <span className="text-[10px] bg-zinc-800 text-chrono-text-muted px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 border border-zinc-700/50">{s.type}</span>
-                            </div>
-                            <p className="text-xs text-chrono-text-dim line-clamp-2 leading-relaxed">{s.synopsis}</p>
+                          <p className="text-xs text-chrono-text-dim line-clamp-2 leading-relaxed">{s.synopsis}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-16 rounded-lg overflow-hidden bg-chrono-surface border border-white/5 shrink-0">
+                            <SuggestionImage src={s.imageUrl} alt={s.title} className="w-full h-full object-cover" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-white group-hover:text-chrono-primary transition-colors text-sm">{s.title}</h4>
+                            <p className="text-xs text-chrono-text-dim line-clamp-1 mt-1">{s.synopsis}</p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {discoverList.map((s) => (
-                        <div
-                          key={s.anilistId}
-                          onClick={() => handleSelectSuggestion(s)}
-                          className="glass-card p-3 flex items-center justify-between gap-4 cursor-pointer hover:border-chrono-primary/30 group border border-chrono-border/10"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-16 rounded-lg overflow-hidden bg-chrono-surface border border-white/5 shrink-0">
-                              <SuggestionImage src={s.imageUrl} alt={s.title} className="w-full h-full object-cover" />
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-white group-hover:text-chrono-primary transition-colors text-sm">{s.title}</h4>
-                              <p className="text-xs text-chrono-text-dim line-clamp-1 mt-1">{s.synopsis}</p>
-                            </div>
-                          </div>
-                          <div className="text-right flex items-center gap-2">
-                            <span className="text-[10px] bg-zinc-800 text-chrono-text-muted px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border border-zinc-700">{s.type}</span>
-                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-chrono-primary/10 text-chrono-primary border border-chrono-primary/20">★ {s.score.toFixed(1)}</span>
-                          </div>
+                        <div className="text-right flex items-center gap-2">
+                          <span className="text-[10px] bg-zinc-800 text-chrono-text-muted px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border border-zinc-700">{s.type}</span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-chrono-primary/10 text-chrono-primary border border-chrono-primary/20">★ {s.score.toFixed(1)}</span>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
+                      </>
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -807,9 +761,9 @@ export function InteractiveSearch() {
         </div>
       )}
 
-      {/* Landing suggestions */}
+      {/* Landing SEO Tier Blocks */}
       {activeTab === "builder" && !selected && !finalData && (
-        <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
+        <div className="max-w-7xl mx-auto space-y-12 animate-fade-in">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
               { icon: <Map className="w-4 h-4" />, title: "Spoiler-safe paths", desc: "Optimal order preserves reveals. Chronological when you want lore." },
@@ -826,43 +780,43 @@ export function InteractiveSearch() {
             ))}
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-[#a8a3b8] uppercase tracking-wider">Confusing franchises</h3>
-              <button
-                type="button"
-                onClick={() => setShowAllSuggestions((v) => !v)}
-                className="text-xs text-chrono-primary hover:text-chrono-primary-hover font-semibold cursor-pointer"
-              >
-                {showAllSuggestions ? "Show less" : "Show more"}
-              </button>
+          {SEO_TIERS.map((tier) => (
+            <div key={tier.id} className="space-y-4">
+              <div>
+                <h3 className="text-lg font-bold text-white">{tier.name}</h3>
+                <p className="text-xs text-[#a8a3b8] mt-1">{tier.description}</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                {tier.anime.map((a) => {
+                  const suggestion = initialSuggestions.find(s => s.title === a.title);
+                  const imageUrl = suggestion?.imageUrl || "";
+                  // If slug exists, link to static page. Otherwise, link to homepage search.
+                  const href = a.slug ? `/watch-order/${a.slug}` : `/?q=${encodeURIComponent(a.title)}`;
+                  return (
+                    <a
+                      key={a.title}
+                      href={href}
+                      className="glass-card p-0 overflow-hidden text-left group border border-chrono-border/30 hover:border-chrono-primary/40 transition-all cursor-pointer"
+                    >
+                      <div className="aspect-[16/10] relative overflow-hidden bg-chrono-surface">
+                        <SuggestionImage src={imageUrl} alt={a.title} franchise={a.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <span className="absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-chrono-primary/80 text-white">{a.tag}</span>
+                      </div>
+                      <div className="p-3">
+                        <h4 className="text-sm font-bold text-white group-hover:text-chrono-primary transition-colors line-clamp-1">{a.title}</h4>
+                      </div>
+                    </a>
+                  );
+                })}
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {displayedSuggestions.map((s) => (
-                <button
-                  key={s.title}
-                  type="button"
-                  onClick={() => handleSelectSuggestion(s)}
-                  className="glass-card p-0 overflow-hidden text-left group border border-chrono-border/30 hover:border-chrono-primary/40 transition-all cursor-pointer"
-                >
-                  <div className="aspect-[16/10] relative overflow-hidden bg-chrono-surface">
-                    <SuggestionImage src={s.imageUrl} alt="" franchise={s.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                    <span className="absolute bottom-2 left-2 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-chrono-primary/80 text-white">{s.tag}</span>
-                  </div>
-                  <div className="p-3">
-                    <h4 className="text-sm font-bold text-white group-hover:text-chrono-primary transition-colors line-clamp-1">{s.title}</h4>
-                    <p className="text-[11px] text-[#a8a3b8] mt-1 line-clamp-2 leading-relaxed">{s.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
       {/* Floating feedback system */}
-      <div className="fixed bottom-5 right-5 z-[100]">
+      <div className="fixed bottom-5 left-5 z-[100]">
         {feedbackOpen ? (
           <div className="glass-card w-[min(100vw-2rem,22rem)] p-4 shadow-2xl animate-slide-up border border-chrono-border/50">
             <div className="flex items-center justify-between mb-3">
@@ -914,9 +868,10 @@ export function InteractiveSearch() {
           <button
             type="button"
             onClick={() => setFeedbackOpen(true)}
-            className="w-12 h-12 rounded-full bg-gradient-to-br from-chrono-primary to-fuchsia-600 text-white shadow-lg shadow-chrono-primary/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer"
+            className="px-4 py-2 rounded-full bg-gradient-to-br from-chrono-primary to-fuchsia-600 text-white shadow-lg shadow-chrono-primary/30 flex items-center gap-2 hover:scale-105 active:scale-95 transition-transform cursor-pointer"
           >
-            <MessageSquare className="w-5 h-5" />
+            <MessageSquare className="w-4 h-4" />
+            <span className="text-xs font-bold">Feedback</span>
           </button>
         )}
       </div>

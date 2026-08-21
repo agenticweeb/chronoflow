@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Clock, Zap, Share2, Loader2, CalendarRange } from "lucide-react";
+import { Clock, Zap, Share2, Loader2, CalendarRange, Film, Layers, CheckCircle2 } from "lucide-react";
 import { toPng } from "html-to-image";
 import type { TimeBudgetResult, PaceEstimate } from "@/lib/time-calculator";
 import { formatMinutesExact } from "@/lib/time-calculator";
@@ -145,14 +145,66 @@ export function TimeBudgetCard({
       </header>
 
       <div className="p-5 sm:p-6">
-        {featured && <Featured pace={featured} />}
-        {others.length > 0 && (
-          <div className="mt-4 grid grid-cols-3 gap-2">
-            {others.map((p) => (
-              <Ref key={p.label} pace={p} />
-            ))}
+        {/* ADAPTIVE RENDERING BASED ON CONTENT TYPE */}
+        
+        {data.contentType === "single_sitting" ? (
+          <div className="text-center py-8 space-y-3">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-chrono-primary/10 border border-chrono-primary/30 mb-2">
+              <Film className="w-8 h-8 text-chrono-primary" />
+            </div>
+            <div className="text-4xl font-extrabold text-white tracking-tight">
+              {data.singleSittingTime}
+            </div>
+            <p className="text-sm text-chrono-text-muted">
+              {data.canFinishToday 
+                ? "You can finish this today in one sitting." 
+                : "Plan for a single sitting session."}
+            </p>
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-chrono-surface/50 border border-chrono-border/30 text-sm font-semibold text-chrono-text mt-2">
+              <Clock className="w-4 h-4 text-chrono-primary" />
+              Finish {featured.relativeLabel} ({featured.finishDate})
+            </div>
           </div>
+        ) : (
+          <>
+            {/* Mixed Franchise Breakdown Table */}
+            {data.contentType === "mixed_franchise" && data.typeBreakdown && (
+              <div className="mb-6 glass-card p-4 rounded-xl border border-chrono-border/20 space-y-2">
+                <div className="flex items-center gap-2 mb-3">
+                  <Layers className="w-4 h-4 text-chrono-primary" />
+                  <h4 className="text-xs font-bold text-chrono-text uppercase tracking-wider">Franchise Breakdown</h4>
+                </div>
+                {data.typeBreakdown.map((b) => (
+                  <div key={b.type} className="flex justify-between items-center text-xs border-b border-chrono-border/10 pb-2 last:border-0 last:pb-0">
+                    <span className="text-chrono-text-muted font-medium">{b.type}</span>
+                    <div className="flex items-center gap-4">
+                      <span className="text-chrono-text-dim">{b.count} eps</span>
+                      <span className="text-chrono-text font-bold w-16 text-right">{formatMinutesExact(b.watchableMinutes)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Standard Featured & Others Paces */}
+            {featured && <Featured pace={featured} />}
+            {others.length > 0 && (
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                {others.map((p) => (
+                  <Ref key={p.label} pace={p} />
+                ))}
+              </div>
+            )}
+
+            {data.contentType === "short_series" && (
+              <div className="mt-4 flex items-center gap-2 text-xs text-sky-300 bg-sky-500/10 border border-sky-500/20 rounded-xl p-3">
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                <span>Short series detected. Perfect for a weekend binge!</span>
+              </div>
+            )}
+          </>
         )}
+
         <p className="mt-4 text-xs text-chrono-text-dim leading-relaxed">
           {data.mathNote}. Estimates assume daily viewing at the selected pace.
           Order never changes — only finish date.

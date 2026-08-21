@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import { X } from "lucide-react";
+import { X, Volume2, VolumeX } from "lucide-react";
+import { useWatchStore } from "@/lib/store";
 
 export function TopBanner() {
   const [dismissed, setDismissed] = useState(false);
+  const { isAudioEnabled, toggleAudio } = useWatchStore();
 
   if (dismissed) return null;
 
@@ -18,14 +20,24 @@ export function TopBanner() {
           <span>By Agenticweeb - grounded dynamic watch orders</span>
         </div>
       </div>
-      <button 
-        type="button" 
-        onClick={() => setDismissed(true)} 
-        className="p-1 rounded bg-black/40 border border-[#2a2540] text-[#6b6580] hover:text-white shrink-0 ml-4 cursor-pointer"
-        aria-label="Dismiss banner"
-      >
-        <X className="w-3.5 h-3.5" />
-      </button>
+      <div className="flex items-center gap-2 ml-4">
+        <button
+          type="button"
+          onClick={toggleAudio}
+          className="p-1 rounded bg-black/40 border border-[#2a2540] text-[#6b6580] hover:text-white shrink-0 cursor-pointer"
+          aria-label={isAudioEnabled ? "Disable audio cues" : "Enable audio cues"}
+        >
+          {isAudioEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="p-1 rounded bg-black/40 border border-[#2a2540] text-[#6b6580] hover:text-white shrink-0 cursor-pointer"
+          aria-label="Dismiss banner"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }

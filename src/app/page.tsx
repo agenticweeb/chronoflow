@@ -4,10 +4,74 @@ import { CinematicHero } from "@/components/CinematicHero";
 import { InteractiveSearch } from "@/components/InteractiveSearch";
 import { TopBanner } from "@/components/TopBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ChronoCompanion } from "@/components/ChronoCompanion";
+import { searchAnimeAction } from "@/app/actions";
+import { SEO_TIERS } from "@/lib/seo/tiers";
 
 export const dynamic = "force-dynamic";
 
-export default function Page() {
+// 1. Define the base suggestions on the server
+const BASE_SUGGESTIONS = [
+  { title: "Fate Series", malId: 10087, anilistId: 10087, imageUrl: "/suggestions/fate.jpg", score: 8.3, tag: "Multiverse", desc: "Routes are parallel realities, not sequels.", slug: "fate-series" },
+  { title: "Monogatari Series", malId: 5081, anilistId: 5081, imageUrl: "/suggestions/monogatari.jpeg", score: 8.4, tag: "Non-Linear", desc: "Release vs chronological is a real debate.", slug: "monogatari-series" },
+  { title: "Steins;Gate", malId: 9253, anilistId: 9253, imageUrl: "/suggestions/Steins;Gate.jpeg", score: 9.1, tag: "Time Travel", desc: "Routes are not linear sequels.", slug: "steins-gate" },
+  { title: "JoJo's Bizarre Adventure", malId: 14719, anilistId: 14719, imageUrl: "/suggestions/JoJo's Bizarre Adventure.jpeg", score: 8.2, tag: "Generational", desc: "Each Part shifts art, genre, and protagonist.", slug: "jojo-bizarre-adventure" },
+  { title: "Neon Genesis Evangelion", malId: 30, anilistId: 30, imageUrl: "/suggestions/Neon Genesis Evangelion.jpeg", score: 8.3, tag: "Alt Reality", desc: "TV, End of Eva, and Rebuilds — three endings.", slug: "neon-genesis-evangelion" },
+  { title: "Gundam (Universal Century)", malId: 80, anilistId: 80, imageUrl: "/suggestions/Gundam (Universal Century).jpeg", score: 7.8, tag: "Decades", desc: "40+ years of UC media. Jump carefully.", slug: "gundam-uc" },
+  { title: "One Piece", malId: 21, anilistId: 21, imageUrl: "", score: 9.0, tag: "Long Runner", desc: "1100+ episodes. Skip filler, keep G-8.", slug: "one-piece" },
+  { title: "Naruto", malId: 20, anilistId: 20, imageUrl: "", score: 8.5, tag: "Filler Heavy", desc: "Skip massive multi-season blocks of filler.", slug: "naruto" },
+  { title: "Bleach", malId: 269, anilistId: 269, imageUrl: "", score: 8.2, tag: "Filler Heavy", desc: "Cut away from canonical battles to skip filler.", slug: "bleach" },
+  { title: "Dragon Ball", malId: 223, anilistId: 223, imageUrl: "", score: 8.0, tag: "Decades", desc: "Mix of main stories, non-canon films, and Kai.", slug: "dragon-ball" },
+  { title: "Code Geass", malId: 1575, anilistId: 1575, imageUrl: "", score: 8.7, tag: "Split Timeline", desc: "Film trilogy rewrites key deaths for modern sequels.", slug: "code-geass" },
+  { title: "Haruhi Suzumiya", malId: 849, anilistId: 849, imageUrl: "", score: 8.0, tag: "Non-Linear", desc: "Broadcast order intentionally jumps through time.", slug: "haruhi-suzumiya" },
+  { title: "Durarara!!", malId: 6746, anilistId: 6746, imageUrl: "", score: 8.0, tag: "Multi-POV", desc: "Non-linear narrative chunks with confusing suffixes.", slug: "durarara" },
+  { title: "Toaru (Index & Railgun)", malId: 4654, anilistId: 4654, imageUrl: "", score: 7.5, tag: "Overlap", desc: "Spin-offs take place simultaneously from different POVs.", slug: "toaru-series" },
+  { title: "Horimiya", malId: 124041, anilistId: 124041, imageUrl: "", score: 8.1, tag: "Intercut", desc: "Second season adapts chapters skipped in the first.", slug: "horimiya" },
+  { title: "My Hero Academia", malId: 21459, anilistId: 21459, imageUrl: "", score: 8.0, tag: "Canon Movies", desc: "Know exactly which episode to pause to watch movies.", slug: "my-hero-academia" },
+  { title: "Baccano!", malId: 3603, anilistId: 3603, imageUrl: "", score: 8.5, tag: "Anachronistic", desc: "Skips across multiple different decades simultaneously.", slug: "baccano" },
+  { title: "Danganronpa", malId: 16592, anilistId: 16592, imageUrl: "", score: 7.5, tag: "Swap Order", desc: "Swap back and forth between two airing seasons.", slug: "danganronpa" },
+  { title: "Clannad", malId: 2167, anilistId: 2167, imageUrl: "", score: 8.5, tag: "Alt Routes", desc: "OVA episodes completely change the final outcome.", slug: "clannad" },
+  { title: "Haikyu!!", malId: 20883, anilistId: 20883, imageUrl: "", score: 8.7, tag: "Canon Movies", desc: "Critical story progression hidden between seasons.", slug: "haikyu" },
+];
+
+// 2. Make the page an async Server Component
+export default async function Page() {
+  // Combine BASE_SUGGESTIONS with all anime from SEO_TIERS to ensure we fetch images for all of them
+  const tierAnime = SEO_TIERS.flatMap(t => t.anime).map(a => ({
+    title: a.title,
+    malId: 0,
+    anilistId: 0,
+    imageUrl: "",
+    score: 0,
+    tag: a.tag,
+    desc: "",
+    slug: a.slug || ""
+  }));
+
+  const uniqueTitles = new Set();
+  const allSuggestions = [...BASE_SUGGESTIONS, ...tierAnime].filter(s => {
+    if (uniqueTitles.has(s.title)) return false;
+    uniqueTitles.add(s.title);
+    return true;
+  });
+
+  // Fetch missing cover images on the server before rendering
+  const suggestionsWithImages = await Promise.all(
+    allSuggestions.map(async (suggestion) => {
+      if (suggestion.imageUrl) return suggestion;
+      
+      try {
+        const res = await searchAnimeAction(suggestion.title);
+        if (res.success && res.data.length > 0) {
+          return { ...suggestion, imageUrl: res.data[0].imageUrl };
+        }
+      } catch (e) {
+        console.error(`Failed to fetch image for ${suggestion.title}`);
+      }
+      return suggestion; // Fallback to empty string (monogram)
+    })
+  );
+
   return (
     <main className="min-h-dvh relative flex flex-col">
       {/* Dismissible Brand Marquee Banner */}
@@ -33,6 +97,7 @@ export default function Page() {
           </div>
 
           <div className="flex items-center gap-4">
+            <ChronoCompanion />
             <Link
               href="/about"
               className="flex items-center gap-2 text-xs font-semibold text-[#a8a3b8] hover:text-white transition-colors"
@@ -67,7 +132,8 @@ export default function Page() {
       <section className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-12">
         <ErrorBoundary>
           <CinematicHero />
-          <InteractiveSearch />
+          {/* 3. Pass the fetched suggestions as props */}
+          <InteractiveSearch initialSuggestions={suggestionsWithImages} />
         </ErrorBoundary>
       </section>
 

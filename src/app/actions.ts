@@ -88,7 +88,7 @@ export async function searchAnimeAction(
     const validatedQuery = SearchSchema.parse(query);
 
     // 1. Check Redis Cache (1 hour TTL)
-    const cacheKey = `search:${validatedQuery.toLowerCase()}`;
+    const cacheKey = `search_v2:${validatedQuery.toLowerCase()}`;
     const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
     if (cached) {
       console.log(`✅ Cache HIT for search: ${validatedQuery}`);
@@ -106,6 +106,9 @@ export async function searchAnimeAction(
     
     // 3. Save to Redis Cache
     await redis.set(cacheKey, list, { ex: 3600 }); // 1 hour TTL
+    
+    // ANALYTICS: Increment the search term score in a Redis sorted set
+    await redis.zincrby("analytics:searches", 1, validatedQuery.toLowerCase());
 
     return { success: true, data: list };
   } catch (err) {
@@ -136,7 +139,7 @@ export async function discoverAnimeAction(filters: {
 }): Promise<SearchActionResult> {
   try {
     // Cache key for discover based on filters
-    const cacheKey = `discover:${JSON.stringify(filters)}`;
+    const cacheKey = `discover_v2:${JSON.stringify(filters)}`;
     const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
     if (cached) {
       console.log(`✅ Cache HIT for discover filters`);
@@ -158,19 +161,14 @@ export async function discoverAnimeAction(filters: {
       variables.scoreGreater = Math.round(filters.minRating * 10);
     }
 
-    // Dynamic Era compilation (Fixed: real calendar bounds)
-    if (filters.yearEra === "2020s") {
+    // Dynamic Era compilation (Fixed: Use FuzzyDateInt YYYYMMDD format)
+    if (filters.yearEra && filters.yearEra !== "All Time") {
+      const { getEraDates } = await import("@/lib/eras");
+      const eraDates = getEraDates(filters.yearEra);
+      
       queryArgs += ", startDate_greater: $yearGreater, startDate_lesser: $yearLesser";
-      variables.yearGreater = 20200101;
-      variables.yearLesser = 20291231;
-    } else if (filters.yearEra === "2010s") {
-      queryArgs += ", startDate_greater: $yearGreater, startDate_lesser: $yearLesser";
-      variables.yearGreater = 20100101;
-      variables.yearLesser = 20191231;
-    } else if (filters.yearEra === "2000s") {
-      queryArgs += ", startDate_greater: $yearGreater, startDate_lesser: $yearLesser";
-      variables.yearGreater = 20000101;
-      variables.yearLesser = 20091231;
+      variables.yearGreater = eraDates.startDateGreater;
+      variables.yearLesser = eraDates.startDateLesser;
     }
 
     // Dynamic Language / Country of origin compilation
@@ -263,7 +261,7 @@ export async function generateWatchOrderAction(
 
     // 1. Check Redis Cache for AI Watch Order (7 day TTL)
     const prefHash = JSON.stringify(validated.preferences);
-    const cacheKey = `watchorder:${validated.anilistId || validated.animeName}:${validated.scope}:${prefHash}`;
+    const cacheKey = `watchorder_v2:${validated.anilistId || validated.animeName}:${validated.scope}:${prefHash}`;
     const cached = await redis.get<{ result: WatchOrderResultV2; provider: string; latency: number }>(cacheKey);
     
     if (cached) {

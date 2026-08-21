@@ -1,5 +1,10 @@
 /**
- * Time-Budget & Episode-Pace Calculator - Rebuilt V2.4 (UX Fix)
+ * Time-Budget & Episode-Pace Calculator — Content-Type Aware V3.0
+ * 
+ * Detects the dominant content type of a watch order and adapts:
+ * - Movie/Single-Sitting → "Watch time" + "Finish today/tomorrow"
+ * - TV Series → "Episodes per day" + "Finish date"
+ * - Mixed Franchise → "Overall pace" + "Per-type breakdown"
  */
 
 import { CustomSchedule } from "@/types";
@@ -12,7 +17,14 @@ export interface FranchiseEntry {
   durationMin: number;
   tier: SkipTier;
   isFiller?: boolean;
+  format?: "TV" | "MOVIE" | "OVA" | "SPECIAL" | "ONA" | "UNKNOWN";
 }
+
+export type ContentDominance = 
+  | "single_sitting"    // 1 movie or 1-3 short episodes, < 3 hours total
+  | "short_series"      // 4-12 episodes, can be finished in 1-3 days
+  | "tv_series"         // 13+ episodes, multi-week commitment
+  | "mixed_franchise";  // Multiple types, needs breakdown
 
 export interface PaceEstimate {
   label: string;
@@ -26,6 +38,7 @@ export interface PaceEstimate {
 
 export interface TimeBudgetResult {
   franchise: string;
+  contentType: ContentDominance;
   totalEpisodes: number;
   totalMinutes: number;
   skippedEpisodes: number;
@@ -35,6 +48,16 @@ export interface TimeBudgetResult {
   avgMinutesPerEp: number;
   paces: PaceEstimate[];
   mathNote: string;
+  // NEW: Per-type breakdown for mixed franchises
+  typeBreakdown?: Array<{
+    type: string;
+    count: number;
+    totalMinutes: number;
+    watchableMinutes: number;
+  }>;
+  // NEW: Single-sitting specific
+  singleSittingTime?: string;
+  canFinishToday: boolean;
 }
 
 export const PACES = [
@@ -54,6 +77,8 @@ export function paceFromTimeBudget(budget?: string | null): PaceLabel {
   return map[budget || "regular"] || "Regular";
 }
 
+// ─── Helpers ───
+
 function formatHM(minutes: number): string {
   const m = Math.max(0, Math.round(minutes));
   const h = Math.floor(m / 60);
@@ -63,61 +88,156 @@ function formatHM(minutes: number): string {
   return `${h}h ${r}m`;
 }
 
-function formatDurationFromDays(fractionalDays: number): { full: string; short: string } {
-  if (!Number.isFinite(fractionalDays) || fractionalDays < 0) return { full: "—", short: "—" };
-  if (fractionalDays === 0) return { full: "0 minutes", short: "0m" };
-  
-  // UX FIX: If it takes less than a day at the selected pace, say "Today" to avoid confusing hour math
-  if (fractionalDays < 1.0) {
-    return { full: "Today", short: "Today" };
-  }
-  
-  const d = Math.ceil(fractionalDays);
-  if (d < 7) return { full: `${d} day${d === 1 ? "" : "s"}`, short: `${d}d` };
-  if (d < 30) {
-    const weeks = Math.floor(d / 7);
-    const remaining = d % 7;
-    if (remaining === 0) return { full: `${weeks} week${weeks === 1 ? "" : "s"}`, short: `${weeks}w` };
-    return { full: `${weeks} week${weeks === 1 ? "" : "s"} ${remaining} day${remaining === 1 ? "" : "s"}`, short: `${weeks}w ${remaining}d` };
-  }
-  if (d < 365) {
-    const months = Math.floor(d / 30);
-    const remaining = d % 30;
-    const weeks = Math.floor(remaining / 7);
-    if (weeks === 0) return { full: `${months} month${months === 1 ? "" : "s"}`, short: `${months}mo` };
-    return { full: `${months} month${months === 1 ? "" : "s"} ${weeks} week${weeks === 1 ? "" : "s"}`, short: `${months}mo ${weeks}w` };
-  }
-  const years = Math.floor(d / 365);
-  const remaining = d % 365;
-  const months = Math.floor(remaining / 30);
-  if (months === 0) return { full: `${years} year${years === 1 ? "" : "s"}`, short: `${years}y` };
-  return { full: `${years} year${years === 1 ? "" : "s"} ${months} month${months === 1 ? "" : "s"}`, short: `${years}y ${months}mo` };
-}
-
 function localNoon(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0);
 }
 
 function formatLocalYMD(d: Date): string {
   const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return `${y}-${mo}-${day}`;
 }
 
-function relativeFromCeilDays(ceilDays: number): string {
-  if (ceilDays <= 0) return "today";
-  if (ceilDays === 1) return "in 1 day";
-  if (ceilDays < 7) return `in ${ceilDays} days`;
-  const w = Math.floor(ceilDays / 7);
-  const r = ceilDays % 7;
-  if (r === 0) return `in ${w}w`;
-  return `in ${w}w ${r}d`;
+function relativeFromAdditionalDays(additionalDays: number): string {
+  if (additionalDays <= 0) return "today";
+  if (additionalDays === 1) return "tomorrow";
+  return `in ${additionalDays} days`;
 }
 
 function isSavingsTier(tier: SkipTier): boolean {
   return tier === "skip";
 }
+
+// ─── Content Type Detection ───
+
+function detectContentDominance(entries: FranchiseEntry[]): ContentDominance {
+  const totalEpisodes = entries.reduce((sum, e) => sum + (e.episodes || 0), 0);
+  const totalMinutes = entries.reduce((sum, e) => sum + (e.episodes * e.durationMin), 0);
+  
+  // Count by format
+  const movieCount = entries.filter(e => e.format === "MOVIE" || e.durationMin > 45).length;
+  const tvCount = entries.filter(e => e.format === "TV" || (e.episodes > 1 && e.durationMin <= 45)).length;
+  const ovaCount = entries.filter(e => e.format === "OVA" || e.format === "SPECIAL").length;
+  
+  // Single sitting: 1 entry, < 3 hours, or all movies
+  if (entries.length === 1 && totalMinutes <= 180) return "single_sitting";
+  if (entries.length > 0 && entries.every(e => e.format === "MOVIE" || e.durationMin > 45)) {
+    // All movies — but how many?
+    if (totalMinutes <= 240) return "single_sitting"; // 1-2 movies, watchable in one go
+    return "short_series"; // 3+ movies, takes a few days
+  }
+  
+  // Short series: 4-12 episodes or < 6 hours
+  if (totalEpisodes <= 12 || totalMinutes <= 360) return "short_series";
+  
+  // Mixed: has both TV and movies/OVAs
+  if (tvCount > 0 && (movieCount > 0 || ovaCount > 0)) return "mixed_franchise";
+  
+  // Default: TV series
+  return "tv_series";
+}
+
+// ─── Calendar-Day Finish Calculator (Definitive) ───
+
+function additionalCalendarDays(totalMinutes: number, minutesPerDay: number): number {
+  if (totalMinutes <= 0) return 0;
+  if (minutesPerDay <= 0) return 0;
+  
+  // Simulate: Day 0 you watch minutesPerDay, Day 1 you watch minutesPerDay, etc.
+  // Return how many ADDITIONAL days beyond Day 0 you need.
+  let remaining = totalMinutes;
+  let additionalDays = 0;
+  
+  // Day 0: you watch up to minutesPerDay
+  remaining -= minutesPerDay;
+  if (remaining <= 0) return 0; // Finished today
+  
+  // Each subsequent day
+  while (remaining > 0) {
+    remaining -= minutesPerDay;
+    additionalDays++;
+  }
+  
+  return additionalDays;
+}
+
+// ─── Duration String (Content-Aware) ───
+
+function formatDurationForType(
+  totalMinutes: number, 
+  contentType: ContentDominance,
+  totalEpisodes: number
+): { full: string; short: string } {
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) return { full: "—", short: "—" };
+  if (totalMinutes === 0) return { full: "0 minutes", short: "0m" };
+  
+  // Single sitting: show as watch time, not "days"
+  if (contentType === "single_sitting") {
+    return { full: formatHM(totalMinutes), short: formatHM(totalMinutes) };
+  }
+  
+  // Short series: show episodes + time
+  if (contentType === "short_series") {
+    const hm = formatHM(totalMinutes);
+    return { 
+      full: `${totalEpisodes} episode${totalEpisodes === 1 ? "" : "s"} · ${hm}`, 
+      short: `${totalEpisodes}eps · ${hm}` 
+    };
+  }
+  
+  // TV series / Mixed: show in days/weeks/months
+  const fractionalDays = totalMinutes / 60; // Assume 1 hour/day baseline for duration display
+  const d = Math.ceil(fractionalDays);
+  
+  if (d < 7) return { full: `${d} day${d === 1 ? "" : "s"}`, short: `${d}d` };
+  if (d < 30) {
+    const weeks = Math.floor(d / 7);
+    const remaining = d % 7;
+    if (remaining === 0) return { full: `${weeks}w`, short: `${weeks}w` };
+    return { full: `${weeks}w ${remaining}d`, short: `${weeks}w ${remaining}d` };
+  }
+  if (d < 365) {
+    const months = Math.floor(d / 30);
+    const remaining = d % 30;
+    const weeks = Math.floor(remaining / 7);
+    if (weeks === 0) return { full: `${months}mo`, short: `${months}mo` };
+    return { full: `${months}mo ${weeks}w`, short: `${months}mo ${weeks}w` };
+  }
+  const years = Math.floor(d / 365);
+  const remaining = d % 365;
+  const months = Math.floor(remaining / 30);
+  if (months === 0) return { full: `${years}y`, short: `${years}y` };
+  return { full: `${years}y ${months}mo`, short: `${years}y ${months}mo` };
+}
+
+// ─── Per-Type Breakdown (for Mixed Franchises) ───
+
+function calculateTypeBreakdown(entries: FranchiseEntry[]): TimeBudgetResult["typeBreakdown"] {
+  const groups = new Map<string, { count: number; totalMin: number; watchableMin: number }>();
+  
+  for (const e of entries) {
+    const type = e.format || "UNKNOWN";
+    const existing = groups.get(type) || { count: 0, totalMin: 0, watchableMin: 0 };
+    const totalMins = e.episodes * e.durationMin;
+    const isSkipped = isSavingsTier(e.tier) || e.isFiller;
+    
+    groups.set(type, {
+      count: existing.count + e.episodes,
+      totalMin: existing.totalMin + totalMins,
+      watchableMin: existing.watchableMin + (isSkipped ? 0 : totalMins),
+    });
+  }
+  
+  return Array.from(groups.entries()).map(([type, data]) => ({
+    type,
+    count: data.count,
+    totalMinutes: data.totalMin,
+    watchableMinutes: data.watchableMin,
+  }));
+}
+
+// ─── Custom Schedule Calculator ───
 
 function calculateCustomScheduleFinish(
   watchableMinutes: number,
@@ -164,10 +284,12 @@ function calculateCustomScheduleFinish(
   return {
     daysCeil: daysCount,
     finishDate: formatLocalYMD(dayCursor),
-    relativeLabel: relativeFromCeilDays(daysCount),
+    relativeLabel: relativeFromAdditionalDays(daysCount),
     activeMinutesPerWeek
   };
 }
+
+// ─── Main Calculator ───
 
 export function calculateTimeBudget(
   franchise: string,
@@ -213,31 +335,108 @@ export function calculateTimeBudget(
   const watchableEpisodes = Math.max(0, totalEpisodes - skippedEpisodes);
   const avg = totalEpisodes > 0 ? Math.round((totalMinutes / totalEpisodes) * 10) / 10 : 24;
 
+  const contentType = detectContentDominance(entries);
   const noonStart = localNoon(startDate);
 
-  const paces: PaceEstimate[] = PACES.map((p) => {
-    const fractional = watchableMinutes / p.minutesPerDay;
-    const daysCeil = watchableMinutes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
+  // ─── SINGLE SITTING MODE ───
+  // No "paces" — just "when can I watch this?"
+  if (contentType === "single_sitting") {
+    const canFinishToday = watchableMinutes <= 120; // Reasonable: 2 hours or less
     const finish = new Date(noonStart);
-    finish.setDate(finish.getDate() + daysCeil);
-    const { full, short } = formatDurationFromDays(fractional);
+    if (!canFinishToday) {
+      finish.setDate(finish.getDate() + 1);
+    }
+    
+    const paces: PaceEstimate[] = [{
+      label: "Watch",
+      minutesPerDay: watchableMinutes,
+      duration: formatHM(watchableMinutes),
+      durationShort: formatHM(watchableMinutes),
+      finishDate: formatLocalYMD(finish),
+      daysCeil: canFinishToday ? 0 : 1,
+      relativeLabel: canFinishToday ? "today" : "tomorrow",
+    }];
+
+    return {
+      franchise,
+      contentType,
+      totalEpisodes,
+      totalMinutes,
+      skippedEpisodes,
+      skippedMinutes,
+      watchableMinutes,
+      watchableEpisodes,
+      avgMinutesPerEp: avg,
+      paces,
+      mathNote: `Total watch time: ${formatHM(watchableMinutes)}`,
+      singleSittingTime: formatHM(watchableMinutes),
+      canFinishToday,
+    };
+  }
+
+  // ─── SHORT SERIES MODE ───
+  // Show paces but emphasize "quick finish"
+  if (contentType === "short_series") {
+    const paces: PaceEstimate[] = PACES.map((p) => {
+      const additionalDays = additionalCalendarDays(watchableMinutes, p.minutesPerDay);
+      const finish = new Date(noonStart);
+      if (additionalDays > 0) finish.setDate(finish.getDate() + additionalDays);
+      
+      const { full, short } = formatDurationForType(watchableMinutes, contentType, watchableEpisodes);
+      
+      return {
+        label: p.label,
+        minutesPerDay: p.minutesPerDay,
+        duration: full,
+        durationShort: short,
+        finishDate: formatLocalYMD(finish),
+        daysCeil: additionalDays,
+        relativeLabel: relativeFromAdditionalDays(additionalDays),
+      };
+    });
+
+    return {
+      franchise,
+      contentType,
+      totalEpisodes,
+      totalMinutes,
+      skippedEpisodes,
+      skippedMinutes,
+      watchableMinutes,
+      watchableEpisodes,
+      avgMinutesPerEp: avg,
+      paces,
+      mathNote: `Total ${formatHM(totalMinutes)} = ${totalEpisodes} eps × ${avg.toFixed(1)}m avg`,
+    };
+  }
+
+  // ─── TV SERIES & MIXED FRANCHISE MODE ───
+  // Standard multi-pace calculation with per-type breakdown for mixed
+  
+  const paces: PaceEstimate[] = PACES.map((p) => {
+    const additionalDays = additionalCalendarDays(watchableMinutes, p.minutesPerDay);
+    const finish = new Date(noonStart);
+    if (additionalDays > 0) finish.setDate(finish.getDate() + additionalDays);
+    
+    const { full, short } = formatDurationForType(watchableMinutes, contentType, watchableEpisodes);
+    
     return {
       label: p.label,
       minutesPerDay: p.minutesPerDay,
       duration: full,
       durationShort: short,
       finishDate: formatLocalYMD(finish),
-      daysCeil,
-      relativeLabel: relativeFromCeilDays(daysCeil),
+      daysCeil: additionalDays,
+      relativeLabel: relativeFromAdditionalDays(additionalDays),
     };
   });
 
   if (options?.paceType === "episodes" && options.episodesPerDay && options.episodesPerDay > 0) {
     const fractional = watchableWeightedEpisodes / options.episodesPerDay;
-    const daysCeil = watchableWeightedEpisodes <= 0 ? 0 : Math.max(1, Math.ceil(fractional));
+    const additionalDays = watchableWeightedEpisodes <= 0 ? 0 : Math.max(0, Math.ceil(fractional) - 1);
     const finish = new Date(noonStart);
-    finish.setDate(finish.getDate() + daysCeil);
-    const { full, short } = formatDurationFromDays(fractional);
+    if (additionalDays > 0) finish.setDate(finish.getDate() + additionalDays);
+    const { full, short } = formatDurationForType(watchableMinutes, contentType, watchableEpisodes);
 
     paces.unshift({
       label: "Episodes",
@@ -245,8 +444,8 @@ export function calculateTimeBudget(
       duration: full,
       durationShort: short,
       finishDate: formatLocalYMD(finish),
-      daysCeil,
-      relativeLabel: relativeFromCeilDays(daysCeil),
+      daysCeil: additionalDays,
+      relativeLabel: relativeFromAdditionalDays(additionalDays),
     });
   }
 
@@ -254,8 +453,8 @@ export function calculateTimeBudget(
     const customEst = calculateCustomScheduleFinish(watchableMinutes, startDate, options.customSchedule);
     if (customEst.activeMinutesPerWeek > 0) {
       const avgMinutesPerDay = Math.round(customEst.activeMinutesPerWeek / 7);
-      const fractional = watchableMinutes / avgMinutesPerDay;
-      const { full, short } = formatDurationFromDays(fractional);
+      const additionalDays = additionalCalendarDays(watchableMinutes, avgMinutesPerDay);
+      const { full, short } = formatDurationForType(watchableMinutes, contentType, watchableEpisodes);
       
       paces.unshift({
         label: "Custom",
@@ -263,17 +462,19 @@ export function calculateTimeBudget(
         duration: full,
         durationShort: short,
         finishDate: customEst.finishDate,
-        daysCeil: customEst.daysCeil,
+        daysCeil: additionalDays,
         relativeLabel: customEst.relativeLabel,
       });
     }
   }
 
-  const totalHM = formatHM(totalMinutes);
-  const mathNote = `Total ${totalHM} = ${totalEpisodes} eps × ${avg.toFixed(1)}m avg`;
+  const typeBreakdown = contentType === "mixed_franchise" 
+    ? calculateTypeBreakdown(entries) 
+    : undefined;
 
   return {
     franchise,
+    contentType,
     totalEpisodes,
     totalMinutes,
     skippedEpisodes,
@@ -282,7 +483,9 @@ export function calculateTimeBudget(
     watchableEpisodes,
     avgMinutesPerEp: avg,
     paces,
-    mathNote,
+    mathNote: `Total ${formatHM(totalMinutes)} = ${totalEpisodes} eps × ${avg.toFixed(1)}m avg`,
+    typeBreakdown,
+    canFinishToday: watchableMinutes <= 120,
   };
 }
 

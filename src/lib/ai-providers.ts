@@ -143,7 +143,6 @@ OUTPUT FORMAT — Return ONLY valid JSON:
 
 Output the JSON now.`;
 }
-
 // ── Vercel AI SDK Auto-Failover Call ─────────────────────────────────────
 export async function callAIWithFallback(
   prompt: string,
@@ -151,21 +150,45 @@ export async function callAIWithFallback(
 ): Promise<{ content: string; provider: string; latency: number }> {
   const startTime = Date.now();
 
-  // 1. Configure Providers explicitly to ensure correct API keys are used
+  // 1. Configure Providers explicitly
   const groq = createOpenAI({
     baseURL: "https://api.groq.com/openai/v1",
     apiKey: process.env.GROQ_API_KEY,
     name: "groq",
   });
 
-  // FIX: Explicitly configure Google to use GOOGLE_AI_API_KEY instead of GOOGLE_GENERATIVE_AI_API_KEY
-  const googleProvider = createGoogleGenerativeAI({
+  const google = createGoogleGenerativeAI({
     apiKey: process.env.GOOGLE_AI_API_KEY,
   });
 
+  const openrouter = createOpenAI({
+    baseURL: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY,
+    name: "openrouter",
+    headers: {
+      "HTTP-Referer": "https://chronoflow.app",
+      "X-Title": "ChronoFlow",
+    },
+  });
+
+  const github = createOpenAI({
+    baseURL: "https://models.inference.ai.azure.com",
+    apiKey: process.env.GITHUB_MODELS_TOKEN,
+    name: "github",
+    headers: {
+      "User-Agent": "ChronoFlow",
+    },
+  });
+
+  // 2. Provider Chain (Groq -> Google -> OpenRouter -> GitHub)
   const providers = [
     { name: "groq", model: groq("openai/gpt-oss-120b"), apiKey: process.env.GROQ_API_KEY },
-    { name: "google", model: googleProvider("gemini-1.5-flash"), apiKey: process.env.GOOGLE_AI_API_KEY }
+    // FIX: Updated to gemini-3.5-flash-lite as requested by Google's API
+    { name: "google", model: google("gemini-3.5-flash-lite"), apiKey: process.env.GOOGLE_AI_API_KEY },
+    // FIX: Restored OpenRouter (Free Llama 3.3 70B)
+    { name: "openrouter", model: openrouter("meta-llama/llama-3.3-70b-instruct:free"), apiKey: process.env.OPENROUTER_API_KEY },
+    // FIX: Restored GitHub (GPT-4o-mini)
+    { name: "github", model: github("gpt-4o-mini"), apiKey: process.env.GITHUB_MODELS_TOKEN }
   ];
 
   console.log(`[AI] Prompt length: ${prompt.length} chars, ~${Math.ceil(prompt.length / 4)} tokens`);
@@ -180,9 +203,10 @@ export async function callAIWithFallback(
       const { text, finishReason } = await generateText({
         model: p.model,
         prompt: prompt,
-        maxOutputTokens: 4000, // Changed from maxTokens
+        maxOutputTokens: 4000,
         temperature: 0.1,
-        abortSignal: AbortSignal.timeout(15000) 
+        // Lowered to 10s to prevent 30s hangs if a provider is unresponsive
+        abortSignal: AbortSignal.timeout(10000) 
       });
 
       if (text && text.trim().length > 0 && finishReason !== "length") {

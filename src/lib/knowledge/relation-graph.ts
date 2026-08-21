@@ -137,10 +137,15 @@ function flagSuspiciousEntries(root: RawRelationNode, nodes: Map<number, RawRela
     const nodeFlags: string[] = [];
     const relType = (node.relationType || "").toUpperCase();
 
+    // FIX: Flag studio mismatch for ALL entries and include the actual studio names
     const nodeStudios = (node as any).studios || [];
-    if (rootStudios.size > 0 && nodeStudios.length > 0 && relType !== 'SEQUEL' && relType !== 'PREQUEL') {
+    if (rootStudios.size > 0 && nodeStudios.length > 0) {
       const hasOverlap = nodeStudios.some((s: string) => rootStudios.has(s));
-      if (!hasOverlap) nodeFlags.push('different-studio');
+      if (!hasOverlap) {
+        const rootStudio = Array.from(rootStudios).find(Boolean) || 'Unknown';
+        const nodeStudio = nodeStudios.find(Boolean) || 'Unknown';
+        nodeFlags.push(`different-studio:${rootStudio}:${nodeStudio}`);
+      }
     }
 
     if (relType !== 'SEQUEL' && relType !== 'PREQUEL') {

@@ -454,6 +454,7 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
       franchise: root.title,
       franchiseId: `fr_${(root as any).anilistId || (root as any).malId || Date.now()}`,
       franchiseImage: (root as any).coverImage?.large,
+    franchiseColor: (root as any).coverImage?.color || "#a78bfa",
       classification: classification.shape,
       classificationReason: "Deterministic fallback due to AI unavailability.",
       summary: `Complete watch order for ${root.title}`,
@@ -721,6 +722,7 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           genres: node?.genres || [], status: node?.status, trailerUrl, watched: false, progress: 0,
           innerOrder: entry.innerOrder ? { totalEpisodes: episodes, canonEpisodes: 0, fillerEpisodes: 0, ranges: (entry.innerOrder.ranges || []).map((r: any) => ({ start: r.start, end: r.end, type: r.type as any, title: r.title })), skipEpisodes: entry.innerOrder.skipEpisodes || [], watchEpisodes: [] } : undefined,
           relationType: node?.relationType,
+          flags: allowed?.flags || [], // <--- ADD THIS LINE 
         } as any;
       });
       const totEp = entries.reduce((s: number, e: any) => s + (typeof e.releasedEpisodeCount === "number" ? e.releasedEpisodeCount : e.episodeCount || 0), 0);
@@ -961,6 +963,7 @@ function buildDeterministicPaths(
       watched: false,
       progress: 0,
       relationType: t.relationType,
+      flags: t.flags || [], // <--- ADD THIS LINE
     } as any;
   });
 

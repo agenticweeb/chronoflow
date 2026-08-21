@@ -1,5 +1,6 @@
 "use client";
-
+import { BeyondHorizon } from "@/components/BeyondHorizon";
+import { FlagTooltip } from "@/components/FlagTooltip";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -256,8 +257,15 @@ export default function FlowchartV2({
     );
   }
 
+  // Extract color and fallback to indigo if missing
+  const themeColor = data.franchiseColor || "#a78bfa";
+
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
+    // Inject CSS variable scoped to this component
+    <div 
+      className="w-full max-w-5xl mx-auto space-y-6" 
+      style={{ "--theme-accent": themeColor } as React.CSSProperties}
+    >
       {/* Focus banner */}
       <AnimatePresence>
         {isFocused && (
@@ -283,7 +291,14 @@ export default function FlowchartV2({
       </AnimatePresence>
 
       {/* Hero header */}
-      <div className="glass-card overflow-hidden relative border border-chrono-border/40 rounded-2xl">
+      {/* Dynamic border and ambient glow using --theme-accent */}
+      <div 
+        className="glass-card overflow-hidden relative border rounded-2xl transition-colors duration-500" 
+        style={{ 
+          borderColor: `${themeColor}40`, 
+          boxShadow: `0 0 80px -20px ${themeColor}` 
+        }}
+      >
         <div className="absolute inset-0 pointer-events-none">
           {heroImage && (
             <div
@@ -724,10 +739,15 @@ export default function FlowchartV2({
           </div>,
           document.body
         )}
-    </div>
+
+      {/* BEYOND HORIZON - RECOMMENDATIONS */}
+      <BeyondHorizon classification={data.classification} currentSlug={(data as any).franchiseId?.replace('fr_', '')} />
+      
+    </div> // <--- This is the final closing div of the FlowchartV2 component
   );
 }
 
+// ... EntryNode function starts here ...
 function EntryNode({
   entry,
   index,
@@ -788,6 +808,7 @@ function EntryNode({
           tier.shadow,
           isWatched && "opacity-55"
         )}
+        style={{ boxShadow: `0 0 30px -15px var(--theme-accent, #6366f1)` }}
       >
         <div
           className="p-3.5 sm:p-4 cursor-pointer flex gap-4"
@@ -835,9 +856,14 @@ function EntryNode({
               )}
             </div>
 
-            <h3 className="font-bold text-white mt-1.5 line-clamp-2 leading-snug">
-              {entry.title}
-            </h3>
+            <div className="flex items-center gap-1 mt-1.5">
+              <h3 className="font-bold text-white line-clamp-2 leading-snug">
+                {entry.title}
+              </h3>
+              {entry.flags?.some(f => f.startsWith("different-studio")) && (
+                <FlagTooltip flag={entry.flags.find(f => f.startsWith("different-studio"))!} />
+              )}
+            </div>
 
             <div className="flex items-center gap-2 mt-1.5 text-xs text-zinc-400 flex-wrap">
               <span className="inline-flex items-center gap-1">
