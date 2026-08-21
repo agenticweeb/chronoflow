@@ -20,6 +20,7 @@ export function ChronoCompanion() {
         viewBox="0 0 48 48"
         fill="none"
         animate={isFetching > 0 ? "fetching" : "idle"}
+        initial="idle" // <--- ADD THIS LINE
       >
         <motion.circle
           cx="24"

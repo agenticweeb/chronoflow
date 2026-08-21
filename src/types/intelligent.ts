@@ -148,6 +148,7 @@ export interface WatchOrderEntryV2 {
   // Relation metadata from graph
   relationType?: string; // prequel, sequel, alternative, sideStory etc
   relationFrom?: number; // which node this relation came from
+  flags?: string[]; // <--- ADD THIS LINE
 }
 
 // ── Group - The Key to "Inside Each A Way To Watch" ─────────
@@ -284,8 +285,8 @@ export interface AllowedTitle {
   anilistId: number;
   malId?: number;
   title: string;
-  normalizedTitle: string; // lowercased for matching
-  aliases: string[]; // english, romaji, native, synonyms
+  normalizedTitle: string;
+  aliases: string[];
   format: EntryFormat;
   episodes?: number;
   duration?: number;
@@ -293,8 +294,9 @@ export interface AllowedTitle {
   popularity: number;
   relationType?: string;
   isMainEntry: boolean;
-  status?: string; // DECLARED: For airing coherence
-  nextAiringEpisode?: { episode: number } | null; // DECLARED: For progress grounding
+  status?: string;
+  nextAiringEpisode?: { episode: number } | null;
+  flags?: string[]; // <--- ADD THIS LINE
 }
 
 // ── AI Generation Types - Strict Schema ──────────────────────

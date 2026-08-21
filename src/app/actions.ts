@@ -139,7 +139,8 @@ export async function discoverAnimeAction(filters: {
 }): Promise<SearchActionResult> {
   try {
     // Cache key for discover based on filters
-    const cacheKey = `discover_v2:${JSON.stringify(filters)}`;
+    // Cache key for discover based on filters
+    const cacheKey = `discover_v3:${JSON.stringify(filters)}`; // <--- CHANGE TO v3
     const cached = await redis.get<AnimeSearchResult[]>(cacheKey);
     if (cached) {
       console.log(`✅ Cache HIT for discover filters`);

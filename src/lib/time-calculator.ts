@@ -407,6 +407,7 @@ export function calculateTimeBudget(
       avgMinutesPerEp: avg,
       paces,
       mathNote: `Total ${formatHM(totalMinutes)} = ${totalEpisodes} eps × ${avg.toFixed(1)}m avg`,
+      canFinishToday: watchableMinutes <= 120, // <--- ADD THIS LINE
     };
   }
 
