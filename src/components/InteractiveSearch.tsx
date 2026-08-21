@@ -58,7 +58,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 const GENRES = [
   "Action", "Adventure", "Comedy", "Drama", "Fantasy", "Horror", 
   "Mystery", "Psychological", "Romance", "Sci-Fi", "Slice of Life", 
-  "Sports", "Supernatural", "Thriller"
+  "Sports", "Supernatural", "Thriller", "Mecha"
 ];
 
 const GENERATION_STAGES = [
@@ -143,8 +143,9 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
   }, [generating]);
 
   // Query database dynamically as user types using TanStack Query
-  const { data: searchData, isFetching: isSearching } = useQuery({
-    queryKey: ['search', safeQuery],
+  const { data: discoverData, isFetching: discoverLoading } = useQuery({
+    queryKey: ['discover_v4', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
+    // ... rest of query
     queryFn: () => searchAnimeAction(safeQuery.trim()),
     enabled: safeQuery.trim().length >= 3, 
     staleTime: 1000 * 60 * 5,
