@@ -146,6 +146,90 @@ export const SEO_FRANCHISES: SeoFranchise[] = [
     anilistId: 20883,
     description: "The Haikyu!! watch order guide. Find out where to watch the critical short films and cinematic movies between the numbered seasons.",
     h1: "Haikyu!! Watch Order Guide"
+  },
+  {
+    slug: "demon-slayer",
+    name: "Demon Slayer",
+    anilistId: 101922,
+    description: "The Demon Slayer (Kimetsu no Yaiba) watch order guide. Navigate the seasons, the Mugen Train movie, and the Hashira Training Arc.",
+    h1: "Demon Slayer Watch Order Guide"
+  },
+  {
+    slug: "fullmetal-alchemist",
+    name: "Fullmetal Alchemist: Brotherhood",
+    anilistId: 5114,
+    description: "The definitive Fullmetal Alchemist watch order guide. Navigate the 2003 anime, Brotherhood, and the Conqueror of Shamballa movie without confusion.",
+    h1: "Fullmetal Alchemist Watch Order Guide"
+  },
+  {
+    slug: "death-note",
+    name: "Death Note",
+    anilistId: 1535,
+    description: "The complete Death Note watch order guide. Navigate the 37-episode psychological thriller and its tie-in movies.",
+    h1: "Death Note Watch Order Guide"
+  },
+  {
+    slug: "jujutsu-kaisen",
+    name: "Jujutsu Kaisen",
+    anilistId: 113415,
+    description: "The Jujutsu Kaisen watch order guide. Find out exactly when to watch the prequel movie (Jujutsu Kaisen 0) before Season 2.",
+    h1: "Jujutsu Kaisen Watch Order Guide"
+  },
+  {
+    slug: "attack-on-titan",
+    name: "Attack on Titan",
+    anilistId: 16498,
+    description: "The complete Attack on Titan watch order guide. Follow Eren Yeager and the Survey Corps through the gritty, action-packed fight for humanity's survival.",
+    h1: "Attack on Titan Watch Order Guide"
+  },
+  {
+    slug: "sword-art-online",
+    name: "Sword Art Online",
+    anilistId: 11757,
+    description: "The Sword Art Online watch order guide. Traverse the Aincrad, Alfheim, Gun Gale, and Alicization arcs in the correct sequence.",
+    h1: "Sword Art Online Watch Order Guide"
+  },
+  {
+    slug: "hunter-x-hunter",
+    name: "Hunter x Hunter",
+    anilistId: 11061,
+    description: "The Hunter x Hunter watch order guide. Experience Gon's journey to find his father, navigating the Chimera Ant and Election arcs perfectly.",
+    h1: "Hunter x Hunter Watch Order Guide"
+  },
+  {
+    slug: "cyberpunk-edgerunners",
+    name: "Cyberpunk: Edgerunners",
+    anilistId: 120377,
+    description: "The Cyberpunk: Edgerunners watch order guide. Dive into the tragic and vibrant Night City with David Martinez.",
+    h1: "Cyberpunk: Edgerunners Watch Order Guide"
+  },
+  {
+    slug: "chainsaw-man",
+    name: "Chainsaw Man",
+    anilistId: 127230,
+    description: "The Chainsaw Man watch order guide. Follow Denji's chaotic journey as Chainsaw Man, including the manga and upcoming movies.",
+    h1: "Chainsaw Man Watch Order Guide"
+  },
+  {
+    slug: "vinland-saga",
+    name: "Vinland Saga",
+    anilistId: 101348,
+    description: "The Vinland Saga watch order guide. Follow Thorfinn's journey of revenge and redemption across the seasons.",
+    h1: "Vinland Saga Watch Order Guide"
+  },
+  {
+    slug: "one-punch-man",
+    name: "One Punch Man",
+    anilistId: 21087,
+    description: "The One Punch Man watch order guide. Navigate Saitama's heroic journey and the official OVAs.",
+    h1: "One Punch Man Watch Order Guide"
+  },
+  {
+    slug: "ghost-in-the-shell",
+    name: "Ghost in the Shell",
+    anilistId: 43,
+    description: "The Ghost in the Shell watch order guide. Distinguish between the movies, Stand Alone Complex, and Arise timelines.",
+    h1: "Ghost in the Shell Watch Order Guide"
   }
 ];
 
