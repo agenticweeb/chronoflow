@@ -24,6 +24,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://chronoflow-zeta.vercel.app";
   const canonicalUrl = `${siteUrl}/watch-order/${franchise.slug}`;
 
+  const ogImageUrl = `${siteUrl}/api/og?franchise=${encodeURIComponent(franchise.name)}&entries=0&hours=0&tier=Essential`;
+
   return {
     title: franchise.h1,
     description: franchise.description,
@@ -33,6 +35,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: franchise.description,
       url: canonicalUrl,
       type: "article",
+      images: [{ url: ogImageUrl }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: franchise.h1,
+      description: franchise.description,
+      images: [{ url: ogImageUrl }],
     },
   };
 }
