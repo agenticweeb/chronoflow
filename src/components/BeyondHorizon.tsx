@@ -3,47 +3,32 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Telescope } from "lucide-react";
-
-// Map our internal classifications to franchises with similar structures
-const STRUCTURAL_TWINS: Record<string, { slug: string; name: string }[]> = {
-  mega_franchise: [
-    { slug: "fate-series", name: "Fate Series" },
-    { slug: "monogatari-series", name: "Monogatari Series" },
-    { slug: "gundam-uc", name: "Gundam (Universal Century)" }
-  ],
-  canon_movie_sandwich: [
-    { slug: "jojo-bizarre-adventure", name: "JoJo's Bizarre Adventure" },
-    { slug: "neon-genesis-evangelion", name: "Neon Genesis Evangelion" },
-    { slug: "haikyu", name: "Haikyu!!" }
-  ],
-  route_branching: [
-    { slug: "steins-gate", name: "Steins;Gate" },
-    { slug: "clannad", name: "Clannad" },
-    { slug: "fate-series", name: "Fate Series" }
-  ],
-  long_runner: [
-    { slug: "one-piece", name: "One Piece" },
-    { slug: "naruto", name: "Naruto" },
-    { slug: "bleach", name: "Bleach" }
-  ],
-  // DELETE THIS DEFAULT BLOCK:
-  // default: [
-  //   { slug: "fate-series", name: "Fate Series" },
-  //   { slug: "steins-gate", name: "Steins;Gate" },
-  //   { slug: "neon-genesis-evangelion", name: "Neon Genesis Evangelion" }
-  // ]
-};
+import { FRANCHISE_DNA_PROFILES } from "@/lib/seo/dna-profiles";
+import type { FranchiseDNA } from "@/lib/dna";
 
 interface BeyondHorizonProps {
-  classification: string;
+  currentDNA: FranchiseDNA;
   currentSlug?: string;
+  currentName?: string;
 }
 
-export function BeyondHorizon({ classification, currentSlug }: BeyondHorizonProps) {
-  // Get the list of twins based on the current anime's classification
-  // If the classification isn't in the map (e.g., single_core), return an empty array
-  const twins = (STRUCTURAL_TWINS[classification] || [])
-    .filter(t => t.slug !== currentSlug) // Don't recommend the anime they just watched
+// Cosine Similarity Algorithm
+function calculateSimilarity(a: FranchiseDNA, b: FranchiseDNA): number {
+  const dotProduct = (a.nonLinearity * b.nonLinearity) + (a.entryClarity * b.entryClarity) + (a.density * b.density) + (a.sequelDepth * b.sequelDepth) + (a.branchFactor * b.branchFactor);
+  const magA = Math.sqrt((a.nonLinearity ** 2) + (a.entryClarity ** 2) + (a.density ** 2) + (a.sequelDepth ** 2) + (a.branchFactor ** 2));
+  const magB = Math.sqrt((b.nonLinearity ** 2) + (b.entryClarity ** 2) + (b.density ** 2) + (b.sequelDepth ** 2) + (b.branchFactor ** 2));
+  if (magA === 0 || magB === 0) return 0;
+  return dotProduct / (magA * magB);
+}
+
+export function BeyondHorizon({ currentDNA, currentSlug, currentName }: BeyondHorizonProps) {
+  const twins = Object.values(FRANCHISE_DNA_PROFILES)
+    .filter(p => p.slug !== currentSlug && p.name !== currentName) // Exclude current anime
+    .map(p => ({
+      ...p,
+      similarity: calculateSimilarity(currentDNA, p.dna)
+    }))
+    .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 3);
 
   if (twins.length === 0) return null;
@@ -65,7 +50,7 @@ export function BeyondHorizon({ classification, currentSlug }: BeyondHorizonProp
           You mastered this timeline structure. Ready for the next architectural challenge? 
           <br />
           <span className="text-xs text-chrono-text-dim">
-            (Recommendations are based on similar narrative complexity and timeline shape, not genre.)
+            (Recommendations are calculated via Cosine Similarity on franchise topology, not genre.)
           </span>
         </p>
       </motion.div>
@@ -83,12 +68,17 @@ export function BeyondHorizon({ classification, currentSlug }: BeyondHorizonProp
               href={`/watch-order/${twin.slug}`}
               className="group block p-6 rounded-xl border border-chrono-border/30 bg-chrono-surface/30 hover:bg-chrono-surface-hover/30 transition-colors duration-200"
             >
-              <h3 className="font-semibold text-white group-hover:text-chrono-primary transition-colors mb-1">
+              <h3 className="font-semibold text-white group-hover:text-chrono-primary transition-colors mb-2">
                 {twin.name}
               </h3>
-              <span className="text-[10px] text-chrono-text-dim uppercase tracking-wider">
-                Similar Structure
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-chrono-text-dim uppercase tracking-wider">
+                  Topology Match
+                </span>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                  {Math.round(twin.similarity * 100)}% Similar
+                </span>
+              </div>
             </Link>
           </motion.div>
         ))}

@@ -1,6 +1,6 @@
 export interface TierAnime {
   title: string;
-  slug?: string; // Optional: if it has a static page
+  slug?: string;
   tag: string;
 }
 
@@ -55,12 +55,12 @@ export const SEO_TIERS: SeoTier[] = [
       { title: "Naruto", slug: "naruto", tag: "Filler Heavy" },
       { title: "Bleach", slug: "bleach", tag: "Filler Heavy" },
       { title: "Dragon Ball", slug: "dragon-ball", tag: "Decades" },
-      { title: "Legend of the Galactic Heroes", tag: "Space Opera" },
-      { title: "Mushoku Tensei: Jobless Reincarnation", tag: "Isekai" },
-      { title: "That Time I Got Reincarnated as a Slime", tag: "Fantasy" },
-      { title: "Detective Conan", tag: "Mystery" },
+      { title: "Legend of the Galactic Heroes", slug: "legend-of-the-galactic-heroes", tag: "Space Opera" },
+      { title: "Mushoku Tensei: Jobless Reincarnation", slug: "mushoku-tensei", tag: "Isekai" },
+      { title: "That Time I Got Reincarnated as a Slime", slug: "that-time-i-got-reincarnated-as-a-slime", tag: "Fantasy" },
+      { title: "Detective Conan", slug: "detective-conan", tag: "Mystery" },
       { title: "The Melancholy of Haruhi Suzumiya", slug: "haruhi-suzumiya", tag: "Mystery" },
-      { title: "Gintama", tag: "Comedy" },
+      { title: "Gintama", slug: "gintama", tag: "Comedy" },
       { title: "Ghost in the Shell", slug: "ghost-in-the-shell", tag: "Sci-Fi" }
     ]
   }

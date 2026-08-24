@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { SEO_FRANCHISES, getFranchiseBySlug } from "@/lib/seo/franchises";
-import { generateIntelligentWatchOrder } from "@/lib/ai/orchestrator";
+import { generateWatchOrderAction } from "@/app/actions";
 import FlowchartV2 from "@/components/FlowchartV2";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -65,13 +65,18 @@ export default async function WatchOrderPage({ params }: { params: Promise<{ slu
 
   let result;
   try {
-    const orchResult = await generateIntelligentWatchOrder({
+    // Use the Server Action so it checks the Redis Cache first (prevents 504 timeouts)
+    const actionResult = await generateWatchOrderAction({
       animeName: franchise.name,
       anilistId: franchise.anilistId,
       scope: "franchise",
       preferences: defaultPrefs,
     });
-    result = orchResult.result;
+    
+    if (!actionResult.success || !actionResult.data) {
+      throw new Error(actionResult.error || "Failed to generate watch order");
+    }
+    result = actionResult.data.dataV2;
   } catch (e) {
     console.error(`Failed to generate SEO page for ${franchise.name}:`, e);
     return (

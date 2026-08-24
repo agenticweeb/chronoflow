@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
           >
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <div style={{ fontSize: '18px', color: palette.accent, textTransform: 'uppercase', letterSpacing: '0.2em', marginBottom: '12px' }}>
-                ChronoFlow Watch Order
+                MyaniWatchorder Watch Order
               </div>
               <div style={{ fontSize: '64px', fontWeight: 800, color: 'white', lineHeight: 1.1, maxWidth: '700px' }}>
                 {franchise}
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
                 C
               </div>
               <div style={{ display: 'flex', color: 'rgba(255,255,255,0.6)', fontSize: '16px' }}>
-                chronoflow.app
+                myaniwatchorder.com
               </div>
             </div>
           </div>
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     return new ImageResponse(
       (
         <div style={{ display: 'flex', width: '1200px', height: '630px', background: '#0a0a0f', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '48px' }}>
-          ChronoFlow Watch Order
+          MyaniWatchorder Watch Order
         </div>
       ),
       { width: 1200, height: 630 }

@@ -297,3 +297,46 @@ export async function generateWatchOrderAction(
     };
   }
 }
+
+export async function fetchCurrentlyAiring() {
+  const query = `
+    query {
+      Page(page: 1, perPage: 12) {
+        media(
+          type: ANIME
+          status: RELEASING
+          sort: [POPULARITY_DESC]
+          format_in: [TV, TV_SHORT]
+          isAdult: false
+        ) {
+          id
+          title { english romaji userPreferred }
+          episodes
+          coverImage { large medium }
+          nextAiringEpisode { airingAt episode }
+        }
+      }
+    }
+  `;
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query }),
+      next: { revalidate: 3600, tags: ['airing'] },
+    });
+    if (!res.ok) throw new Error('AniList HTTP error');
+    const json = await res.json();
+    if (json.errors) throw new Error(json.errors[0].message);
+    return json.data.Page.media.map((m: any) => ({
+      id: m.id,
+      title: m.title.english || m.title.romaji || m.title.userPreferred,
+      coverImage: m.coverImage.large || m.coverImage.medium || '',
+      episodes: m.episodes ?? null,
+      nextAiringEpisode: m.nextAiringEpisode ? { airingAt: m.nextAiringEpisode.airingAt, episode: m.nextAiringEpisode.episode } : null,
+    }));
+  } catch (e) {
+    console.error('Failed to fetch currently airing:', e);
+    return [];
+  }
+}

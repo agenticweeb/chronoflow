@@ -2,12 +2,12 @@ import Link from "next/link";
 import { Clock } from "lucide-react";
 import { CinematicHero } from "@/components/CinematicHero";
 import { InteractiveSearch } from "@/components/InteractiveSearch";
+import { fetchCurrentlyAiring } from "@/app/actions";
 import { TopBanner } from "@/components/TopBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChronoCompanion } from "@/components/ChronoCompanion";
 import { searchAnimeAction } from "@/app/actions";
 import { SEO_TIERS } from "@/lib/seo/tiers";
-
 export const dynamic = "force-dynamic";
 
 // 1. Define the base suggestions on the server
@@ -36,6 +36,9 @@ const BASE_SUGGESTIONS = [
 
 // 2. Make the page an async Server Component
 export default async function Page() {
+  // Fetch missing cover images on the server before rendering
+  const airingAnime = await fetchCurrentlyAiring(); // <--- ADDED THIS
+  
   // Combine BASE_SUGGESTIONS with all anime from SEO_TIERS to ensure we fetch images for all of them
   const tierAnime = SEO_TIERS.flatMap(t => t.anime).map(a => ({
     title: a.title,
@@ -55,7 +58,6 @@ export default async function Page() {
     return true;
   });
 
-  // Fetch missing cover images on the server before rendering
   const suggestionsWithImages = await Promise.all(
     allSuggestions.map(async (suggestion) => {
       if (suggestion.imageUrl) return suggestion;
@@ -88,7 +90,7 @@ export default async function Page() {
             </div>
             <div>
               <span className="font-extrabold text-sm tracking-tight text-white block leading-none">
-                ChronoFlow
+                MyAniWatchOrder
               </span>
               <span className="text-[10px] text-[#a8a3b8] uppercase tracking-widest font-semibold">
                 Grounded Watch Orders
@@ -109,7 +111,7 @@ export default async function Page() {
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs font-semibold text-[#a8a3b8] hover:text-white transition-colors"
-              aria-label="Star ChronoFlow on GitHub"
+              aria-label="Star MyAniWatchOrder on GitHub"
             >
               <svg
                 className="w-4 h-4 fill-current"
@@ -132,8 +134,8 @@ export default async function Page() {
       <section className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-12">
         <ErrorBoundary>
           <CinematicHero />
-          {/* 3. Pass the fetched suggestions as props */}
-          <InteractiveSearch initialSuggestions={suggestionsWithImages} />
+          {/* 3. Pass the fetched suggestions AND airingAnime as props */}
+          <InteractiveSearch initialSuggestions={suggestionsWithImages} airingAnime={airingAnime} />
         </ErrorBoundary>
       </section>
 
@@ -145,7 +147,7 @@ export default async function Page() {
               Database-Grounded Navigation
             </span>
             <p className="text-xs text-[#a8a3b8] leading-relaxed max-w-xs">
-              This system does not rely on static artificial intelligence memory. ChronoFlow constructs interactive timelines directly from live GraphQL relation graphs, eliminating information errors on new and ongoing releases.
+              This system does not rely on static artificial intelligence memory. MyAniWatchOrder constructs interactive timelines directly from live GraphQL relation graphs, eliminating information errors on new and ongoing releases.
             </p>
           </div>
           <div>
@@ -197,7 +199,7 @@ export default async function Page() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-8 pt-6 border-t border-chrono-border/10 text-center text-[10px] text-chrono-text-dim select-none">
-          © {new Date().getFullYear()} ChronoFlow • Optimized by @agenticweeb
+          © {new Date().getFullYear()} MyAniWatchOrder • Optimized by @agenticweeb
         </div>
       </footer>
     </main>

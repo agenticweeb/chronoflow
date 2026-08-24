@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 // AI Optimization (AIO) Schema Graph
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://chronoflow-zeta.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://MyaniWatchorder-zeta.vercel.app";
 
 const structuredData = {
   "@context": "https://schema.org",
@@ -19,19 +19,19 @@ const structuredData = {
     {
       "@type": "Organization",
       "@id": `${siteUrl}/#organization`,
-      "name": "ChronoFlow",
+      "name": "MyaniWatchorder",
       "url": siteUrl,
       "logo": `${siteUrl}/logo.png`,
       "sameAs": [
         "https://x.com/agenticweeb",
-        "https://github.com/agenticweeb/chronoflow"
+        "https://github.com/agenticweeb/MyaniWatchorder"
       ]
     },
     {
       "@type": "WebSite",
       "@id": `${siteUrl}/#website`,
       "url": siteUrl,
-      "name": "ChronoFlow",
+      "name": "MyaniWatchorder",
       "publisher": { "@id": `${siteUrl}/#organization` },
       "potentialAction": {
         "@type": "SearchAction",
@@ -43,7 +43,7 @@ const structuredData = {
       "@type": "WebApplication",
       "@id": `${siteUrl}/#webapp`,
       "url": siteUrl,
-      "name": "ChronoFlow Anime Watch Order Generator",
+      "name": "MyaniWatchorder Anime Watch Order Generator",
       "applicationCategory": "EntertainmentApplication",
       "operatingSystem": "Web",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
@@ -55,12 +55,12 @@ const structuredData = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "ChronoFlow — Anime Watch Order Engine",
-    template: "%s · ChronoFlow",
+    default: "MyaniWatchorder — Anime Watch Order Engine",
+    template: "%s · MyaniWatchorder",
   },
   description:
-    "Generate AI-powered, spoiler-safe anime watch orders for any franchise. Skip filler, calculate exact finish dates, and map complex timelines like Fate, Monogatari, and Gundam in seconds.",
-  applicationName: "ChronoFlow",
+    "Generate spoiler-safe, AI-curated anime watch orders for any franchise. Skip filler, calculate exact finish dates, and map complex timelines like Fate, Monogatari, and Gundam in seconds.",
+  applicationName: "MyaniWatchorder",
   authors: [{ name: "agenticweeb", url: "https://x.com/agenticweeb" }],
   keywords: [
     "anime watch order",
@@ -68,20 +68,20 @@ export const metadata: Metadata = {
     "Monogatari order",
     "filler skip guide",
     "anime timeline",
-    "ChronoFlow",
+    "MyaniWatchorder",
   ],
   openGraph: {
     type: "website",
-    title: "ChronoFlow — Never Watch Anime In The Wrong Order Again",
+    title: "MyaniWatchorder — Never Watch Anime In The Wrong Order Again",
     description:
       "The ultimate grounded watch-order engine. AI-powered pathfinding, relation graph mapping, and smart skip for any anime franchise.",
-    siteName: "ChronoFlow",
+    siteName: "MyaniWatchorder",
     url: siteUrl,
   },
   twitter: {
     card: "summary_large_image",
     creator: "@agenticweeb",
-    title: "ChronoFlow — Anime Watch Order Engine",
+    title: "MyaniWatchorder — Anime Watch Order Engine",
     description:
       "Spoiler-safe paths, smart skip, and real finish dates for any franchise.",
   },

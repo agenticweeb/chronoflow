@@ -1,4 +1,6 @@
 "use client";
+import { FranchisePulse } from "@/components/FranchisePulse";
+import { AiringCountdown } from "@/components/AiringCountdown";
 import { BeyondHorizon } from "@/components/BeyondHorizon";
 import { FlagTooltip } from "@/components/FlagTooltip";
 import { useEffect, useMemo, useState } from "react";
@@ -885,7 +887,11 @@ export default function FlowchartV2({
         document.body
       )}
       {/* BEYOND HORIZON - RECOMMENDATIONS */}
-      <BeyondHorizon classification={data.classification} currentSlug={(data as any).franchiseId?.replace('fr_', '')} />
+      <BeyondHorizon 
+        currentDNA={computeDNA(data)} 
+        currentName={data.franchise} 
+        currentSlug={(data as any).franchiseId?.replace('fr_', '')} 
+      />
       
     </div> // <--- This is the final closing div of the FlowchartV2 component
   );
@@ -1008,7 +1014,12 @@ function EntryNode({
                 <FlagTooltip flag={entry.flags.find(f => f.startsWith("different-studio"))!} />
               )}
             </div>
-
+            {entry.status === "RELEASING" && (entry as any).nextAiringEpisode && (
+              <AiringCountdown 
+                airingAt={(entry as any).nextAiringEpisode.airingAt} 
+                episode={(entry as any).nextAiringEpisode.episode} 
+              />
+            )}
             <div className="flex items-center gap-2 mt-1.5 text-xs text-zinc-400 flex-wrap">
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3 h-3" /> {entry.timeEstimate}
@@ -1198,6 +1209,10 @@ function EntryNode({
                           ))}
                         </div>
                       </div>
+                    )}
+                    {/* Community Consensus (Franchise Pulse) */}
+                    {entry.anilistId && (
+                      <FranchisePulse mediaId={entry.anilistId} currentTier={entry.tier} />
                     )}
                     <div className="flex flex-wrap gap-2 pt-2">
                       {entry.trailerUrl && (

@@ -41,6 +41,7 @@ import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import { useAudioCue } from "@/hooks/useAudioCue";
 import { SEO_TIERS } from "@/lib/seo/tiers";
 import { NarrativeLoader } from "@/components/NarrativeLoader";
+import { AiringCarousel } from "@/components/AiringCarousel";
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "regular",
@@ -82,9 +83,10 @@ const LANGUAGES = [
 
 interface InteractiveSearchProps {
   initialSuggestions: any[]; 
+  airingAnime?: any[];
 }
 
-export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps) {
+export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: InteractiveSearchProps) {
   const listboxId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const { play } = useAudioCue();
@@ -708,6 +710,14 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
             </div>
           </div>
           <VisualFlowchart data={finalData} timeBudget={preferences.timeBudget} customSchedule={preferences.customSchedule} />
+        </div>
+      )}
+
+
+      {/* Currently Airing Carousel */}
+      {activeTab === "builder" && !selected && !finalData && airingAnime.length > 0 && (
+        <div className="max-w-7xl mx-auto animate-fade-in mb-8">
+          <AiringCarousel anime={airingAnime} />
         </div>
       )}
 
