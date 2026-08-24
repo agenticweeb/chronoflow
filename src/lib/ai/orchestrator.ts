@@ -547,6 +547,7 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     franchise: (aiData as any).franchise || root.title,
     franchiseId: `fr_${(root as any).anilistId || (root as any).malId || Date.now()}`,
     franchiseImage: (root as any).coverImage?.large,
+    franchiseColor: (root as any).coverImage?.color || "#a78bfa", // <--- ADD THIS LINE
     classification: (aiData as any).classification || classification.shape,
     classificationReason: (aiData as any).classificationReason || classification.reasoning,
     summary: (aiData as any).summary || `Complete watch order for ${root.title}`,

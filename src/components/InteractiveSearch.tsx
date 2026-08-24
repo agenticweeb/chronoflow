@@ -40,6 +40,7 @@ import type { WatchOrderResultV2, CustomSchedule } from "@/types/intelligent";
 import { useQueryState, parseAsString, parseAsInteger } from "nuqs";
 import { useAudioCue } from "@/hooks/useAudioCue";
 import { SEO_TIERS } from "@/lib/seo/tiers";
+import { NarrativeLoader } from "@/components/NarrativeLoader";
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "regular",
@@ -102,7 +103,6 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
   const [selected, setSelected] = useState<AnimeSearchResult | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
   const [generating, startGenerating] = useTransition();
-  const [currentStage, setCurrentStage] = useState(0);
   const [finalData, setFinalData] = useState<WatchOrderResultV2 | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
   const [latency, setLatency] = useState<number | null>(null);
@@ -125,16 +125,6 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (generating) {
-      setCurrentStage(0);
-      interval = setInterval(() => {
-        setCurrentStage((prev) => (prev < GENERATION_STAGES.length - 1 ? prev + 1 : prev));
-      }, 700);
-    }
-    return () => clearInterval(interval);
-  }, [generating]);
 
   // Search Query
   const { data: searchData, isFetching: isSearching } = useQuery({
@@ -628,7 +618,7 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
         </div>
       )}
 
-      {/* Cinematic Stages Overlay */}
+      {/* Narrative Loader Overlay */}
       <AnimatePresence>
         {generating && (
           <motion.div
@@ -637,42 +627,8 @@ export function InteractiveSearch({ initialSuggestions }: InteractiveSearchProps
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-[#030306]/95 backdrop-blur-md flex flex-col items-center justify-center p-6 z-[99999]"
           >
-            <div className="max-w-md w-full space-y-8 relative">
-              <div className="relative w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-                <div className="absolute inset-0 bg-chrono-primary/15 rounded-full animate-ping" />
-                <div className="w-16 h-16 bg-gradient-to-br from-chrono-primary to-chrono-accent rounded-full flex items-center justify-center shadow-lg shadow-chrono-primary/30">
-                  <Clock className="w-7 h-7 text-white animate-pulse" />
-                </div>
-              </div>
-
-              <div className="text-center space-y-2">
-                <span className="text-[10px] font-black tracking-[0.25em] text-chrono-primary uppercase">ChronoFlow Synthesizer</span>
-                <h3 className="text-lg font-extrabold text-white">RECONSTRUCTING FRANCHISE GRAPH</h3>
-                <p className="text-xs text-chrono-text-dim">Securing database safety gates and path matrices...</p>
-              </div>
-
-              <div className="space-y-2.5 bg-chrono-surface/30 p-4 rounded-2xl border border-chrono-border/20">
-                {GENERATION_STAGES.map((stage, idx) => {
-                  const isActive = idx === currentStage;
-                  const isFinished = idx < currentStage;
-                  return (
-                    <div
-                      key={stage.step}
-                      className={cn(
-                        "flex items-center gap-3 text-xs transition-all duration-300",
-                        isActive ? "text-chrono-primary font-bold scale-[1.02]" : isFinished ? "text-chrono-success/70" : "text-chrono-text-dim opacity-50"
-                      )}
-                    >
-                      <span className={cn("font-mono shrink-0", isActive ? "text-chrono-primary" : isFinished ? "text-chrono-success" : "text-chrono-text-dim")}>
-                        {stage.step}
-                      </span>
-                      <span className="flex-1 truncate">{stage.label}</span>
-                      {isFinished && <Check className="w-3.5 h-3.5 text-chrono-success shrink-0" />}
-                      {isActive && <Loader2 className="w-3.5 h-3.5 text-chrono-primary animate-spin shrink-0" />}
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="max-w-md w-full relative">
+              <NarrativeLoader franchiseQuery={selected?.title || "Anime"} />
             </div>
           </motion.div>
         )}

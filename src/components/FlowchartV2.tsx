@@ -26,8 +26,13 @@ import {
   Film,
   ArrowLeft,
   CalendarCheck2,
+  MessageCircle,
+  Mail,
+  Send,
+  Facebook,
+  Twitter,
+  Copy,
 } from "lucide-react";
-
 import {
   WatchOrderResultV2,
   WatchOrderEntryV2,
@@ -48,6 +53,8 @@ import {
 } from "@/lib/calendar-generator";
 import { buildFocusedResult } from "@/lib/focus-entry";
 import { ShareCard } from "@/components/ShareCard";
+import { FranchiseDNA } from "@/components/FranchiseDNA";
+import { computeDNA } from "@/lib/dna";
 
 interface FlowchartV2Props {
   data: WatchOrderResultV2;
@@ -151,7 +158,20 @@ export default function FlowchartV2({
   const [activeTrailerUrl, setActiveTrailerUrl] = useState<string | null>(
     null
   );
+  const [visibleTiers, setVisibleTiers] = useState<Set<string>>(new Set(["essential"]));
+
+  const toggleTier = (tier: string) => {
+    setVisibleTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(tier)) next.delete(tier);
+      else next.add(tier);
+      if (next.size === 0) return new Set(["essential"]);
+      return next;
+    });
+  };
   const [isCalOpen, setIsCalOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [calStartDate, setCalStartDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -213,17 +233,60 @@ export default function FlowchartV2({
     });
   };
 
-  const handleShare = () => {
-    const text = generateShareText(
-      data.franchise,
-      pathEntries as any,
-      data.totalDuration
-    );
-    window.open(
-      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
-      "_blank",
-      "width=600,height=400"
-    );
+  const handleShare = async () => {
+    const url = window.location.href;
+    const shareData = {
+      title: `ChronoFlow - ${data.franchise} Watch Order`,
+      text: `Check out my watch order for ${data.franchise} on ChronoFlow!`,
+      url: url,
+    };
+    
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        if ((err as DOMException).name === 'AbortError') return;
+      }
+    }
+    
+    setIsShareOpen(true);
+  };
+
+  const shareToPlatform = (platform: string) => {
+    const url = window.location.href;
+    const title = `ChronoFlow - ${data.franchise} Watch Order`;
+    let shareUrl = '';
+    
+    switch (platform) {
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodeURIComponent(title + ' ' + url)}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        break;
+      case 'telegram':
+        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`;
+        break;
+      case 'email':
+        shareUrl = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(url)}`;
+        break;
+    }
+    
+    if (shareUrl) window.open(shareUrl, '_blank', 'noopener,noreferrer');
+    setIsShareOpen(false);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setLinkCopied(true);
+    setTimeout(() => {
+      setLinkCopied(false);
+      setIsShareOpen(false);
+    }, 1500);
   };
 
   const handleExportCalendar = () => {
@@ -407,7 +470,8 @@ export default function FlowchartV2({
                     onClick={handleShare}
                     className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Share2 className="w-3.5 h-3.5" /> Share
+                    {linkCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                    {linkCopied ? "Link Copied!" : "Share"}
                   </button>
                 </div>
               </div>
@@ -418,6 +482,9 @@ export default function FlowchartV2({
 
       {/* Time experience for active path */}
       <TimeBudgetCard data={timeData} preferredPaceLabel={customSchedule?.enabled ? "Custom" : preferredPace} />
+
+      {/* Franchise DNA - Structural Complexity Report */}
+      <FranchiseDNA dna={computeDNA(data)} franchiseName={data.franchise} />
 
       {/* Shareable Card Integration */}
       <ShareCard result={data} />
@@ -483,6 +550,23 @@ export default function FlowchartV2({
       {/* Groups timeline with premium transitions */}
       {activePath && (
         <div className="space-y-3">
+          {/* Tier Disclosure Controls */}
+          <div className="flex flex-wrap gap-2 items-center justify-center mb-4">
+            <span className="text-xs text-chrono-text-dim font-bold uppercase tracking-wider mr-2">Show:</span>
+            <button onClick={() => toggleTier("essential")} className={cn("px-3 py-1 text-xs rounded-full border cursor-pointer transition-all", visibleTiers.has("essential") ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300" : "bg-black/10 border-chrono-border text-chrono-text-dim")}>
+              Essential
+            </button>
+            <button onClick={() => toggleTier("recommended")} className={cn("px-3 py-1 text-xs rounded-full border cursor-pointer transition-all", visibleTiers.has("recommended") ? "bg-sky-500/20 border-sky-500/50 text-sky-300" : "bg-black/10 border-chrono-border text-chrono-text-dim")}>
+              + Recommended
+            </button>
+            <button onClick={() => toggleTier("optional")} className={cn("px-3 py-1 text-xs rounded-full border cursor-pointer transition-all", visibleTiers.has("optional") ? "bg-amber-500/20 border-amber-500/50 text-amber-300" : "bg-black/10 border-chrono-border text-chrono-text-dim")}>
+              + Optional
+            </button>
+            <button onClick={() => toggleTier("skip")} className={cn("px-3 py-1 text-xs rounded-full border cursor-pointer transition-all", visibleTiers.has("skip") ? "bg-zinc-700/40 border-zinc-600 text-zinc-400" : "bg-black/10 border-chrono-border text-chrono-text-dim")}>
+              + Skip
+            </button>
+          </div>
+
           {activePath.groups.map((group, gIdx) => {
             const isOpen = expandedGroups.has(group.id);
             const isMain = group.timelineType === "main_timeline";
@@ -568,7 +652,7 @@ export default function FlowchartV2({
                         <div className="relative">
                           <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/40 to-transparent hidden sm:block" />
                           <div className="space-y-4">
-                            {group.entries.map((entry, idx) => (
+                            {group.entries.filter((e) => visibleTiers.has(e.tier)).map((entry, idx) => (
                               <EntryNode
                                 key={`${group.id}-${entry.id}-${idx}`}
                                 entry={entry}
@@ -740,6 +824,66 @@ export default function FlowchartV2({
           document.body
         )}
 
+      {/* Custom Share Modal */}
+      {isShareOpen && typeof window !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999]" onClick={() => setIsShareOpen(false)}>
+          <div className="glass-card w-full max-w-sm overflow-hidden shadow-2xl border border-chrono-border rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-chrono-border/40 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-chrono-primary" />
+                Share Timeline
+              </h3>
+              <button onClick={() => setIsShareOpen(false)} className="p-1.5 rounded-lg bg-chrono-surface hover:bg-chrono-surface-hover cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-xs text-chrono-text-muted text-center mb-4">
+                Share your {data.franchise} watch order with your friends!
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                <button onClick={() => shareToPlatform('whatsapp')} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-chrono-surface transition-colors cursor-pointer group">
+                  <div className="w-12 h-12 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                    <MessageCircle className="w-5 h-5 text-green-400" />
+                  </div>
+                  <span className="text-[11px] text-chrono-text-dim font-medium">WhatsApp</span>
+                </button>
+                <button onClick={() => shareToPlatform('twitter')} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-chrono-surface transition-colors cursor-pointer group">
+                  <div className="w-12 h-12 rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center group-hover:bg-sky-500/20 transition-colors">
+                    <Twitter className="w-5 h-5 text-sky-400" />
+                  </div>
+                  <span className="text-[11px] text-chrono-text-dim font-medium">X / Twitter</span>
+                </button>
+                <button onClick={() => shareToPlatform('facebook')} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-chrono-surface transition-colors cursor-pointer group">
+                  <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                    <Facebook className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-[11px] text-chrono-text-dim font-medium">Facebook</span>
+                </button>
+                <button onClick={() => shareToPlatform('telegram')} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-chrono-surface transition-colors cursor-pointer group">
+                  <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors">
+                    <Send className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <span className="text-[11px] text-chrono-text-dim font-medium">Telegram</span>
+                </button>
+                <button onClick={() => shareToPlatform('email')} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-chrono-surface transition-colors cursor-pointer group">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                    <Mail className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <span className="text-[11px] text-chrono-text-dim font-medium">Email</span>
+                </button>
+                <button onClick={handleCopyLink} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-chrono-surface transition-colors cursor-pointer group">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${linkCopied ? 'bg-emerald-500/20 border border-emerald-500/30' : 'bg-violet-500/10 border border-violet-500/20 group-hover:bg-violet-500/20'}`}>
+                    {linkCopied ? <Check className="w-5 h-5 text-emerald-400" /> : <Copy className="w-5 h-5 text-violet-400" />}
+                  </div>
+                  <span className="text-[11px] text-chrono-text-dim font-medium">{linkCopied ? 'Copied!' : 'Copy Link'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
       {/* BEYOND HORIZON - RECOMMENDATIONS */}
       <BeyondHorizon classification={data.classification} currentSlug={(data as any).franchiseId?.replace('fr_', '')} />
       
