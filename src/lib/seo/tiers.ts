@@ -20,11 +20,11 @@ export const SEO_TIERS: SeoTier[] = [
       { title: "Attack on Titan", slug: "attack-on-titan", tag: "Action" },
       { title: "Demon Slayer", slug: "demon-slayer", tag: "Action" },
       { title: "My Hero Academia", slug: "my-hero-academia", tag: "Shonen" },
-      { title: "Death Note", tag: "Psychological" },
-      { title: "Jujutsu Kaisen", tag: "Action" },
-      { title: "Fullmetal Alchemist: Brotherhood", tag: "Adventure" },
-      { title: "Sword Art Online", tag: "Fantasy" },
-      { title: "Hunter x Hunter", tag: "Adventure" }
+      { title: "Death Note", slug: "death-note", tag: "Psychological" },
+      { title: "Jujutsu Kaisen", slug: "jujutsu-kaisen", tag: "Action" },
+      { title: "Fullmetal Alchemist: Brotherhood", slug: "fullmetal-alchemist", tag: "Adventure" },
+      { title: "Sword Art Online", slug: "sword-art-online", tag: "Fantasy" },
+      { title: "Hunter x Hunter", slug: "hunter-x-hunter", tag: "Adventure" }
     ]
   },
   {
@@ -39,10 +39,10 @@ export const SEO_TIERS: SeoTier[] = [
       { title: "JoJo's Bizarre Adventure", slug: "jojo-bizarre-adventure", tag: "Generational" },
       { title: "Code Geass", slug: "code-geass", tag: "Mecha" },
       { title: "Toaru Series", slug: "toaru-series", tag: "Overlap" },
-      { title: "Cyberpunk: Edgerunners", tag: "Sci-Fi" },
-      { title: "Chainsaw Man", tag: "Action" },
-      { title: "Vinland Saga", tag: "Drama" },
-      { title: "One Punch Man", tag: "Action" }
+      { title: "Cyberpunk: Edgerunners", slug: "cyberpunk-edgerunners", tag: "Sci-Fi" },
+      { title: "Chainsaw Man", slug: "chainsaw-man", tag: "Action" },
+      { title: "Vinland Saga", slug: "vinland-saga", tag: "Drama" },
+      { title: "One Punch Man", slug: "one-punch-man", tag: "Action" }
     ]
   },
   {
@@ -61,7 +61,7 @@ export const SEO_TIERS: SeoTier[] = [
       { title: "Detective Conan", tag: "Mystery" },
       { title: "The Melancholy of Haruhi Suzumiya", slug: "haruhi-suzumiya", tag: "Mystery" },
       { title: "Gintama", tag: "Comedy" },
-      { title: "Ghost in the Shell", tag: "Sci-Fi" }
+      { title: "Ghost in the Shell", slug: "ghost-in-the-shell", tag: "Sci-Fi" }
     ]
   }
 ];

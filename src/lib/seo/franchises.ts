@@ -148,6 +148,13 @@ export const SEO_FRANCHISES: SeoFranchise[] = [
     h1: "Haikyu!! Watch Order Guide"
   },
   {
+    slug: "attack-on-titan",
+    name: "Attack on Titan",
+    anilistId: 16498,
+    description: "The complete Attack on Titan watch order guide. Follow Eren Yeager and the Survey Corps through the gritty, action-packed fight for humanity's survival.",
+    h1: "Attack on Titan Watch Order Guide"
+  },
+  {
     slug: "demon-slayer",
     name: "Demon Slayer",
     anilistId: 101922,
@@ -174,13 +181,6 @@ export const SEO_FRANCHISES: SeoFranchise[] = [
     anilistId: 113415,
     description: "The Jujutsu Kaisen watch order guide. Find out exactly when to watch the prequel movie (Jujutsu Kaisen 0) before Season 2.",
     h1: "Jujutsu Kaisen Watch Order Guide"
-  },
-  {
-    slug: "attack-on-titan",
-    name: "Attack on Titan",
-    anilistId: 16498,
-    description: "The complete Attack on Titan watch order guide. Follow Eren Yeager and the Survey Corps through the gritty, action-packed fight for humanity's survival.",
-    h1: "Attack on Titan Watch Order Guide"
   },
   {
     slug: "sword-art-online",
