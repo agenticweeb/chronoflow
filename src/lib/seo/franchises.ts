@@ -230,6 +230,41 @@ export const SEO_FRANCHISES: SeoFranchise[] = [
     anilistId: 43,
     description: "The Ghost in the Shell watch order guide. Distinguish between the movies, Stand Alone Complex, and Arise timelines.",
     h1: "Ghost in the Shell Watch Order Guide"
+  },
+  {
+    slug: "legend-of-the-galactic-heroes",
+    name: "Legend of the Galactic Heroes",
+    anilistId: 820,
+    description: "The Legend of the Galactic Heroes watch order guide. Navigate the massive 110-episode OVA, the prequel films, and the modern remake.",
+    h1: "Legend of the Galactic Heroes Watch Order Guide"
+  },
+  {
+    slug: "mushoku-tensei",
+    name: "Mushoku Tensei: Jobless Reincarnation",
+    anilistId: 108465,
+    description: "The Mushoku Tensei watch order guide. Follow Rudeus Greyrat from birth to adulthood in this epic isekai saga.",
+    h1: "Mushoku Tensei Watch Order Guide"
+  },
+  {
+    slug: "that-time-i-got-reincarnated-as-a-slime",
+    name: "That Time I Got Reincarnated as a Slime",
+    anilistId: 101280,
+    description: "The That Time I Got Reincarnated as a Slime watch order guide. Navigate Rimuru's journey, the OVAs, and the spin-offs.",
+    h1: "That Time I Got Reincarnated as a Slime Watch Order Guide"
+  },
+  {
+    slug: "detective-conan",
+    name: "Detective Conan",
+    anilistId: 235,
+    description: "The Detective Conan (Case Closed) watch order guide. Navigate the massive 1000+ episode series and the canonical movies.",
+    h1: "Detective Conan Watch Order Guide"
+  },
+  {
+    slug: "gintama",
+    name: "Gintama",
+    anilistId: 918,
+    description: "The Gintama watch order guide. Understand the sequencing of the seasons, Gintama', Gintama°, and the final movies.",
+    h1: "Gintama Watch Order Guide"
   }
 ];
 
