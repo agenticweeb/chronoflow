@@ -46,11 +46,11 @@ export function ShareCard({ result }: ShareCardProps) {
       });
 
       const link = document.createElement("a");
-      link.download = `chronoflow-${franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-card.png`;
+      link.download = `myaniwatchorder-${franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-card.png`;
       link.href = dataUrl;
       link.click();
     } catch (error) {
-      console.error("Failed to generate ChronoFlow share card:", error);
+      console.error("Failed to generate MyAniWatchOrder share card:", error);
     } finally {
       setDownloading(false);
     }
@@ -104,7 +104,7 @@ export function ShareCard({ result }: ShareCardProps) {
             <div className="text-[76px] font-black text-white/[0.015] tracking-widest uppercase rotate-[-12deg] text-center leading-none">
               agenticweeb
               <br />
-              chronoflow
+              myaniwatchorder
             </div>
           </div>
 
@@ -130,7 +130,7 @@ export function ShareCard({ result }: ShareCardProps) {
             <div className="text-right flex flex-col items-end">
               <span className="text-[10px] font-bold tracking-wider text-zinc-500 uppercase">Curated by</span>
               <span className="text-sm font-black text-indigo-400 uppercase tracking-widest mt-0.5">@agenticweeb</span>
-              <span className="text-[10px] text-zinc-500 tracking-wider font-semibold mt-0.5">chronoflow.app</span>
+              <span className="text-[10px] text-zinc-500 tracking-wider font-semibold mt-0.5">myaniwatchorder.app</span>
             </div>
           </div>
 
@@ -197,7 +197,7 @@ export function ShareCard({ result }: ShareCardProps) {
                   + {remainingCount} more entries in this custom watch path
                 </p>
                 <p className="text-[10px] text-zinc-500 mt-0.5">
-                  Explore full dynamic flowchart, skipping rules & notes at <span className="text-indigo-400 font-bold">chronoflow.app</span>
+                  Explore full dynamic flowchart, skipping rules & notes at <span className="text-indigo-400 font-bold">myaniwatchorder.app</span>
                 </p>
               </div>
             )}
@@ -209,13 +209,13 @@ export function ShareCard({ result }: ShareCardProps) {
               <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                 <Sparkles className="w-3.5 h-3.5 text-white" />
               </div>
-              <span className="font-extrabold text-sm tracking-tight text-white">ChronoFlow</span>
+              <span className="font-extrabold text-sm tracking-tight text-white">MyAniWatchOrder</span>
             </div>
 
             <div className="text-right">
               <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Created by</span>
               <span className="text-xs font-black text-indigo-400 tracking-widest uppercase">agenticweeb</span>
-              <span className="text-[9px] text-zinc-500 block mt-0.5 font-semibold">chronoflow.app</span>
+              <span className="text-[9px] text-zinc-500 block mt-0.5 font-semibold">myaniwatchorder.app</span>
             </div>
           </div>
         </div>

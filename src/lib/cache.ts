@@ -6,7 +6,7 @@
 
 import { CacheEntry } from "@/types";
 
-const CACHE_PREFIX = "chronoflow_";
+const CACHE_PREFIX = "myaniwatchorder_";
 const MAX_CACHE_SIZE = 5 * 1024 * 1024; // 5MB limit
 const DEFAULT_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -85,7 +85,7 @@ export class ChronoCache {
     }
 
     if (totalSize > MAX_CACHE_SIZE) {
-      // LRU eviction: remove oldest entries first, strictly target only chronoflow_ cache keys
+      // LRU eviction: remove oldest entries first, strictly target only myaniwatchorder_ cache keys
       items.sort((a, b) => a.timestamp - b.timestamp);
       let freed = 0;
       for (const item of items) {

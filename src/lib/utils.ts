@@ -50,11 +50,11 @@ export function generateShareText(
   const skipped = entries.filter((e) => e.tier === "skip").length;
 
   return (
-    `Just planned my ${franchise} watch journey on ChronoFlow 🎯\n\n` +
+    `Just planned my ${franchise} watch journey on MyAniWatchOrder 🎯\n\n` +
     `📺 ${essential}/${total} essential entries\n` +
     `⏱ ${timeBudget} budget\n` +
     `🚫 ${skipped} smart skips identified\n\n` +
-    `Never watch anime wrong again → chronoflow.app`
+    `Never watch anime wrong again → myaniwatchorder.app`
   );
 }
 

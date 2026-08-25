@@ -1,5 +1,5 @@
 /**
- * ChronoFlow Intelligent Prompts V2.2 - Spec-Compliant & Hallucination-Proof
+ * MyAniWatchOrder Intelligent Prompts V2.2 - Spec-Compliant & Hallucination-Proof
  */
 
 import { AnimeShape, AllowedTitle, AIGenerationPayloadV2 } from "@/types/intelligent";
@@ -90,7 +90,7 @@ STRICT RULES:
 export function buildSingleCorePrompt(p: AIGenerationPayloadV2): string {
   const allowed = formatAllowedTitles(p.allowedTitles);
   const prefs = formatPreferences(p.userPreferences);
-  return `You are ChronoFlow expert for SINGLE CORE or MOVIE "${p.franchiseName}".
+  return `You are MyAniWatchOrder expert for SINGLE CORE or MOVIE "${p.franchiseName}".
 This shape: 1-3 seasons linear, or a single standalone movie. No confusing timelines, just release order.
 If it is a single movie, return exactly ONE entry. If it has 1 sequel/season, order them chronologically.
 Allowed:
@@ -103,7 +103,7 @@ Prefs:
 export function buildMegaFranchisePrompt(p: AIGenerationPayloadV2): string {
   const allowed = formatAllowedTitles(p.allowedTitles);
   const prefs = formatPreferences(p.userPreferences);
-  return `You are ChronoFlow expert for MEGA FRANCHISE "${p.franchiseName}".
+  return `You are MyAniWatchOrder expert for MEGA FRANCHISE "${p.franchiseName}".
 WHY CONFUSING: ${p.whyConfusing}
 This shape: Main Timeline core, Alternate Timelines what-if, Spin Offs same universe standalone, Movies may be canon.
 For Fate: Main = Fate/Zero -> Stay Night routes (Fate 2006 Saber route, UBW Rin route, Heavens Feel Sakura route). Spin offs = Prisma Illya (parallel), Apocrypha (alternate war), Grand Order, Lord El-Melloi (sequel to Zero, Waver), Extra, Carnival Phantasm (parody). Group correctly.
@@ -121,7 +121,7 @@ Groups: ${p.groupsTemplate.map(g => `- ${g.groupId}: ${g.groupName} - ${g.instru
 export function buildLongRunnerPrompt(p: AIGenerationPayloadV2): string {
   const allowed = formatAllowedTitles(p.allowedTitles);
   const prefs = formatPreferences(p.userPreferences);
-  return `You are ChronoFlow expert for LONG RUNNER "${p.franchiseName}".
+  return `You are MyAniWatchOrder expert for LONG RUNNER "${p.franchiseName}".
 WHY CONFUSING: ${p.whyConfusing}
 This shape: 100+ eps, filler disrupts pacing, need canon/mixed/filler classification.
 Job: For each TV entry, provide innerOrder ranges like {"start":1,"end":26,"type":"canon","title":"Intro Arc"} etc. Mark pure_filler skip, mixed recommended, canon essential.
@@ -136,7 +136,7 @@ Groups: ${p.groupsTemplate.map(g => `- ${g.groupId}: ${g.groupName}`).join("\n")
 export function buildCanonMovieSandwichPrompt(p: AIGenerationPayloadV2): string {
   const allowed = formatAllowedTitles(p.allowedTitles);
   const prefs = formatPreferences(p.userPreferences);
-  return `You are ChronoFlow expert for CANON MOVIE SANDWICH "${p.franchiseName}".
+  return `You are MyAniWatchOrder expert for CANON MOVIE SANDWICH "${p.franchiseName}".
 WHY CONFUSING: ${p.whyConfusing}
 This shape: TV seasons and movies/OVAs interleave, movies are NOT optional, they continue main plot. Skipping breaks continuity.
 CORRECT EXAMPLES:
@@ -161,7 +161,7 @@ Groups: ${p.groupsTemplate.map(g => `- ${g.groupId}: ${g.groupName}`).join("\n")
 export function buildRouteBranchingPrompt(p: AIGenerationPayloadV2): string {
   const allowed = formatAllowedTitles(p.allowedTitles);
   const prefs = formatPreferences(p.userPreferences);
-  return `You are ChronoFlow expert for ROUTE BRANCHING "${p.franchiseName}".
+  return `You are MyAniWatchOrder expert for ROUTE BRANCHING "${p.franchiseName}".
 WHY CONFUSING: ${p.whyConfusing}
 This shape: Common route then diverges into parallel realities, NOT sequels. Watching Route B does NOT require Route A.
 Example Fate/stay night: 2006 = Fate route, UBW = Rin route, Heavens Feel = Sakura route.
@@ -177,7 +177,7 @@ Groups: ${p.groupsTemplate.map(g => `- ${g.groupId}: ${g.groupName} - ${g.instru
 export function buildRemakeDivergencePrompt(p: AIGenerationPayloadV2): string {
   const allowed = formatAllowedTitles(p.allowedTitles);
   const prefs = formatPreferences(p.userPreferences);
-  return `You are ChronoFlow expert for REMAKE DIVERGENCE "${p.franchiseName}".
+  return `You are MyAniWatchOrder expert for REMAKE DIVERGENCE "${p.franchiseName}".
 WHY CONFUSING: ${p.whyConfusing}
 This shape: Original and remake tell same story differently. Usually remake more faithful and recommended.
 Example FMA vs FMAB: FMA 2003 diverges after ep30 original ending, FMAB 2009 100% manga faithful. Recommend FMAB essential, FMA optional.

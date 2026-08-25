@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   return NextResponse.json({
     success: true,
-    message: "ChronoFlow V2 Intelligent Watch Order API",
+    message: "MyAniWatchOrder V2 Intelligent Watch Order API",
     version: "2.0-grounding-first",
     features: [
       "Relation graph grounding from AniList + Jikan",

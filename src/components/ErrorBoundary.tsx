@@ -22,7 +22,7 @@ export class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("[ChronoFlow] boundary:", error, errorInfo);
+    console.error("[MyAniWatchOrder] boundary:", error, errorInfo);
   }
 
   render() {
@@ -42,7 +42,7 @@ export class ErrorBoundary extends React.Component<
               className="btn-primary inline-flex items-center gap-2 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" />
-              Reload ChronoFlow
+              Reload MyAniWatchOrder
             </button>
           </div>
         </div>

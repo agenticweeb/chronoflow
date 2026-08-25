@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { SEO_FRANCHISES } from '@/lib/seo/franchises';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://chronoflow-zeta.vercel.app';
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://myaniwatchorder-zeta.vercel.app';
   
   // 1. Core static pages
   const staticPages = [

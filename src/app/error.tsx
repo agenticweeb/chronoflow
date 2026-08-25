@@ -11,7 +11,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[ChronoFlow] boundary:", error);
+    console.error("[MyAniWatchOrder] boundary:", error);
   }, [error]);
 
   return (
@@ -26,7 +26,7 @@ export default function GlobalError({
         </div>
         <h1 className="text-lg font-bold text-white">Something went wrong</h1>
         <p className="text-sm text-chrono-text-muted leading-relaxed">
-          {error.message || "An unexpected error interrupted ChronoFlow."}
+          {error.message || "An unexpected error interrupted MyAniWatchOrder."}
         </p>
         {error.digest ? (
           <p className="text-[10px] text-chrono-text-dim font-mono">

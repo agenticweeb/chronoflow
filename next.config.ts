@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   images: {
+    // FIX: Bypass Next.js Image Optimizer to prevent Cloudflare 403 errors on AniList images
     unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "cdn.myanimelist.net" },

@@ -17,8 +17,8 @@ export async function POST(req: NextRequest) {
 
     // Format the rich embed message for Discord
     const discordPayload = {
-      username: "ChronoFlow Feedback Bot",
-      avatar_url: "https://chronoflow.app/logo.png", // Add logo if available
+      username: "MyAniWatchOrder Feedback Bot",
+      avatar_url: "https://myaniwatchorder.app/logo.png", // Add logo if available
       embeds: [
         {
           title: `🎯 New ${feedbackType === "bug" ? "Bug Report" : "Feature Suggestion"}`,
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
           ],
           timestamp: new Date().toISOString(),
           footer: {
-            text: "ChronoFlow User Report Engine",
+            text: "MyAniWatchOrder User Report Engine",
           },
         },
       ],

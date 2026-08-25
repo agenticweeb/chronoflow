@@ -1,5 +1,5 @@
 /**
- * ChronoFlow Curated Ground Truth - Top 20 Confusing Franchises
+ * MyAniWatchOrder Curated Ground Truth - Top 20 Confusing Franchises
  * Source: Web research 2024-2025, verified episode counts and official order
  * This is the source of truth that AI cannot override. Hallucination impossible for these.
  */

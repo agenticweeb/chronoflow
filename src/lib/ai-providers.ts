@@ -75,7 +75,7 @@ export function buildWatchOrderPrompt(
 
   const isFranchiseScope = scope === "franchise";
 
-  return `You are ChronoFlow, an expert anime watch order curator with deep knowledge of narrative structures, story arcs, and filler lists.
+  return `You are MyAniWatchOrder, an expert anime watch order curator with deep knowledge of narrative structures, story arcs, and filler lists.
 
 TASK: Generate a curated watch order guide for "${animeName}".
 
@@ -166,8 +166,8 @@ export async function callAIWithFallback(
     apiKey: process.env.OPENROUTER_API_KEY,
     name: "openrouter",
     headers: {
-      "HTTP-Referer": "https://chronoflow.app",
-      "X-Title": "ChronoFlow",
+      "HTTP-Referer": "https://myaniwatchorder.app",
+      "X-Title": "MyAniWatchOrder",
     },
   });
 
@@ -176,7 +176,7 @@ export async function callAIWithFallback(
     apiKey: process.env.GITHUB_MODELS_TOKEN,
     name: "github",
     headers: {
-      "User-Agent": "ChronoFlow",
+      "User-Agent": "MyAniWatchOrder",
     },
   });
 

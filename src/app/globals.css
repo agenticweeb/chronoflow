@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * ChronoFlow design tokens — Tailwind CSS v4
+ * MyAniWatchOrder design tokens — Tailwind CSS v4
  * Dual-mapped: semantic tokens (background/foreground) + legacy chrono-* utilities
  * so existing leaf components keep compiling during the shell migration.
  */

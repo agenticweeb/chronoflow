@@ -238,8 +238,8 @@ export default function FlowchartV2({
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = {
-      title: `ChronoFlow - ${data.franchise} Watch Order`,
-      text: `Check out my watch order for ${data.franchise} on ChronoFlow!`,
+      title: `MyAniWatchOrder - ${data.franchise} Watch Order`,
+      text: `Check out my watch order for ${data.franchise} on MyAniWatchOrder!`,
       url: url,
     };
     
@@ -257,7 +257,7 @@ export default function FlowchartV2({
 
   const shareToPlatform = (platform: string) => {
     const url = window.location.href;
-    const title = `ChronoFlow - ${data.franchise} Watch Order`;
+    const title = `MyAniWatchOrder - ${data.franchise} Watch Order`;
     let shareUrl = '';
     
     switch (platform) {
@@ -309,7 +309,7 @@ export default function FlowchartV2({
       }
     );
     const slug = data.franchise.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-    downloadIcsFile(`chronoflow-${slug}-schedule.ics`, icsContent);
+    downloadIcsFile(`myaniwatchorder-${slug}-schedule.ics`, icsContent);
     setIsCalOpen(false);
   };
 

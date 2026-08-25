@@ -129,7 +129,7 @@ export const useWatchStore = create<WatchStoreState>()(
       },
     }),
     {
-      name: "chronoflow-progress-v2", // LocalStorage key
+      name: "myaniwatchorder-progress-v2", // LocalStorage key
     }
   )
 );

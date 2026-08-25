@@ -1,5 +1,5 @@
 /**
- * ChronoFlow Type Definitions
+ * MyAniWatchOrder Type Definitions
  * Single source of truth for all data structures
  */
 

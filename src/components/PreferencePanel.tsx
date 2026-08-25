@@ -262,7 +262,7 @@ export function PreferencePanel({
         {preferences.customSchedule?.enabled && (
           <div className="mt-4 p-4 rounded-xl border border-chrono-border/30 bg-chrono-surface/30 space-y-3.5 animate-slide-up">
             <p className="text-[11px] text-chrono-text-dim leading-relaxed">
-              Configure exactly which days of the week you can watch anime, and during what specific hours. ChronoFlow will dynamically calculate your completion timeline.
+              Configure exactly which days of the week you can watch anime, and during what specific hours. MyAniWatchOrder will dynamically calculate your completion timeline.
             </p>
 
             <div className="space-y-2">

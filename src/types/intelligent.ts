@@ -1,5 +1,5 @@
 /**
- * ChronoFlow Intelligent Type System V2
+ * MyAniWatchOrder Intelligent Type System V2
  * Step 1 of rebuild - Nested, hallucination-proof architecture
  * 
  * This file is additive. It does NOT modify src/types/index.ts yet.

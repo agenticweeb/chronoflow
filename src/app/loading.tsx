@@ -3,7 +3,7 @@ export default function Loading() {
     <main
       className="min-h-dvh flex flex-col items-center justify-center gap-6 px-6"
       aria-busy="true"
-      aria-label="Loading ChronoFlow"
+      aria-label="Loading MyAniWatchOrder"
     >
       <div className="w-12 h-12 rounded-2xl skeleton" />
       <div className="space-y-3 w-full max-w-md">

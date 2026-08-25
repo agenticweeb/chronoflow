@@ -15,7 +15,7 @@ interface Props {
   onShare?: (u: string) => void | Promise<void>;
 }
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "chronoflow.app";
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "myaniwatchorder.app";
 
 export function TimeBudgetCard({
   data,
