@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch updated totals
     const votes = await redis.hgetall(voteKey);
-    const totalVotes = Object.values(votes || {}).reduce((sum: number, val: string) => sum + parseInt(val, 10), 0);
+    const totalVotes = Object.values(votes || {}).reduce((sum: number, val: any) => sum + parseInt(val, 10), 0);
 
     return NextResponse.json({ success: true, votes, totalVotes });
   } catch (error) {
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
     if (!mediaId) return NextResponse.json({ error: 'Missing mediaId' }, { status: 400 });
 
     const votes = await redis.hgetall(`votes:${mediaId}`);
-    const totalVotes = Object.values(votes || {}).reduce((sum: number, val: string) => sum + parseInt(val, 10), 0);
+    const totalVotes = Object.values(votes || {}).reduce((sum: number, val: any) => sum + parseInt(val, 10), 0);
 
     return NextResponse.json({ success: true, votes, totalVotes });
   } catch (error) {

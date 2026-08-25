@@ -73,7 +73,7 @@ export default async function WatchOrderPage({ params }: { params: Promise<{ slu
       preferences: defaultPrefs,
     });
     
-    if (!actionResult.success || !actionResult.data) {
+    if (!actionResult.success) {
       throw new Error(actionResult.error || "Failed to generate watch order");
     }
     result = actionResult.data.dataV2;
