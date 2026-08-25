@@ -886,12 +886,14 @@ export default function FlowchartV2({
         </div>,
         document.body
       )}
-      {/* BEYOND HORIZON - RECOMMENDATIONS */}
-      <BeyondHorizon 
-        currentDNA={computeDNA(data)} 
-        currentName={data.franchise} 
-        currentSlug={(data as any).franchiseId?.replace('fr_', '')} 
-      />
+      {/* BEYOND HORIZON - RECOMMENDATIONS (Hidden for standalone movies) */}
+      {data.classification !== "single_core" && (
+        <BeyondHorizon 
+          currentDNA={computeDNA(data)} 
+          currentName={data.franchise} 
+          currentSlug={(data as any).franchiseId?.replace('fr_', '')} 
+        />
+      )}
       
     </div> // <--- This is the final closing div of the FlowchartV2 component
   );
