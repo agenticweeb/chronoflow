@@ -204,14 +204,21 @@ export default function FlowchartV2({
     () =>
       calculateTimeBudget(
         data.franchise,
-        pathEntries.map((e) => ({
-          title: e.title,
-          episodes: e.episodeCount ?? 1,
-          releasedEpisodes: typeof (e as any).releasedEpisodeCount === "number" ? (e as any).releasedEpisodeCount : e.episodeCount ?? 1, // TRANSFERS DYNAMIC COUNT
-          durationMin: e.durationMinutes ?? 24,
-          tier: e.tier,
-          isFiller: e.isFiller && e.tier === "skip",
-        })),
+        pathEntries.map((e) => {
+          // FIX: Strictly use releasedEpisodeCount for math to exclude upcoming episodes
+          const releasedCount = typeof (e as any).releasedEpisodeCount === "number" 
+            ? (e as any).releasedEpisodeCount 
+            : e.episodeCount ?? 1;
+            
+          return {
+            title: e.title,
+            episodes: releasedCount, // Pass released count as primary episodes for math
+            releasedEpisodes: releasedCount,
+            durationMin: e.durationMinutes ?? 24,
+            tier: e.tier,
+            isFiller: e.isFiller && e.tier === "skip",
+          };
+        }),
         new Date(),
         { customSchedule } 
       ),
@@ -896,16 +903,16 @@ export default function FlowchartV2({
         />
       )}
 
-      {/* Mobile Floating Back Button */}
+      {/* Floating Back Button (Visible on all devices) */}
       <a 
         href="/" 
-        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 md:hidden flex items-center gap-2 rounded-full bg-chrono-primary px-6 py-3.5 text-sm font-semibold text-white shadow-2xl shadow-chrono-primary/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-chrono-primary px-5 py-3 text-sm font-semibold text-white shadow-2xl shadow-chrono-primary/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
         aria-label="Back to Search"
       >
         <ArrowLeft className="h-4 w-4" />
         New Search
       </a>
-      <div className="h-20 md:hidden" aria-hidden="true" />
+      <div className="h-20" aria-hidden="true" />
 
     </div> // <--- This is the final closing div of the FlowchartV2 component
   );
