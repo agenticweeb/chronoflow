@@ -45,8 +45,8 @@ export function useProgress(franchiseId: string) {
     if (entries.length === 0) return 0;
     
     // Calculate based on EPISODES, not just entry count
-    const totalEpisodes = entries.reduce((sum, e) => sum + (e.maxEpisodes || 1), 0);
-    const watchedEpisodes = entries.reduce((sum, e) => sum + (e.watched ? (e.maxEpisodes || 1) : (e.episodesWatched || 0)), 0);
+    const totalEpisodes = entries.reduce((sum, e) => sum + (e.episodes || 1), 0);
+    const watchedEpisodes = entries.reduce((sum, e) => sum + (e.watched ? (e.episodes || 1) : (e.episodesWatched || 0)), 0);
     
     if (totalEpisodes === 0) return 0;
     return Math.round((watchedEpisodes / totalEpisodes) * 100);
