@@ -1,4 +1,3 @@
-
 import { AnimeSearchResult } from "@/types";
 const ENDPOINT = "https://graphql.anilist.co";
 
@@ -37,7 +36,7 @@ export async function searchAniList(query: string, limit: number = 10): Promise<
   const q = `
     query($search: String, $perPage: Int) {
       Page(perPage: $perPage) {
-        media(search: $search, type: ANIME, sort: POPULARITY_DESC) {
+        media(search: $search, type: ANIME, sort: [SEARCH_MATCH, POPULARITY_DESC]) {
           id idMal title { english romaji native } coverImage { large medium } format episodes averageScore description genres startDate { year } status
           relations { edges { relationType node { id idMal title { english romaji } format } } }
         }

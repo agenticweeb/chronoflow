@@ -107,7 +107,7 @@ export default async function Page() {
               About
             </Link>
             <a
-              href="https://github.com/agenticweeb/myaniwatchorder"
+              href="https://github.com/agenticweeb/chronoflow"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-xs font-semibold text-[#a8a3b8] hover:text-white transition-colors"
@@ -167,7 +167,7 @@ export default async function Page() {
               </li>
               <li>
                 <a
-                  href="https://github.com/agenticweeb/myaniwatchorder"
+                  href="https://github.com/agenticweeb/chronoflow"
                   className="hover:text-chrono-primary transition-colors"
                   target="_blank"
                   rel="noopener noreferrer"

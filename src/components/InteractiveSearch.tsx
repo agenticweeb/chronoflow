@@ -94,13 +94,20 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   const [activeTab, setActiveTab] = useState<"builder" | "discover">("builder");
 
   const [query, setQuery] = useState("");
-  const deferredQuery = useDeferredValue(query);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [results, setResults] = useState<AnimeSearchResult[]>([]);
+
+  // Debounce the API call, not the UI
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 350); // 350ms delay
+    return () => clearTimeout(timer);
+  }, [query]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [highlight, setHighlight] = useState(0);
+  const [highlight, setHighlight] = useState(-1);
   const [selectedId, setSelectedId] = useQueryState('id', parseAsInteger);
 
-  const safeQuery = String(deferredQuery || "");
 
   const [selected, setSelected] = useState<AnimeSearchResult | null>(null);
   const [preferences, setPreferences] = useState<UserPreferences>(DEFAULT_PREFERENCES);
@@ -128,13 +135,13 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
 
-  // Search Query
+    // Search Query (uses debouncedQuery to prevent spamming AniList)
   const { data: searchData, isFetching: isSearching } = useQuery({
-    queryKey: ['search', safeQuery],
-    queryFn: () => searchAnimeAction(safeQuery.trim()),
-    enabled: safeQuery.trim().length >= 3, 
+    queryKey: ['search', debouncedQuery],
+    queryFn: () => searchAnimeAction(debouncedQuery),
+    enabled: debouncedQuery.length >= 3, 
     staleTime: 1000 * 60 * 5,
-    placeholderData: (prev) => prev,
+    placeholderData: (prev) => prev, // Keep old results visible while loading new ones
   });
 
   useEffect(() => {
@@ -252,22 +259,31 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   }, [setSelectedId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!dropdownOpen || results.length === 0) {
-      if (e.key === "Escape") setDropdownOpen(false);
+    if (e.key === "Escape") {
+      setDropdownOpen(false);
       return;
     }
-    if (e.key === "ArrowDown") {
+
+    if (e.key === "Enter") {
       e.preventDefault();
-      setHighlight((h) => Math.min(h + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
+      // If an item is explicitly highlighted (via arrow keys), select it.
+      if (highlight >= 0 && results[highlight]) {
+        handleSelect(results[highlight]);
+      } else {
+        // If nothing is highlighted, just highlight the first item and keep the list open.
+        setDropdownOpen(true);
+        setHighlight(0);
+      }
+      return;
+    }
+
+    if (e.key === "ArrowDown" && results.length > 0) {
+      e.preventDefault();
+      setDropdownOpen(true);
+      setHighlight((h) => (h === -1 ? 0 : Math.min(h + 1, results.length - 1)));
+    } else if (e.key === "ArrowUp" && results.length > 0) {
       e.preventDefault();
       setHighlight((h) => Math.max(h - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const pick = results[highlight] ?? results[0];
-      if (pick) handleSelect(pick);
-    } else if (e.key === "Escape") {
-      setDropdownOpen(false);
     }
   };
 
@@ -365,11 +381,14 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
               spellCheck={false}
               placeholder="Search any anime — Fate, JoJo, Re:Zero, One Piece…"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => { if (results.length > 0) setDropdownOpen(true); }}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setDropdownOpen(true); // Ensure dropdown opens immediately on type
+              }}
+              onFocus={() => setDropdownOpen(true)}
               onKeyDown={handleKeyDown}
               role="combobox"
-              aria-expanded={dropdownOpen && results.length > 0}
+              aria-expanded={dropdownOpen}
               aria-controls={listboxId}
               className="input-field w-full pl-12 pr-12 py-4 text-base sm:text-lg font-medium shadow-2xl shadow-black/40"
             />
@@ -387,14 +406,23 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
             )}
           </div>
 
-          {dropdownOpen && results.length > 0 && (
+          {dropdownOpen && (results.length > 0 || isSearching) && (
             <ul id={listboxId} role="listbox" className="absolute top-[calc(100%+0.5rem)] left-0 right-0 glass-card rounded-2xl overflow-hidden shadow-2xl z-[70] max-h-96 overflow-y-auto p-1.5">
+              {isSearching && results.length === 0 && (
+                <li className="p-4 text-center text-chrono-text-dim text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin inline-block mr-2" />
+                  Searching AniList...
+                </li>
+              )}
               {results.map((item, i) => (
                 <li key={`${item.anilistId}-${i}`} role="presentation">
                   <button
                     type="button"
                     onClick={() => handleSelect(item)}
-                    className="w-full flex items-center gap-3 p-3 rounded-xl text-left hover:bg-white/5 transition-colors"
+                    className={cn(
+                      "w-full flex items-center gap-3 p-3 rounded-xl text-left transition-colors",
+                      highlight === i ? "bg-chrono-primary/20 ring-1 ring-chrono-primary/40" : "hover:bg-white/5"
+                    )}
                   >
                     <div className="w-10 h-14 rounded-md overflow-hidden bg-chrono-surface border border-white/5 shrink-0">
                       <SuggestionImage src={item.imageUrl} alt="" franchise={item.title} className="w-full h-full object-cover" />
@@ -406,6 +434,17 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
                   </button>
                 </li>
               ))}
+              {/* Keyboard Hints Footer */}
+              {results.length > 0 && (
+                <li className="border-t border-chrono-border/20 mt-1.5 pt-1.5 px-1.5">
+                  <div className="flex items-center justify-center gap-2 text-[11px] text-chrono-text-dim py-1.5">
+                    <kbd className="px-1.5 py-0.5 rounded bg-chrono-surface border border-chrono-border">↑↓</kbd>
+                    <span>to navigate</span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-chrono-surface border border-chrono-border">↵</kbd>
+                    <span>to select</span>
+                  </div>
+                </li>
+              )}
             </ul>
           )}
         </div>

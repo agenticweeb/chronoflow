@@ -1,4 +1,5 @@
 "use client";
+import TrailerButton from "@/components/TrailerButton";
 import { FranchisePulse } from "@/components/FranchisePulse";
 import { AiringCountdown } from "@/components/AiringCountdown";
 import { BeyondHorizon } from "@/components/BeyondHorizon";
@@ -894,8 +895,47 @@ export default function FlowchartV2({
           currentSlug={(data as any).franchiseId?.replace('fr_', '')} 
         />
       )}
-      
+
+      {/* Mobile Floating Back Button */}
+      <a 
+        href="/" 
+        className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 md:hidden flex items-center gap-2 rounded-full bg-chrono-primary px-6 py-3.5 text-sm font-semibold text-white shadow-2xl shadow-chrono-primary/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+        aria-label="Back to Search"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        New Search
+      </a>
+      <div className="h-20 md:hidden" aria-hidden="true" />
+
     </div> // <--- This is the final closing div of the FlowchartV2 component
+  );
+}
+function StudioFlagBadge({ flag }: { flag: string }) {
+  const [show, setShow] = useState(false);
+  // Parse flag string like "different-studio:WIT:MAPPA"
+  const parts = flag.split(':');
+  const oldStudio = parts[1] || 'Previous';
+  const newStudio = parts[2] || 'New';
+
+  return (
+    <div 
+      className="relative inline-flex"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={(e) => { e.stopPropagation(); setShow(!show); }}
+    >
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full cursor-pointer touch-manipulation">
+        <AlertTriangle className="w-3 h-3" /> Studio Change
+      </span>
+      {show && (
+        <div className="absolute z-50 bottom-full mb-2 left-0 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-800 p-3 shadow-xl text-xs text-slate-400 leading-relaxed pointer-events-none">
+          <div className="flex items-center gap-2 text-amber-400 font-bold mb-1">
+            <AlertTriangle className="w-3.5 h-3.5" /> Animation Studio Changed
+          </div>
+          <p>Production moved from <span className="text-slate-200 font-medium">{oldStudio}</span> to <span className="text-slate-200 font-medium">{newStudio}</span>. This may affect art style and pacing.</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -963,7 +1003,7 @@ function EntryNode({
         style={{ boxShadow: `0 0 30px -15px var(--theme-accent, #6366f1)` }}
       >
         <div
-          className="p-3.5 sm:p-4 cursor-pointer flex gap-4"
+          className="p-3.5 sm:p-4 cursor-pointer flex gap-4 touch-manipulation active:bg-white/5 active:scale-[0.99] transition-all duration-150"
           onClick={onToggle}
         >
           {/* Card Poster with premium watermark */}
@@ -1008,12 +1048,12 @@ function EntryNode({
               )}
             </div>
 
-            <div className="flex items-center gap-1 mt-1.5">
+            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
               <h3 className="font-bold text-white line-clamp-2 leading-snug">
                 {entry.title}
               </h3>
               {entry.flags?.some(f => f.startsWith("different-studio")) && (
-                <FlagTooltip flag={entry.flags.find(f => f.startsWith("different-studio"))!} />
+                <StudioFlagBadge flag={entry.flags.find(f => f.startsWith("different-studio"))!} />
               )}
             </div>
             {entry.status === "RELEASING" && (entry as any).nextAiringEpisode && (
@@ -1057,20 +1097,21 @@ function EntryNode({
                 onToggleWatched();
               }}
               className={cn(
-                "w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+                "w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer touch-manipulation",
                 isWatched
                   ? "bg-emerald-500/20 text-emerald-400"
-                  : "bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                  : "bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 active:scale-95"
               )}
               title="Mark watched"
             >
               <Check className="w-4 h-4" />
             </button>
-            {isExpanded ? (
-              <ChevronUp className="w-4 h-4 text-zinc-500" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-zinc-500" />
-            )}
+            <div className={cn(
+              "flex h-6 w-6 items-center justify-center rounded-full transition-all duration-300",
+              isExpanded ? "bg-chrono-primary/20 rotate-180" : "bg-zinc-800/50"
+            )}>
+              <ChevronDown className={cn("w-4 h-4 transition-colors", isExpanded ? "text-chrono-primary" : "text-zinc-500")} />
+            </div>
           </div>
         </div>
 
@@ -1217,17 +1258,12 @@ function EntryNode({
                       <FranchisePulse mediaId={entry.anilistId} currentTier={entry.tier} />
                     )}
                     <div className="flex flex-wrap gap-2 pt-2">
-                      {entry.trailerUrl && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPlayTrailer(entry.trailerUrl!);
-                          }}
-                          className="btn-primary py-2 px-3 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer"
-                        >
-                          <Play className="w-3.5 h-3.5 fill-current" /> Trailer
-                        </button>
-                      )}
+                      <TrailerButton 
+                        trailer={entry.trailerUrl ? { id: entry.trailerUrl.split('v=')[1], site: 'youtube' } : null} 
+                        title={entry.title} 
+                        englishTitle={entry.titleEnglish} 
+                        onPlayTrailer={onPlayTrailer}
+                      />
                       {showFocus && (
                         <button
                           onClick={(e) => {

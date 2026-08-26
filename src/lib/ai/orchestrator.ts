@@ -1,5 +1,5 @@
 /**
- * MyAniWatchOrder Orchestrator V2.8 - Strict ID Validation, Deduplication & Safe Fallback
+ * ChronoFlow Orchestrator V2.8 - Strict ID Validation, Deduplication & Safe Fallback
  */
 
 import { buildRelationGraph, findAllowedTitleById, findAllowedTitleByFuzzy } from "@/lib/knowledge/relation-graph";
