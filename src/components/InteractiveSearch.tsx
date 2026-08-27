@@ -266,13 +266,12 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
 
     if (e.key === "Enter") {
       e.preventDefault();
-      // If an item is explicitly highlighted (via arrow keys), select it.
+      // ONLY auto-select if the user explicitly used arrow keys to highlight an item.
+      // If nothing is highlighted (highlight === -1), do nothing except keep the list open.
       if (highlight >= 0 && results[highlight]) {
         handleSelect(results[highlight]);
       } else {
-        // If nothing is highlighted, just highlight the first item and keep the list open.
         setDropdownOpen(true);
-        setHighlight(0);
       }
       return;
     }

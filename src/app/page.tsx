@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { SEO_FRANCHISES } from "@/lib/seo/franchises";
+import { getMediaDetails } from "@/lib/anilist-client";
 import { Clock } from "lucide-react";
 import { CinematicHero } from "@/components/CinematicHero";
 import { InteractiveSearch } from "@/components/InteractiveSearch";
@@ -40,16 +42,19 @@ export default async function Page() {
   const airingAnime = await fetchCurrentlyAiring(); // <--- ADDED THIS
   
   // Combine BASE_SUGGESTIONS with all anime from SEO_TIERS to ensure we fetch images for all of them
-  const tierAnime = SEO_TIERS.flatMap(t => t.anime).map(a => ({
-    title: a.title,
-    malId: 0,
-    anilistId: 0,
-    imageUrl: "",
-    score: 0,
-    tag: a.tag,
-    desc: "",
-    slug: a.slug || ""
-  }));
+  const tierAnime = SEO_TIERS.flatMap(t => t.anime).map(a => {
+    const seoFranchise = SEO_FRANCHISES.find(f => f.slug === a.slug);
+    return {
+      title: a.title,
+      malId: seoFranchise?.anilistId || 0,
+      anilistId: seoFranchise?.anilistId || 0,
+      imageUrl: "",
+      score: 0,
+      tag: a.tag,
+      desc: "",
+      slug: a.slug || ""
+    };
+  });
 
   const uniqueTitles = new Set();
   const allSuggestions = [...BASE_SUGGESTIONS, ...tierAnime].filter(s => {
@@ -63,6 +68,15 @@ export default async function Page() {
       if (suggestion.imageUrl) return suggestion;
       
       try {
+        // 1. If we have the exact AniList ID, fetch details directly to guarantee the correct cover
+        if (suggestion.anilistId) {
+          const details: any = await getMediaDetails(suggestion.anilistId);
+          if (details?.Media?.coverImage?.large) {
+            return { ...suggestion, imageUrl: details.Media.coverImage.large };
+          }
+        }
+        
+        // 2. Fallback to text search if ID is missing or fails
         const res = await searchAnimeAction(suggestion.title);
         if (res.success && res.data.length > 0) {
           return { ...suggestion, imageUrl: res.data[0].imageUrl };
