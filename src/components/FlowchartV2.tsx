@@ -924,7 +924,7 @@ function StudioFlagBadge({ flag }: { flag: string }) {
         <AlertTriangle className="w-3 h-3" /> Studio Change
       </span>
       {show && (
-        <div className="absolute z-50 bottom-full mb-2 left-0 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-800 p-3 shadow-xl text-xs text-slate-400 leading-relaxed pointer-events-none">
+        <div className="absolute z-50 bottom-full mb-2 right-0 sm:left-0 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-800 p-3 shadow-xl text-xs text-slate-400 leading-relaxed pointer-events-none">
           <div className="flex items-center gap-2 text-amber-400 font-bold mb-1">
             <AlertTriangle className="w-3.5 h-3.5" /> Animation Studio Changed
           </div>
