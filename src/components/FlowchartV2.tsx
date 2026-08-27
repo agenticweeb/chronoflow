@@ -903,17 +903,6 @@ export default function FlowchartV2({
         />
       )}
 
-      {/* Floating Back Button (Visible on all devices) */}
-      <a 
-        href="/" 
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-chrono-primary px-5 py-3 text-sm font-semibold text-white shadow-2xl shadow-chrono-primary/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
-        aria-label="Back to Search"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        New Search
-      </a>
-      <div className="h-20" aria-hidden="true" />
-
     </div> // <--- This is the final closing div of the FlowchartV2 component
   );
 }

@@ -729,22 +729,25 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
       {/* VisualFlowchart Result Block */}
       {finalData && (
         <div className="max-w-5xl mx-auto space-y-5 animate-slide-up">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                setFinalData(null);
-                setError(null);
-              }}
-              className="btn-secondary text-sm cursor-pointer"
-            >
-              ← Adjust preferences
-            </button>
-            <div className="flex items-center gap-4">
-              {provider && latency != null && (
-                <span className="text-[11px] text-chrono-text-dim">via {provider} · {latency}ms</span>
-              )}
-              <button type="button" onClick={handleReset} className="text-sm text-[#a8a3b8] hover:text-white transition-colors cursor-pointer font-bold">New search</button>
+          {/* Sticky Contextual Toolbar */}
+          <div className="sticky top-16 z-40 -mx-4 px-4 py-3 mb-2 bg-chrono-bg/90 backdrop-blur-xl border-b border-chrono-border/20">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  setFinalData(null);
+                  setError(null);
+                }}
+                className="btn-secondary text-sm cursor-pointer"
+              >
+                ← Adjust preferences
+              </button>
+              <div className="flex items-center gap-4">
+                {provider && latency != null && (
+                  <span className="text-[11px] text-chrono-text-dim">via {provider} · {latency}ms</span>
+                )}
+                <button type="button" onClick={handleReset} className="text-sm text-[#a8a3b8] hover:text-white transition-colors cursor-pointer font-bold">New search</button>
+              </div>
             </div>
           </div>
           <VisualFlowchart data={finalData} timeBudget={preferences.timeBudget} customSchedule={preferences.customSchedule} />
