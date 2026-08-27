@@ -9,6 +9,7 @@ import { TopBanner } from "@/components/TopBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChronoCompanion } from "@/components/ChronoCompanion";
 import { searchAnimeAction } from "@/app/actions";
+import { getBatchMediaImages } from "@/lib/anilist-client";
 import { SEO_TIERS } from "@/lib/seo/tiers";
 export const dynamic = "force-dynamic";
 
@@ -63,30 +64,22 @@ export default async function Page() {
     return true;
   });
 
-  const suggestionsWithImages = await Promise.all(
-    allSuggestions.map(async (suggestion) => {
-      if (suggestion.imageUrl) return suggestion;
-      
-      try {
-        // 1. If we have the exact AniList ID, fetch details directly to guarantee the correct cover
-        if (suggestion.anilistId) {
-          const details: any = await getMediaDetails(suggestion.anilistId);
-          if (details?.Media?.coverImage?.large) {
-            return { ...suggestion, imageUrl: details.Media.coverImage.large };
-          }
-        }
-        
-        // 2. Fallback to text search if ID is missing or fails
-        const res = await searchAnimeAction(suggestion.title);
-        if (res.success && res.data.length > 0) {
-          return { ...suggestion, imageUrl: res.data[0].imageUrl };
-        }
-      } catch (e) {
-        console.error(`Failed to fetch image for ${suggestion.title}`);
-      }
-      return suggestion; // Fallback to empty string (monogram)
-    })
-  );
+  // 1. Collect all AniList IDs that need images
+  const idsToFetch = allSuggestions
+    .filter(s => !s.imageUrl && s.anilistId)
+    .map(s => s.anilistId as number);
+
+  // 2. Fetch ALL missing images in a single API call to prevent rate limits
+  const imageMap = await getBatchMediaImages(idsToFetch);
+
+  // 3. Merge the fetched images into our suggestions array
+  const suggestionsWithImages = allSuggestions.map(suggestion => {
+    if (suggestion.imageUrl) return suggestion;
+    if (suggestion.anilistId && imageMap[suggestion.anilistId]) {
+      return { ...suggestion, imageUrl: imageMap[suggestion.anilistId] };
+    }
+    return suggestion; // Fallback to monogram if still missing
+  });
 
   return (
     <main className="min-h-dvh relative flex flex-col">

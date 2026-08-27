@@ -65,3 +65,28 @@ export async function getMediaDetails(anilistId: number) {
     }`;
   return queryAniList(q, { id: anilistId });
 }
+export async function getBatchMediaImages(ids: number[]): Promise<Record<number, string>> {
+  if (!ids || ids.length === 0) return {};
+  
+  const q = `
+    query($ids: [Int]) {
+      Page(page: 1, perPage: 50) {
+        media(id_in: $ids, type: ANIME) {
+          id
+          coverImage { large }
+        }
+      }
+    }`;
+    
+  try {
+    const data = await queryAniList(q, { ids });
+    const map: Record<number, string> = {};
+    for (const item of data.Page.media) {
+      map[item.id] = item.coverImage?.large || "";
+    }
+    return map;
+  } catch (e) {
+    console.error("Failed to batch fetch images:", e);
+    return {};
+  }
+}
