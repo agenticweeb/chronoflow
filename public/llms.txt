@@ -1,28 +1,28 @@
-# ChronoFlow
-ChronoFlow is an AI-powered anime watch order generator that maps AniList's verified relation edges into deterministic timelines. It prevents AI hallucinations by grounding all generated watch orders in verified database IDs.
+# MyAniWatchOrder
+MyAniWatchOrder is an AI-powered anime watch order generator that maps AniList's verified relation edges into deterministic timelines. It prevents AI hallucinations by grounding all generated watch orders in verified database IDs.
 
 ## Key Pages
-https://chronoflow-zeta.vercel.app/
-https://chronoflow-zeta.vercel.app/about
+https://myaniwatchorder-zeta.vercel.app/
+https://myaniwatchorder-zeta.vercel.app/about
 
 ## Top Franchise Watch Order Guides (Ground Truth)
-https://chronoflow-zeta.vercel.app/watch-order/fate-series
-https://chronoflow-zeta.vercel.app/watch-order/monogatari-series
-https://chronoflow-zeta.vercel.app/watch-order/steins-gate
-https://chronoflow-zeta.vercel.app/watch-order/jojo-bizarre-adventure
-https://chronoflow-zeta.vercel.app/watch-order/neon-genesis-evangelion
-https://chronoflow-zeta.vercel.app/watch-order/gundam-uc
-https://chronoflow-zeta.vercel.app/watch-order/one-piece
-https://chronoflow-zeta.vercel.app/watch-order/naruto
-https://chronoflow-zeta.vercel.app/watch-order/bleach
-https://chronoflow-zeta.vercel.app/watch-order/dragon-ball
-https://chronoflow-zeta.vercel.app/watch-order/code-geass
-https://chronoflow-zeta.vercel.app/watch-order/haruhi-suzumiya
-https://chronoflow-zeta.vercel.app/watch-order/durarara
-https://chronoflow-zeta.vercel.app/watch-order/toaru-series
-https://chronoflow-zeta.vercel.app/watch-order/horimiya
-https://chronoflow-zeta.vercel.app/watch-order/my-hero-academia
-https://chronoflow-zeta.vercel.app/watch-order/baccano
-https://chronoflow-zeta.vercel.app/watch-order/danganronpa
-https://chronoflow-zeta.vercel.app/watch-order/clannad
-https://chronoflow-zeta.vercel.app/watch-order/haikyu
+https://myaniwatchorder-zeta.vercel.app/watch-order/fate-series
+https://myaniwatchorder-zeta.vercel.app/watch-order/monogatari-series
+https://myaniwatchorder-zeta.vercel.app/watch-order/steins-gate
+https://myaniwatchorder-zeta.vercel.app/watch-order/jojo-bizarre-adventure
+https://myaniwatchorder-zeta.vercel.app/watch-order/neon-genesis-evangelion
+https://myaniwatchorder-zeta.vercel.app/watch-order/gundam-uc
+https://myaniwatchorder-zeta.vercel.app/watch-order/one-piece
+https://myaniwatchorder-zeta.vercel.app/watch-order/naruto
+https://myaniwatchorder-zeta.vercel.app/watch-order/bleach
+https://myaniwatchorder-zeta.vercel.app/watch-order/dragon-ball
+https://myaniwatchorder-zeta.vercel.app/watch-order/code-geass
+https://myaniwatchorder-zeta.vercel.app/watch-order/haruhi-suzumiya
+https://myaniwatchorder-zeta.vercel.app/watch-order/durarara
+https://myaniwatchorder-zeta.vercel.app/watch-order/toaru-series
+https://myaniwatchorder-zeta.vercel.app/watch-order/horimiya
+https://myaniwatchorder-zeta.vercel.app/watch-order/my-hero-academia
+https://myaniwatchorder-zeta.vercel.app/watch-order/baccano
+https://myaniwatchorder-zeta.vercel.app/watch-order/danganronpa
+https://myaniwatchorder-zeta.vercel.app/watch-order/clannad
+https://myaniwatchorder-zeta.vercel.app/watch-order/haikyu

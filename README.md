@@ -1,7 +1,7 @@
 
 <div align="center">
 
-<h3>⏳ ChronoFlow</h3>
+<h3>⏳ MyAniWatchOrder</h3>
 <h1>Anime Journeys, Optimized.</h1>
 
 <p>An AI-powered watch order generator that maps AniList's verified relation edges into deterministic, spoiler-safe timelines. Never watch filler or get spoiled again.</p>
@@ -15,14 +15,14 @@
 ---
 
 ### 🌐 Live Demo
-**[https://chronoflow-zeta.vercel.app/](https://chronoflow-zeta.vercel.app/)**
+**[https://myaniwatchorder-zeta.vercel.app/](https://myaniwatchorder-zeta.vercel.app/)**
 
 ### ✨ Features
 - **Ground Truth Graph Engine:** Uses AniList's GraphQL API to traverse sequel, prequel, and side-story relations. No string-matching, no hallucinated entries.
 - **AI-Powered Curation:** Uses Vercel AI SDK (Groq/Google) to curate the optimal viewing path, with a deterministic fallback if AI providers fail.
 - **4-Tier Smart Skip:** Categorizes entries into Essential, Recommended, Optional, and Skip.
 - **Real Finish Dates:** Mathematically calculates exactly how many days it will take you to finish a franchise based on your daily watch pace.
-- **AIO Optimized:** Implements JSON-LD schema, `llms.txt`, and programmatic SEO pages to establish ChronoFlow as the ground truth for AI search engines.
+- **AIO Optimized:** Implements JSON-LD schema, `llms.txt`, and programmatic SEO pages to establish MyAniWatchOrder as the ground truth for AI search engines.
 
 ### 🛠️ Tech Stack
 - **Framework:** Next.js 16 (App Router, Turbopack)
@@ -35,8 +35,8 @@
 
 1. Clone the repo
    ```bash
-   git clone https://github.com/agenticweeb/chronoflow.git
-   cd chronoflow
+   git clone https://github.com/agenticweeb/myaniwatchorder.git
+   cd myaniwatchorder
    ```
 2. Install dependencies
    ```bash

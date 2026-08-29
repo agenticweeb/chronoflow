@@ -15,4 +15,4 @@ User-agent: *
 # Block internal API endpoints that return raw JSON
 Disallow: /api/
 
-Sitemap: https://chronoflow-zeta.vercel.app/sitemap.xml
+Sitemap: https://myaniwatchorder-zeta.vercel.app/sitemap.xml
