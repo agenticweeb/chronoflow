@@ -1,10 +1,10 @@
 "use client";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import TrailerButton from "@/components/TrailerButton";
 import { FranchisePulse } from "@/components/FranchisePulse";
 import { AiringCountdown } from "@/components/AiringCountdown";
 import { BeyondHorizon } from "@/components/BeyondHorizon";
 import { FlagTooltip } from "@/components/FlagTooltip";
-import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -175,6 +175,9 @@ export default function FlowchartV2({
   const [isCalOpen, setIsCalOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  const [_, startTimelineTransition] = useTransition();
+  const INITIAL_VISIBLE_COUNT = 6;
   const [calStartDate, setCalStartDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -197,7 +200,9 @@ export default function FlowchartV2({
   const { progress, toggleWatched, getCompletionRate } = useProgress(
     data.franchiseId
   );
-  const completionRate = getCompletionRate();
+  // Calculate the total episodes in the current timeline path
+  const totalTimelineEpisodes = pathEntries.reduce((sum, e) => sum + (e.episodeCount || 1), 0);
+  const completionRate = getCompletionRate(totalTimelineEpisodes);
   const preferredPace = paceFromTimeBudget(timeBudget);
 
   const timeData = useMemo(
@@ -662,7 +667,7 @@ export default function FlowchartV2({
                         <div className="relative">
                           <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/40 to-transparent hidden sm:block" />
                           <div className="space-y-4">
-                            {group.entries.filter((e) => visibleTiers.has(e.tier)).map((entry, idx) => (
+                            {group.entries.filter((e) => visibleTiers.has(e.tier)).slice(0, isTimelineExpanded ? undefined : INITIAL_VISIBLE_COUNT).map((entry, idx) => (
                               <EntryNode
                                 key={`${group.id}-${entry.id}-${idx}`}
                                 entry={entry}
@@ -687,6 +692,27 @@ export default function FlowchartV2({
                                 isLast={idx === group.entries.length - 1}
                               />
                             ))}
+                            
+                            {/* Smart Windowing Controls */}
+                            {group.entries.filter((e) => visibleTiers.has(e.tier)).length > INITIAL_VISIBLE_COUNT && (
+                              <div className="flex justify-center pt-2 gap-3">
+                                {!isTimelineExpanded ? (
+                                  <button
+                                    onClick={() => startTimelineTransition(() => setIsTimelineExpanded(true))}
+                                    className="min-h-[44px] rounded-full bg-chrono-primary/15 px-5 text-sm font-medium text-chrono-primary transition-opacity hover:bg-chrono-primary/25 cursor-pointer"
+                                  >
+                                    Show full path ({group.entries.filter((e) => visibleTiers.has(e.tier)).length - INITIAL_VISIBLE_COUNT} more)
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setIsTimelineExpanded(false)}
+                                    className="min-h-[44px] rounded-full border border-white/10 px-5 text-sm text-white/70 hover:bg-white/5 cursor-pointer"
+                                  >
+                                    Collapse
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

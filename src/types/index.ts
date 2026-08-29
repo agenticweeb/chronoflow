@@ -230,6 +230,7 @@ export interface UserProgress {
 export interface EntryProgress {
   watched: boolean;
   episodesWatched: number;
+  maxEpisodes: number; // <--- ADD THIS
   rating?: number;
   notes?: string;
   watchedAt?: string;

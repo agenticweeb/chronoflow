@@ -49,6 +49,7 @@ export const useWatchStore = create<WatchStoreState>()(
               [entryId]: {
                 watched: isWatched,
                 episodesWatched: isWatched ? episodes : 0,
+                maxEpisodes: episodes, // <--- ADD THIS LINE
                 watchedAt: isWatched ? new Date().toISOString() : undefined,
               },
             },
@@ -77,6 +78,7 @@ export const useWatchStore = create<WatchStoreState>()(
               [entryId]: {
                 watched: clamped >= maxEpisodes,
                 episodesWatched: clamped,
+                maxEpisodes: maxEpisodes, // <--- ADD THIS LINE
                 watchedAt: clamped >= maxEpisodes ? new Date().toISOString() : franchise.entries[entryId]?.watchedAt,
               },
             },

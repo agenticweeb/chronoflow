@@ -39,14 +39,19 @@ export function useProgress(franchiseId: string) {
     [franchiseId, addNoteStore]
   );
 
-  const getCompletionRate = useCallback(() => {
+  const getCompletionRate = useCallback((totalTimelineEpisodes: number = 0) => {
     if (!progress) return 0;
-    const total = Object.keys(progress.entries).length;
+    const entries = Object.values(progress.entries);
+    if (entries.length === 0 && totalTimelineEpisodes === 0) return 0;
+    
+    // Use the total episodes passed from the timeline, not just what's in the store
+    const total = totalTimelineEpisodes > 0 ? totalTimelineEpisodes : entries.reduce((sum, e) => sum + (e.maxEpisodes || 1), 0);
     if (total === 0) return 0;
-    const watched = Object.values(progress.entries).filter((e) => e.watched).length;
-    return Math.round((watched / total) * 100);
+    
+    const watchedEpisodes = entries.reduce((sum, e) => sum + (e.watched ? (e.maxEpisodes || 1) : (e.episodesWatched || 0)), 0);
+    
+    return Math.min(100, Math.round((watchedEpisodes / total) * 100));
   }, [progress]);
-
   const generateShareCode = useCallback(() => {
     if (!progress) return "";
     const code = btoa(
