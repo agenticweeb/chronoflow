@@ -1,4 +1,6 @@
 "use client";
+import { groupByHeuristic } from "@/lib/grouping/heuristic-grouper";
+import { CollapsibleArc } from "@/components/CollapsibleArc";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import TrailerButton from "@/components/TrailerButton";
 import { FranchisePulse } from "@/components/FranchisePulse";
@@ -175,6 +177,7 @@ export default function FlowchartV2({
   const [isCalOpen, setIsCalOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [liveTimeBudget, setLiveTimeBudget] = useState(timeBudget);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [_, startTimelineTransition] = useTransition();
   const INITIAL_VISIBLE_COUNT = 6;
@@ -225,9 +228,9 @@ export default function FlowchartV2({
           };
         }),
         new Date(),
-        { customSchedule } 
+        { customSchedule, timeBudget: liveTimeBudget } 
       ),
-    [data.franchise, pathEntries, customSchedule]
+    [data.franchise, pathEntries, customSchedule, liveTimeBudget]
   );
 
   const toggleGroup = (id: string) => {
@@ -461,33 +464,67 @@ export default function FlowchartV2({
                 </span>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
-                <div className="flex-1 max-w-xs">
-                  <div className="flex justify-between text-[11px] text-chrono-text-muted mb-1">
-                    <span>Your progress</span>
-                    <span>{completionRate}%</span>
+              <div className="flex flex-col sm:flex-row sm:items-end gap-4 pt-4 mt-2 border-t border-white/5">
+                {/* Finish Date & Pace */}
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-chrono-text-dim uppercase tracking-wider mb-1">Estimated Finish</p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl sm:text-2xl font-extrabold text-white">
+                      {timeData?.finishDate ? new Date(timeData.finishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Calculating...'}
+                    </span>
+                    <span className="text-xs text-chrono-text-muted">
+                      {timeData?.totalTime ? `(${timeData.totalTime})` : ''} at {paceFromTimeBudget(liveTimeBudget)} pace
+                    </span>
                   </div>
-                  <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
-                    <div
-                      className="h-full bg-gradient-to-r from-chrono-primary to-chrono-accent transition-all duration-500"
-                      style={{ width: `${completionRate}%` }}
-                    />
+                  
+                  {/* Inline Pace Toggle */}
+                  <div className="flex gap-1.5 mt-2">
+                    {["casual", "regular", "dedicated", "binge"].map((p) => (
+                      <button 
+                        key={p} 
+                        onClick={() => setLiveTimeBudget(p)}
+                        className={cn(
+                          "px-2.5 py-1 text-[10px] font-bold rounded-md border transition-all cursor-pointer capitalize",
+                          liveTimeBudget === p 
+                            ? "bg-chrono-primary border-chrono-primary text-white" 
+                            : "border-chrono-border text-chrono-text-dim hover:bg-white/5"
+                        )}
+                      >
+                        {p}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setIsCalOpen(true)}
-                    className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 border-chrono-primary/30 text-chrono-primary cursor-pointer"
-                  >
-                    <CalendarDays className="w-3.5 h-3.5" /> Schedule
-                  </button>
-                  <button
-                    onClick={handleShare}
-                    className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {linkCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Share2 className="w-3.5 h-3.5" />}
-                    {linkCopied ? "Link Copied!" : "Share"}
-                  </button>
+
+                {/* Progress & Actions */}
+                <div className="w-full sm:w-auto sm:flex sm:flex-col sm:items-end gap-2">
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setIsCalOpen(true)}
+                      className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 border-chrono-primary/30 text-chrono-primary cursor-pointer"
+                    >
+                      <CalendarDays className="w-3.5 h-3.5" /> Schedule
+                    </button>
+                    <button
+                      onClick={handleShare}
+                      className="btn-secondary py-2 px-3 text-xs inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {linkCopied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Share2 className="w-3.5 h-3.5" />}
+                      {linkCopied ? "Copied!" : "Share"}
+                    </button>
+                  </div>
+                  <div className="w-full sm:w-40">
+                    <div className="flex justify-between text-[11px] text-chrono-text-muted mb-1">
+                      <span>Progress</span>
+                      <span>{completionRate}%</span>
+                    </div>
+                    <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                      <div
+                        className="h-full bg-gradient-to-r from-chrono-primary to-chrono-accent transition-all duration-500"
+                        style={{ width: `${completionRate}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -667,33 +704,68 @@ export default function FlowchartV2({
                         <div className="relative">
                           <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gradient-to-b from-chrono-primary/40 to-transparent hidden sm:block" />
                           <div className="space-y-4">
-                            {group.entries.filter((e) => visibleTiers.has(e.tier)).slice(0, isTimelineExpanded ? undefined : INITIAL_VISIBLE_COUNT).map((entry, idx) => (
-                              <EntryNode
-                                key={`${group.id}-${entry.id}-${idx}`}
-                                entry={entry}
-                                index={idx + 1}
-                                isExpanded={expandedEntries.has(entry.id)}
-                                onToggle={() => toggleEntry(entry.id)}
-                                isWatched={
-                                  !!progress?.entries[entry.id]?.watched
-                                }
-                                onToggleWatched={() =>
-                                  toggleWatched(entry.id, entry as any)
-                                }
-                                onPlayTrailer={setActiveTrailerUrl}
-                                onFocus={() => {
-                                  setFocusEntry(entry);
-                                  window.scrollTo({
-                                    top: 0,
-                                    behavior: "smooth",
-                                  });
-                                }}
-                                showFocus={!isFocused}
-                                isLast={idx === group.entries.length - 1}
-                              />
-                            ))}
+                            {(() => {
+                              // 1. Filter and slice the entries (Smart Windowing)
+                              const windowedEntries = group.entries
+                                .filter((e) => visibleTiers.has(e.tier))
+                                .slice(0, isTimelineExpanded ? undefined : INITIAL_VISIBLE_COUNT);
+                              
+                              // 2. Group the windowed entries into Arcs (Heuristic Grouping)
+                              const arcGroups = groupByHeuristic(windowedEntries);
+                              
+                              // 3. Render the Collapsible Arcs (or flat if only 1 group)
+                              if (arcGroups.length === 1) {
+                                // If only 1 group, render flat to avoid an unnecessary wrapper
+                                return arcGroups[0].entries.map((entry, idx) => (
+                                  <EntryNode
+                                    key={`flat-${entry.id}-${idx}`}
+                                    entry={entry}
+                                    index={idx + 1}
+                                    isExpanded={expandedEntries.has(entry.id)}
+                                    onToggle={() => toggleEntry(entry.id)}
+                                    isWatched={!!progress?.entries[entry.id]?.watched}
+                                    onToggleWatched={() => toggleWatched(entry.id, entry as any)}
+                                    onPlayTrailer={setActiveTrailerUrl}
+                                    onFocus={() => {
+                                      setFocusEntry(entry);
+                                      window.scrollTo({ top: 0, behavior: "smooth" });
+                                    }}
+                                    showFocus={!isFocused}
+                                    isLast={idx === windowedEntries.length - 1}
+                                  />
+                                ));
+                              }
+
+                              // If multiple groups, render as Collapsible Arcs
+                              return arcGroups.map((arc, arcIdx) => {
+                                const startIndex = windowedEntries.findIndex(e => e.id === arc.entries[0].id);
+                                
+                                return (
+                                  <CollapsibleArc key={arc.id} arc={arc} defaultOpen={arcIdx === 0}>
+                                    {arc.entries.map((entry, idx) => (
+                                      <EntryNode
+                                        key={`${arc.id}-${entry.id}-${idx}`}
+                                        entry={entry}
+                                        index={startIndex + idx + 1}
+                                        isExpanded={expandedEntries.has(entry.id)}
+                                        onToggle={() => toggleEntry(entry.id)}
+                                        isWatched={!!progress?.entries[entry.id]?.watched}
+                                        onToggleWatched={() => toggleWatched(entry.id, entry as any)}
+                                        onPlayTrailer={setActiveTrailerUrl}
+                                        onFocus={() => {
+                                          setFocusEntry(entry);
+                                          window.scrollTo({ top: 0, behavior: "smooth" });
+                                        }}
+                                        showFocus={!isFocused}
+                                        isLast={startIndex + idx === windowedEntries.length - 1}
+                                      />
+                                    ))}
+                                  </CollapsibleArc>
+                                );
+                              });
+                            })()}
                             
-                            {/* Smart Windowing Controls */}
+                            {/* Smart Windowing Controls (Outside the arcs) */}
                             {group.entries.filter((e) => visibleTiers.has(e.tier)).length > INITIAL_VISIBLE_COUNT && (
                               <div className="flex justify-center pt-2 gap-3">
                                 {!isTimelineExpanded ? (
@@ -1020,9 +1092,11 @@ function EntryNode({
           tier.border,
           tier.bg,
           tier.shadow,
-          isWatched && "opacity-55"
+          isWatched && "opacity-55",
+          // FIX: Visually mute non-essential nodes to make the main path dominant
+          (entry.tier === "optional" || entry.tier === "skip") && !isWatched && "opacity-60 hover:opacity-100 scale-[0.98]"
         )}
-        style={{ boxShadow: `0 0 30px -15px var(--theme-accent, #6366f1)` }}
+        style={{ boxShadow: entry.tier === "essential" || entry.tier === "recommended" ? `0 0 30px -15px var(--theme-accent, #6366f1)` : 'none' }}
       >
         <div
           className="p-3.5 sm:p-4 cursor-pointer flex gap-4 touch-manipulation active:bg-white/5 active:scale-[0.99] transition-all duration-150"
@@ -1078,6 +1152,19 @@ function EntryNode({
                 <StudioFlagBadge flag={entry.flags.find(f => f.startsWith("different-studio"))!} />
               )}
             </div>
+            {/* Visceral Tier Reason Pill */}
+            {entry.tier !== "essential" && (
+              <div className={cn(
+                "mt-1.5 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full w-fit",
+                entry.tier === "recommended" && "bg-sky-500/10 text-sky-400 border border-sky-500/20",
+                entry.tier === "optional" && "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+                entry.tier === "skip" && "bg-red-500/10 text-red-400 border border-red-500/20"
+              )}>
+                {entry.tier === "recommended" && "Enhances main story"}
+                {entry.tier === "optional" && `Optional · Adds ${entry.timeEstimate}`}
+                {entry.tier === "skip" && "Skip · Filler / Recap"}
+              </div>
+            )}
             {entry.status === "RELEASING" && (entry as any).nextAiringEpisode && (
               <AiringCountdown 
                 airingAt={(entry as any).nextAiringEpisode.airingAt} 
