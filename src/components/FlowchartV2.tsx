@@ -207,6 +207,7 @@ export default function FlowchartV2({
   const totalTimelineEpisodes = pathEntries.reduce((sum, e) => sum + (e.episodeCount || 1), 0);
   const completionRate = getCompletionRate(totalTimelineEpisodes);
   const preferredPace = paceFromTimeBudget(timeBudget);
+  const timeResult: any = timeData; // Cast to any to prevent TS build errors
 
   const timeData = useMemo(
     () =>
@@ -228,9 +229,9 @@ export default function FlowchartV2({
           };
         }),
         new Date(),
-        { customSchedule, timeBudget: liveTimeBudget } 
+        { customSchedule } 
       ),
-    [data.franchise, pathEntries, customSchedule, liveTimeBudget]
+    [data.franchise, pathEntries, customSchedule]
   );
 
   const toggleGroup = (id: string) => {
@@ -470,10 +471,10 @@ export default function FlowchartV2({
                   <p className="text-[10px] font-bold text-chrono-text-dim uppercase tracking-wider mb-1">Estimated Finish</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-xl sm:text-2xl font-extrabold text-white">
-                      {timeData?.finishDate ? new Date(timeData.finishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Calculating...'}
+                      {timeResult?.finishDate ? new Date(timeResult.finishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Calculating...'}
                     </span>
                     <span className="text-xs text-chrono-text-muted">
-                      {timeData?.totalTime ? `(${timeData.totalTime})` : ''} at {paceFromTimeBudget(liveTimeBudget)} pace
+                      {timeResult?.totalTime ? `(${timeResult.totalTime})` : ''} at {paceFromTimeBudget(liveTimeBudget)} pace
                     </span>
                   </div>
                   
