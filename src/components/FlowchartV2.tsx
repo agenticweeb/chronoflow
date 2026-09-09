@@ -179,7 +179,6 @@ export default function FlowchartV2({
   const [linkCopied, setLinkCopied] = useState(false);
   const [liveTimeBudget, setLiveTimeBudget] = useState<string>(timeBudget || "regular");
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
-  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [_, startTimelineTransition] = useTransition();
   const INITIAL_VISIBLE_COUNT = 6;
   const [calStartDate, setCalStartDate] = useState(() => {
@@ -207,13 +206,6 @@ export default function FlowchartV2({
   // Calculate the total episodes in the current timeline path
   const totalTimelineEpisodes = pathEntries.reduce((sum, e) => sum + (e.episodeCount || 1), 0);
   const completionRate = getCompletionRate(totalTimelineEpisodes);
-  // Safely find the active pace object based on the live state
-  const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0] || { finishDate: '', durationShort: '', relativeLabel: '' };
-  
-  // Format the finish date safely
-  const formattedFinishDate = activePace.finishDate 
-    ? new Date(`${activePace.finishDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) 
-    : 'Calculating...';
 
   const timeData = useMemo(
     () =>
@@ -239,8 +231,16 @@ export default function FlowchartV2({
       ),
     [data.franchise, pathEntries, customSchedule]
   );
+    const preferredPace = paceFromTimeBudget(timeBudget);
+  
   // Find the active pace data based on the liveTimeBudget state (defaults to Regular)
   const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0] || { finishDate: '', durationShort: '', relativeLabel: '' };
+  
+  // Format the finish date safely
+  const formattedFinishDate = activePace.finishDate 
+    ? new Date(`${activePace.finishDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) 
+    : 'Calculating...';
+
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
