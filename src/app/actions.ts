@@ -190,11 +190,15 @@ export async function discoverAnimeAction(filters: {
 
     const res = await fetch("https://graphql.anilist.co", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Referer": "https://anilist.co/"
+      },
       body: JSON.stringify({ query: DISCOVER_QUERY, variables: cleanVariables }),
       next: { revalidate: 3600 } as any,
     });
-
     if (!res.ok) throw new Error(`AniList query failed: ${res.status}`);
     const raw = await res.json();
     const mediaList = raw?.data?.Page?.media || [];
