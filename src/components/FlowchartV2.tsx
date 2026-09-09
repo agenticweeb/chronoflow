@@ -178,7 +178,7 @@ export default function FlowchartV2({
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [liveTimeBudget, setLiveTimeBudget] = useState<string>(timeBudget || "regular");
-  const [liveTimeBudget, setLiveTimeBudget] = useState(timeBudget);
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [_, startTimelineTransition] = useTransition();
   const INITIAL_VISIBLE_COUNT = 6;
@@ -239,8 +239,8 @@ export default function FlowchartV2({
       ),
     [data.franchise, pathEntries, customSchedule]
   );
-// Find the active pace data based on the liveTimeBudget state (defaults to Regular)
-  const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0];
+  // Find the active pace data based on the liveTimeBudget state (defaults to Regular)
+  const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0] || { finishDate: '', durationShort: '', relativeLabel: '' };
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
