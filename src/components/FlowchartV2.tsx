@@ -177,6 +177,7 @@ export default function FlowchartV2({
   const [isCalOpen, setIsCalOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [liveTimeBudget, setLiveTimeBudget] = useState<string>(timeBudget || "regular");
   const [liveTimeBudget, setLiveTimeBudget] = useState(timeBudget);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [_, startTimelineTransition] = useTransition();
@@ -206,9 +207,13 @@ export default function FlowchartV2({
   // Calculate the total episodes in the current timeline path
   const totalTimelineEpisodes = pathEntries.reduce((sum, e) => sum + (e.episodeCount || 1), 0);
   const completionRate = getCompletionRate(totalTimelineEpisodes);
-  const preferredPace = paceFromTimeBudget(timeBudget);
-  // Find the active pace data based on the liveTimeBudget state (defaults to Regular)
-
+  // Safely find the active pace object based on the live state
+  const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0] || { finishDate: '', durationShort: '', relativeLabel: '' };
+  
+  // Format the finish date safely
+  const formattedFinishDate = activePace.finishDate 
+    ? new Date(`${activePace.finishDate}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) 
+    : 'Calculating...';
 
   const timeData = useMemo(
     () =>
@@ -473,10 +478,10 @@ export default function FlowchartV2({
                   <p className="text-[10px] font-bold text-chrono-text-dim uppercase tracking-wider mb-1">Estimated Finish</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-xl sm:text-2xl font-extrabold text-white">
-                      {activePace?.finishDate ? new Date(activePace.finishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Calculating...'}
+                      {formattedFinishDate}
                     </span>
                     <span className="text-xs text-chrono-text-muted">
-                      {activePace?.duration ? `${activePace.duration} · ` : ''}{paceFromTimeBudget(liveTimeBudget)} pace
+                      {activePace.relativeLabel ? `${activePace.relativeLabel} · ` : ''}{activePace.durationShort || ''}
                     </span>
                   </div>
                   
