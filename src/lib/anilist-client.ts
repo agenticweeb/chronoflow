@@ -8,7 +8,12 @@ async function queryAniList(query: string, variables: Record<string, any> = {}, 
     try {
       const res = await fetch(ENDPOINT, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Referer": "https://anilist.co/"
+        },
         body: JSON.stringify({ query, variables }),
       });
       if (res.ok) return (await res.json()).data;
@@ -65,9 +70,22 @@ export async function getMediaDetails(anilistId: number) {
     }`;
   return queryAniList(q, { id: anilistId });
 }
+import { redis } from "@/lib/redis";
+
 export async function getBatchMediaImages(ids: number[]): Promise<Record<number, string>> {
   if (!ids || ids.length === 0) return {};
   
+  const cacheKey = `batch_images:${ids.sort().join(',')}`;
+  
+  // 1. Check Redis first
+  try {
+    const cached = await redis.get<Record<number, string>>(cacheKey);
+    if (cached) {
+      console.log("✅ Cache HIT for batch images");
+      return cached;
+    }
+  } catch (e) { /* Ignore redis errors */ }
+
   const q = `
     query($ids: [Int]) {
       Page(page: 1, perPage: 50) {
@@ -84,6 +102,14 @@ export async function getBatchMediaImages(ids: number[]): Promise<Record<number,
     for (const item of data.Page.media) {
       map[item.id] = item.coverImage?.large || "";
     }
+    
+    // 2. Save to Redis for 24 hours so we never have to fetch this again
+    if (Object.keys(map).length > 0) {
+      try {
+        await redis.set(cacheKey, map, { ex: 86400 });
+      } catch (e) { /* Ignore redis errors */ }
+    }
+    
     return map;
   } catch (e) {
     console.error("Failed to batch fetch images:", e);
