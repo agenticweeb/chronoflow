@@ -3,7 +3,7 @@ const ENDPOINT = "https://graphql.anilist.co";
 
 async function sleep(ms:number){ return new Promise(r=>setTimeout(r,ms)); }
 
-async function queryAniList(query: string, variables: Record<string, any> = {}, retries = 3) {
+export async function queryAniList(query: string, variables: Record<string, any> = {}, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const res = await fetch(ENDPOINT, {

@@ -10,7 +10,7 @@ import React, {
   useRef, 
   useMemo 
 } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Clock,
@@ -42,6 +42,9 @@ import { useAudioCue } from "@/hooks/useAudioCue";
 import { SEO_TIERS } from "@/lib/seo/tiers";
 import { NarrativeLoader } from "@/components/NarrativeLoader";
 import { AiringCarousel } from "@/components/AiringCarousel";
+import { DiscoverShelves } from "@/components/DiscoverShelves";
+import { ComingSoon } from "@/components/ComingSoon";
+import type { DiscoverCardData } from "@/lib/discover/shelf-recipes";
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   timeBudget: "regular",
@@ -80,7 +83,16 @@ const LANGUAGES = [
   { code: "US", label: "English (US/Global)" },
   { code: "FR", label: "French (Co-productions)" },
 ];
-
+// "Filter the slop" — fatigue mutes. AniList taxonomy matters here:
+// Isekai/Harem/Reverse Harem/Shounen are TAGS; Ecchi is a GENRE.
+// Each chip routes to the correct GraphQL filter (tag_not_in vs genre_not_in).
+const EXCLUDE_OPTIONS: { name: string; kind: "tag" | "genre" }[] = [
+  { name: "Isekai", kind: "tag" },
+  { name: "Harem", kind: "tag" },
+  { name: "Reverse Harem", kind: "tag" },
+  { name: "Shounen", kind: "tag" },
+  { name: "Ecchi", kind: "genre" },
+];
 interface InteractiveSearchProps {
   initialSuggestions: any[]; 
   airingAnime?: any[];
@@ -92,6 +104,15 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   const { play } = useAudioCue();
 
   const [activeTab, setActiveTab] = useState<"builder" | "discover">("builder");
+
+  // Phase 3 — Discover keep-alive: once opened, its content stays mounted
+  // (CSS-hidden) so tab switches and generate→back round-trips preserve the
+  // loaded grid pages, carousel positions, and page scroll.
+  const [hasVisitedDiscover, setHasVisitedDiscover] = useState(false);
+  const discoverScrollRef = useRef(0);
+  const saveDiscoverScroll = useCallback(() => {
+    discoverScrollRef.current = window.scrollY;
+  }, []);
 
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -125,7 +146,8 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   const [selectedLang, setSelectedYearLang] = useState<string>("All");
   const [showFilters, setShowFilters] = useState(true);
 
-  const [discoverList, setDiscoverList] = useState<AnimeSearchResult[]>([]);
+  // Phase 2 — slop mutes (single source of truth; tag/genre split derived below)
+  const [slopFilters, setSlopFilters] = useState<string[]>([]);
 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackType, setFeedbackType] = useState<"bug" | "suggestion">("suggestion");
@@ -155,29 +177,92 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
     }
   }, [searchData, play]);
 
-  // Discover Query
-  const { data: discoverData, isFetching: discoverLoading } = useQuery({
-    queryKey: ['discover_v5', selectedGenres, minRating, selectedYear, sortBy, selectedLang],
-    queryFn: () => discoverAnimeAction({
-      genres: selectedGenres,
-      minRating,
-      yearEra: selectedYear,
-      sortBy,
-      language: selectedLang,
-    }),
+  // Slop mutes, split by AniList taxonomy
+  const excludedTags = useMemo(
+    () => EXCLUDE_OPTIONS.filter((o) => o.kind === "tag" && slopFilters.includes(o.name)).map((o) => o.name),
+    [slopFilters]
+  );
+  const excludedGenres = useMemo(
+    () => EXCLUDE_OPTIONS.filter((o) => o.kind === "genre" && slopFilters.includes(o.name)).map((o) => o.name),
+    [slopFilters]
+  );
+
+  // Discover Query (Phase 2 — paginated infinite scroll; filters in the key
+  // reset pagination automatically)
+  const {
+    data: discoverData,
+    fetchNextPage: discoverFetchNextPage,
+    hasNextPage: discoverHasNextPage,
+    isFetchingNextPage: discoverFetchingMore,
+    isFetching: discoverLoading,
+  } = useInfiniteQuery({
+    queryKey: ['discover_v6', selectedGenres, minRating, selectedYear, sortBy, selectedLang, slopFilters],
+    queryFn: ({ pageParam }) =>
+      discoverAnimeAction(
+        {
+          genres: selectedGenres,
+          excludedTags,
+          excludedGenres,
+          minRating,
+          yearEra: selectedYear,
+          sortBy,
+          language: selectedLang,
+        },
+        pageParam
+      ),
+    initialPageParam: 1,
+    // The ONLY trusted pagination signal — AniList total/lastPage are unreliable
+    getNextPageParam: (lastPage) =>
+      lastPage.success && lastPage.data.pageInfo.hasNextPage
+        ? lastPage.data.pageInfo.currentPage + 1
+        : undefined,
     enabled: activeTab === 'discover',
     staleTime: 1000 * 60 * 5,
-    placeholderData: (prev) => prev, 
+    maxPages: 10, // memory cap (~250 items)
+    placeholderData: (prev: any) => prev, // keep old grid visible while new filters load
   });
 
-  useEffect(() => {
-    if (discoverData && discoverData.success && discoverData.data) {
-      setDiscoverList(discoverData.data);
-    } else {
-      setDiscoverList([]);
+  // Derived (no state mirror): flatten pages + dedupe by id — the same
+  // AniList boundary-drift guard the shelves use
+  const discoverList = useMemo(() => {
+    const seen = new Set<number>();
+    const out: AnimeSearchResult[] = [];
+    for (const page of discoverData?.pages ?? []) {
+      if (!page.success) continue;
+      for (const item of page.data.items) {
+        const id = item.anilistId ?? item.malId;
+        if (id !== undefined) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+        }
+        out.push(item);
+      }
     }
+    return out;
   }, [discoverData]);
 
+  const handleSlopToggle = (name: string) => {
+    setSlopFilters((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]
+    );
+  };
+
+  // Infinite-scroll sentinel — fetches BEFORE the user reaches the bottom
+  const discoverSentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = discoverSentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && discoverHasNextPage && !discoverFetchingMore) {
+          discoverFetchNextPage();
+        }
+      },
+      { rootMargin: "600px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [discoverHasNextPage, discoverFetchingMore, discoverFetchNextPage]);
   const handleSelect = useCallback((anime: AnimeSearchResult) => {
     setSelected(anime);
     setSelectedId(anime.anilistId || null);
@@ -206,7 +291,28 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [handleSelect, initialSuggestions]);
-
+  // Shelf-card handoff — same flow as handleSelectSuggestion, but preserves
+  // the card's real format/score/status instead of hardcoded values.
+  const handleSelectDiscoverCard = useCallback(
+    (card: DiscoverCardData) => {
+      handleSelect({
+        // Coalesce exactly like the existing discover mapper (item.idMal || item.id)
+        malId: card.malId ?? card.anilistId,
+        anilistId: card.anilistId,
+        title: card.title,
+        type: card.type || "TV",
+        imageUrl: card.imageUrl,
+        score: card.score ?? 0,
+        synopsis: "",
+        genres: card.genres || [],
+        status: card.status || "Finished Airing",
+        isFranchise: card.isFranchise ?? true,
+      });
+      saveDiscoverScroll();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [handleSelect, saveDiscoverScroll]
+  );
   const handleGenerate = useCallback(() => {
     if (!selected) return;
     play("click");
@@ -255,8 +361,14 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
     setProvider(null);
     setLatency(null);
     setPreferences(DEFAULT_PREFERENCES);
+    // Phase 3 — return the user to their exact browsing position
+    if (hasVisitedDiscover && activeTab === "discover") {
+      requestAnimationFrame(() =>
+        window.scrollTo({ top: discoverScrollRef.current })
+      );
+    }
     inputRef.current?.focus();
-  }, [setSelectedId]);
+  }, [setSelectedId, hasVisitedDiscover, activeTab]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
@@ -339,7 +451,10 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
         <div className="flex justify-center border-b border-chrono-border/20 max-w-md mx-auto relative z-50">
           <button
             type="button"
-            onClick={() => setActiveTab("builder")}
+            onClick={() => {
+              if (activeTab === "discover") saveDiscoverScroll();
+              setActiveTab("builder");
+            }}
             className={cn(
               "flex-1 py-3 text-sm font-bold border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer",
               activeTab === "builder"
@@ -352,7 +467,13 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("discover")}
+            onClick={() => {
+              setActiveTab("discover");
+              setHasVisitedDiscover(true);
+              requestAnimationFrame(() =>
+                window.scrollTo({ top: discoverScrollRef.current })
+              );
+            }}
             className={cn(
               "flex-1 py-3 text-sm font-bold border-b-2 transition-all flex items-center justify-center gap-2 cursor-pointer",
               activeTab === "discover"
@@ -375,7 +496,7 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
             <input
               ref={inputRef}
               id="chrono-search"
-              type="search"
+              type="text"
               autoComplete="off"
               spellCheck={false}
               placeholder="Search any anime — Fate, JoJo, Re:Zero, One Piece…"
@@ -389,7 +510,7 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
               role="combobox"
               aria-expanded={dropdownOpen}
               aria-controls={listboxId}
-              className="input-field w-full pl-12 pr-12 py-4 text-base sm:text-lg font-medium shadow-2xl shadow-black/40"
+              className="input-field w-full pl-12! pr-12! py-4! text-base sm:text-lg font-medium shadow-2xl shadow-black/40"
             />
             {isSearching && (
               <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-chrono-primary animate-spin" />
@@ -450,8 +571,17 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
       )}
 
       {/* Tab 2 Discover Stage with IMDb-Grade Filter controls */}
-      {activeTab === "discover" && !selected && !finalData && (
-        <div className="space-y-6 max-w-5xl mx-auto animate-fade-in relative z-50">
+      {hasVisitedDiscover && (
+        <div
+          className={cn(
+            "space-y-6 max-w-5xl mx-auto relative z-50",
+            activeTab === "discover" && !selected && !finalData
+              ? "block animate-fade-in"
+              : "hidden"
+          )}
+        >
+          {/* Zone 1 — Curated shelves (identical for every visitor; ignore the filter bar) */}
+          <DiscoverShelves onSelect={handleSelectDiscoverCard} />
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-chrono-surface/30 p-4 rounded-2xl border border-chrono-border/10">
             <button
               type="button"
@@ -588,6 +718,36 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
                       </select>
                     </div>
                   </div>
+
+                  {/* Filter the slop — fatigue mutes (Phase 2) */}
+                  <div className="md:col-span-3 space-y-2 pt-4 border-t border-chrono-border/10">
+                    <label className="text-xs font-bold text-chrono-text-muted uppercase tracking-wider block">
+                      Filter the slop — hide what you're tired of
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {EXCLUDE_OPTIONS.map((opt) => {
+                        const active = slopFilters.includes(opt.name);
+                        return (
+                          <button
+                            type="button"
+                            key={opt.name}
+                            onClick={() => handleSlopToggle(opt.name)}
+                            className={cn(
+                              "px-2.5 py-1 text-xs rounded-full border cursor-pointer transition-all",
+                              active
+                                ? "bg-rose-500/20 border-rose-500/60 text-rose-300 font-bold"
+                                : "bg-black/10 border-chrono-border text-chrono-text-dim hover:text-chrono-text"
+                            )}
+                          >
+                            {active ? "✕ " : ""}{opt.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-chrono-text-dim">
+                      Muted categories vanish from this grid. Isekai, Harem &amp; Shounen are AniList tags; Ecchi is a genre — each routes to the right filter.
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -596,7 +756,7 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
           {/* Dynamic Results Grid (FIXED: removed nested grids to prevent layout collapse) */}
           <div className={cn(
             discoverLayout === "grid" ? "grid grid-cols-1 md:grid-cols-3 gap-4" : "space-y-2",
-            discoverLoading && discoverList.length > 0 && "opacity-50 pointer-events-none transition-opacity duration-200"
+            discoverLoading && !discoverFetchingMore && discoverList.length > 0 && "opacity-50 pointer-events-none transition-opacity duration-200"
           )}>
             {discoverLoading && discoverList.length === 0 ? (
               [...Array(6)].map((_, i) => (
@@ -655,6 +815,29 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
               </>
             )}
           </div>
+
+          {/* Infinite-scroll sentinel + accessible manual load-more */}
+          <div ref={discoverSentinelRef} className="h-10" aria-hidden="true" />
+          <div className="flex justify-center">
+            {discoverHasNextPage ? (
+              <button
+                type="button"
+                onClick={() => discoverFetchNextPage()}
+                disabled={discoverFetchingMore}
+                className="btn-secondary text-xs font-bold inline-flex items-center gap-2 px-5 py-2.5 cursor-pointer"
+              >
+                {discoverFetchingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                <span>{discoverFetchingMore ? "Loading more…" : "Load more"}</span>
+              </button>
+            ) : discoverList.length > 0 && !discoverLoading ? (
+              <p className="text-[11px] uppercase tracking-widest text-chrono-text-dim py-4">
+                You've reached the end of these filters
+              </p>
+            ) : null}
+          </div>
+
+          {/* Coming Soon — roadmap strip (static, no fetching) */}
+          <ComingSoon />
         </div>
       )}
 
@@ -746,7 +929,9 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
                 {provider && latency != null && (
                   <span className="text-[11px] text-chrono-text-dim">via {provider} · {latency}ms</span>
                 )}
-                <button type="button" onClick={handleReset} className="text-sm text-[#a8a3b8] hover:text-white transition-colors cursor-pointer font-bold">New search</button>
+                <button type="button" onClick={handleReset} className="text-sm text-[#a8a3b8] hover:text-white transition-colors cursor-pointer font-bold">
+                  {activeTab === "discover" ? "Back to browsing" : "New search"}
+                </button>
               </div>
             </div>
           </div>
