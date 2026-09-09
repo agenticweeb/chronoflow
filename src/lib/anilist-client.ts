@@ -16,7 +16,15 @@ export async function queryAniList(query: string, variables: Record<string, any>
         },
         body: JSON.stringify({ query, variables }),
       });
-      if (res.ok) return (await res.json()).data;
+      if (res.ok) {
+        const json = await res.json();
+        // Outage guard: HTTP 200 + errors + no data must throw truthfully —
+        // returning null here crashes callers reading .Page off null.
+        if (json?.errors?.length && !json?.data) {
+          throw new Error(`AniList is unavailable: ${json.errors[0]?.message || "GraphQL error"}`);
+        }
+        return json.data;
+      }
       if (res.status === 429) {
         const wait = Math.min(1000 * Math.pow(2, attempt) + Math.random()*500, 8000);
         console.warn(`AniList 429, retry ${attempt+1}/${retries} after ${Math.round(wait)}ms`);
@@ -27,10 +35,18 @@ export async function queryAniList(query: string, variables: Record<string, any>
         await sleep(500 * (attempt+1));
         continue;
       }
-      throw new Error(`AniList query failed: ${res.status}`);
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errBody = await res.json();
+        const msg = errBody?.errors?.[0]?.message;
+        if (msg) detail = msg;
+      } catch { /* non-JSON body */ }
+      throw new Error(`AniList is unavailable: ${detail}`);
     } catch (e:any) {
       if (attempt === retries) throw e;
       if (e?.name === 'AbortError') throw e;
+      // Hard API failures (outage) skip retry cycles — fail fast, truthfully
+      if (typeof e?.message === 'string' && e.message.startsWith('AniList is unavailable')) throw e;
       await sleep(400 * (attempt+1));
     }
   }

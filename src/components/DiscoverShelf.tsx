@@ -36,7 +36,14 @@ export function DiscoverShelf({ recipe, onSelect }: DiscoverShelfProps) {
   } = useInfiniteQuery({
     // Client cache key mirrors the server Redis namespace (shelf_v1)
     queryKey: ["shelf_v1", recipe.id],
-    queryFn: ({ pageParam }) => fetchShelfPageAction(recipe.id, pageParam),
+    // Throw on action-level failure so TanStack treats it as an error state
+    // (auto-retry + the Retry UI below) instead of caching a silent empty
+    // result for the full staleTime — matters during AniList outages.
+    queryFn: async ({ pageParam }) => {
+      const res = await fetchShelfPageAction(recipe.id, pageParam);
+      if (!res.success) throw new Error(res.error);
+      return res;
+    },
     initialPageParam: 1,
     // The ONLY trusted pagination signal — AniList's total/lastPage are unreliable
     getNextPageParam: (lastPage) =>

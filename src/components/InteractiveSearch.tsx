@@ -195,10 +195,14 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
     hasNextPage: discoverHasNextPage,
     isFetchingNextPage: discoverFetchingMore,
     isFetching: discoverLoading,
+    isError: discoverIsError,
+    refetch: discoverRefetch,
   } = useInfiniteQuery({
     queryKey: ['discover_v6', selectedGenres, minRating, selectedYear, sortBy, selectedLang, slopFilters],
-    queryFn: ({ pageParam }) =>
-      discoverAnimeAction(
+    // Throw on action-level failure so an AniList outage surfaces as an
+    // error state (with retry) instead of poisoning the cache with an empty page.
+    queryFn: async ({ pageParam }) => {
+      const res = await discoverAnimeAction(
         {
           genres: selectedGenres,
           excludedTags,
@@ -209,7 +213,10 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
           language: selectedLang,
         },
         pageParam
-      ),
+      );
+      if (!res.success) throw new Error(res.error);
+      return res;
+    },
     initialPageParam: 1,
     // The ONLY trusted pagination signal — AniList total/lastPage are unreliable
     getNextPageParam: (lastPage) =>
@@ -763,9 +770,22 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
                 <div key={i} className={cn("skeleton h-44 border border-chrono-border/10 shadow-lg", discoverLayout === "grid" ? "rounded-2xl" : "rounded-xl")} />
               ))
             ) : discoverList.length === 0 ? (
-              <div className="glass-card p-8 text-center text-chrono-text-muted rounded-2xl md:col-span-3">
-                No anime found matching your dynamic filter criteria. Try expanding your search.
-              </div>
+              discoverIsError ? (
+                <div className="glass-card p-8 text-center space-y-3 rounded-2xl md:col-span-3">
+                  <p className="text-sm text-chrono-text-muted">Couldn't reach AniList just now.</p>
+                  <button
+                    type="button"
+                    onClick={() => discoverRefetch()}
+                    className="btn-secondary text-xs cursor-pointer"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : (
+                <div className="glass-card p-8 text-center text-chrono-text-muted rounded-2xl md:col-span-3">
+                  No anime found matching your dynamic filter criteria. Try expanding your search.
+                </div>
+              )
             ) : (
               <>
                 {discoverList.map((s) => (

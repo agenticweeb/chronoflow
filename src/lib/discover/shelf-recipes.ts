@@ -159,7 +159,7 @@ export const SHELVES: ShelfRecipe[] = [
       5114, // Fullmetal Alchemist: Brotherhood
       9253, // Steins;Gate
       16498, // Attack on Titan
-      31964, // My Hero Academia
+      21459, // My Hero Academia (AniList ID; 31964 is its MAL ID)
     ],
   },
   {

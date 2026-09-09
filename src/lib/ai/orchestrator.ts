@@ -120,7 +120,16 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
       else merged.push(ani as any);
     }
     bestMatch = selectBestAnimeMatch(params.animeName, merged) || merged[0];
-    if (!bestMatch) throw new Error(`No anime found matching "${params.animeName}"`);
+    if (!bestMatch) {
+      // Truthful failure: if BOTH databases errored (outage), say so —
+      // never report "no anime found" when the search never actually ran.
+      const bothFailed = jRes.status === "rejected" && aRes.status === "rejected";
+      if (bothFailed) {
+        const reason = aRes.reason?.message || "search failed";
+        throw new Error(`Anime databases are unreachable right now (${reason}). Please try again in a few minutes.`);
+      }
+      throw new Error(`No anime found matching "${params.animeName}"`);
+    }
   }
 
   if (params.scope === "season") {

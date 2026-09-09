@@ -36,7 +36,20 @@ const MEDIA_Q = `query($id:Int){Media(id:$id,type:ANIME){id idMal title{romaji e
 
 const SEARCH_Q = `query($search:String,$perPage:Int){Page(perPage:$perPage){media(search:$search,type:ANIME,sort:POPULARITY_DESC){id idMal title{romaji english native} format episodes duration status averageScore popularity startDate{year} coverImage{large medium color} description genres trailer{id site} nextAiringEpisode{episode} studios{edges{isMain node{name id}}}}}}`;
 
+/**
+ * Thrown when AniList itself is failing (outage, persistent 5xx/429,
+ * network unreachable) — as opposed to a legitimate "not found" result.
+ * Callers must NEVER convert this into "No anime found" messages.
+ */
+export class AniListUnavailableError extends Error {
+  constructor(detail: string) {
+    super(`AniList is unavailable right now (${detail}). Please try again in a few minutes.`);
+    this.name = "AniListUnavailableError";
+  }
+}
+
 async function fetchWithRetry(body: any, retries = 3) {
+  let lastError = "unknown error";
   for (let a = 0; a <= retries; a++) {
     try {
       const res = await fetch(ENDPOINT, {
@@ -45,27 +58,50 @@ async function fetchWithRetry(body: any, retries = 3) {
         body: JSON.stringify(body),
         next: { revalidate: 3600 } as any
       });
+
       if (res.ok) {
         const j = await res.json();
-        return j?.data;
+        // GraphQL-level failure: HTTP 200 but an errors array with no data —
+        // e.g. "The AniList API has been temporarily disabled due to severe
+        // stability issues." Surface the REAL reason, never swallow it.
+        if (j?.errors?.length && !j?.data) {
+          throw new AniListUnavailableError(j?.errors?.[0]?.message || "GraphQL error");
+        }
+        // A null here is a legitimate "not found" (e.g. unknown media id)
+        return j?.data ?? null;
       }
+
+      // Retryable statuses
       if (res.status === 429) {
         const w = Math.min(800 + Math.pow(2, a) * 600 + Math.random() * 400, 7000);
         console.warn(`AniList 429 retry ${a + 1} wait ${Math.round(w)}ms`);
         await sleep(w);
+        lastError = "rate limited (429)";
         continue;
       }
       if (res.status >= 500 && a < retries) {
         await sleep(400 * (a + 1));
+        lastError = `server error (${res.status})`;
         continue;
       }
-      return null;
-    } catch (e) {
-      if (a === retries) return null;
+
+      // Non-retryable HTTP failure (403 outage, 400, ...) — extract
+      // AniList's own message when the body carries one.
+      let detail = `HTTP ${res.status}`;
+      try {
+        const errBody = await res.json();
+        const msg = errBody?.errors?.[0]?.message;
+        if (msg) detail = msg;
+      } catch { /* non-JSON body */ }
+      throw new AniListUnavailableError(detail);
+    } catch (e: any) {
+      if (e instanceof AniListUnavailableError) throw e; // never retry a hard failure
+      lastError = e?.message || "network error";
+      if (a === retries) break;
       await sleep(350 * (a + 1));
     }
   }
-  return null;
+  throw new AniListUnavailableError(`unreachable after retries — ${lastError}`);
 }
 
 async function fetchAniListMedia(id: number): Promise<any | null> {
