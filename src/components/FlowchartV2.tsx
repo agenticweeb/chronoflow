@@ -239,8 +239,10 @@ export default function FlowchartV2({
       ),
     [data.franchise, pathEntries, customSchedule]
   );
-/ Find the active pace data based on the liveTimeBudget state (defaults to Regular)
-  const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0];
+// Find the active pace data based on the liveTimeBudget state (defaults to Regular)
+const activePace =
+  timeData?.paces?.find((p) => p.label.toLowerCase() === liveTimeBudget) ??
+  timeData?.paces?.[0];
   const toggleGroup = (id: string) => {
     setExpandedGroups((prev) => {
       const next = new Set(prev);
