@@ -719,7 +719,9 @@ export default function FlowchartV2({
                                 .slice(0, isTimelineExpanded ? undefined : INITIAL_VISIBLE_COUNT);
                               
                               // 2. Group the windowed entries into Arcs (Heuristic Grouping)
-                              const arcGroups = groupByHeuristic(windowedEntries);
+                              // Safely extract the numeric AniList ID from the franchiseId string (e.g., "fr_21" -> 21)
+const rootAnilistId = data.franchiseId?.startsWith('fr_') ? parseInt(data.franchiseId.replace('fr_', ''), 10) : undefined;
+const arcGroups = groupByHeuristic(windowedEntries, rootAnilistId);
                               
                               // 3. Render the Collapsible Arcs (or flat if only 1 group)
                               if (arcGroups.length === 1) {
