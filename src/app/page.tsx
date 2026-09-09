@@ -11,6 +11,7 @@ import { ChronoCompanion } from "@/components/ChronoCompanion";
 import { searchAnimeAction } from "@/app/actions";
 import { getBatchMediaImages } from "@/lib/anilist-client";
 import { SEO_TIERS } from "@/lib/seo/tiers";
+import { HowItWorks } from "@/components/HowItWorks";
 export const dynamic = "force-dynamic";
 
 // 1. Define the base suggestions on the server
@@ -145,6 +146,9 @@ export default async function Page() {
           <InteractiveSearch initialSuggestions={suggestionsWithImages} airingAnime={airingAnime} />
         </ErrorBoundary>
       </section>
+
+      {/* How It Works — onboarding for new users (Runway #2) */}
+      <HowItWorks />
 
       {/* Fully Informative Footer System */}
       <footer className="border-t border-chrono-border/20 bg-chrono-surface/20 py-10 backdrop-blur-md mt-auto">
