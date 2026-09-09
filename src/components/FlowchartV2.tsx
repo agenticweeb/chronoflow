@@ -207,7 +207,8 @@ export default function FlowchartV2({
   const totalTimelineEpisodes = pathEntries.reduce((sum, e) => sum + (e.episodeCount || 1), 0);
   const completionRate = getCompletionRate(totalTimelineEpisodes);
   const preferredPace = paceFromTimeBudget(timeBudget);
-  const timeResult: any = timeData; // Cast to any to prevent TS build errors
+  // Find the active pace data based on the liveTimeBudget state (defaults to Regular)
+  const activePace = timeData?.paces?.find(p => p.label.toLowerCase() === liveTimeBudget) || timeData?.paces?.[1] || timeData?.paces?.[0];
 
   const timeData = useMemo(
     () =>
@@ -471,10 +472,10 @@ export default function FlowchartV2({
                   <p className="text-[10px] font-bold text-chrono-text-dim uppercase tracking-wider mb-1">Estimated Finish</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-xl sm:text-2xl font-extrabold text-white">
-                      {timeResult?.finishDate ? new Date(timeResult.finishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Calculating...'}
+                      {activePace?.finishDate ? new Date(activePace.finishDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'Calculating...'}
                     </span>
                     <span className="text-xs text-chrono-text-muted">
-                      {timeResult?.totalTime ? `(${timeResult.totalTime})` : ''} at {paceFromTimeBudget(liveTimeBudget)} pace
+                      {activePace?.duration ? `${activePace.duration} · ` : ''}{paceFromTimeBudget(liveTimeBudget)} pace
                     </span>
                   </div>
                   
