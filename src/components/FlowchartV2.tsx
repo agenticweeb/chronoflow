@@ -1,7 +1,7 @@
 "use client";
 import { groupByHeuristic } from "@/lib/grouping/heuristic-grouper";
 import { CollapsibleArc } from "@/components/CollapsibleArc";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import TrailerButton from "@/components/TrailerButton";
 import { FranchisePulse } from "@/components/FranchisePulse";
 import { AiringCountdown } from "@/components/AiringCountdown";
@@ -1016,33 +1016,93 @@ const arcGroups = groupByHeuristic(windowedEntries, rootAnilistId);
 }
 function StudioFlagBadge({ flag }: { flag: string }) {
   const [show, setShow] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; above: boolean } | null>(null);
+  const badgeRef = useRef<HTMLDivElement>(null);
+
   // Parse flag string like "different-studio:WIT:MAPPA"
   const parts = flag.split(':');
   const oldStudio = parts[1] || 'Previous';
   const newStudio = parts[2] || 'New';
 
+  const openTooltip = () => {
+    const el = badgeRef.current;
+    if (!el || typeof window === "undefined") return;
+    const r = el.getBoundingClientRect();
+    // Center the 256px (w-64) tooltip on the badge, clamped inside the viewport
+    const left = Math.min(
+      Math.max(r.left + r.width / 2 - 128, 8),
+      window.innerWidth - 264
+    );
+    // Prefer above the badge; flip below when the badge is near the viewport top
+    const above = r.top > 130;
+    setPos({ top: above ? r.top - 8 : r.bottom + 8, left, above });
+    setShow(true);
+  };
+
+  // Close on scroll/resize (a fixed tooltip must never detach from its badge)
+  // and on outside click (mobile taps).
+  useEffect(() => {
+    if (!show) return;
+    const close = () => setShow(false);
+    const onDocClick = (e: MouseEvent) => {
+      if (badgeRef.current && !badgeRef.current.contains(e.target as Node)) {
+        setShow(false);
+      }
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    document.addEventListener("click", onDocClick);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+      document.removeEventListener("click", onDocClick);
+    };
+  }, [show]);
+
   return (
-    <div 
-      className="relative inline-flex"
-      onMouseEnter={() => setShow(true)}
-      onMouseLeave={() => setShow(false)}
-      onClick={(e) => { e.stopPropagation(); setShow(!show); }}
-    >
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full cursor-pointer touch-manipulation">
-        <AlertTriangle className="w-3 h-3" /> Studio Change
-      </span>
-      {show && (
-        <div className="absolute z-50 bottom-full mb-2 right-0 sm:left-0 w-64 max-w-[calc(100vw-2rem)] rounded-lg border border-slate-700 bg-slate-800 p-3 shadow-xl text-xs text-slate-400 leading-relaxed pointer-events-none">
-          <div className="flex items-center gap-2 text-amber-400 font-bold mb-1">
-            <AlertTriangle className="w-3.5 h-3.5" /> Animation Studio Changed
-          </div>
-          <p>Production moved from <span className="text-slate-200 font-medium">{oldStudio}</span> to <span className="text-slate-200 font-medium">{newStudio}</span>. This may affect art style and pacing.</p>
-        </div>
-      )}
-    </div>
+    <>
+      <div
+        ref={badgeRef}
+        className="inline-flex"
+        onMouseEnter={openTooltip}
+        onMouseLeave={() => setShow(false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (show) setShow(false);
+          else openTooltip();
+        }}
+      >
+        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-full cursor-pointer touch-manipulation">
+          <AlertTriangle className="w-3 h-3" /> Studio Change
+        </span>
+      </div>
+
+      {show && pos && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: pos.top,
+              left: pos.left,
+              transform: pos.above ? "translateY(-100%)" : undefined,
+            }}
+            className="z-[99999] w-64 rounded-lg border border-slate-700 bg-slate-800 p-3 shadow-xl text-xs text-slate-400 leading-relaxed pointer-events-none"
+          >
+            <div className="flex items-center gap-2 text-amber-400 font-bold mb-1">
+              <AlertTriangle className="w-3.5 h-3.5" /> Animation Studio Changed
+            </div>
+            <p>
+              Production moved from{" "}
+              <span className="text-slate-200 font-medium">{oldStudio}</span> to{" "}
+              <span className="text-slate-200 font-medium">{newStudio}</span>.
+              This may affect art style and pacing.
+            </p>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
-
 // ... EntryNode function starts here ...
 function EntryNode({
   entry,
