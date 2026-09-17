@@ -265,7 +265,7 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     anilistId: bestMatch.anilistId,
     malId: bestMatch.malId,
     scope: params.scope,
-    maxDepth: params.scope === "franchise" ? 4 : 1,
+    maxDepth: params.scope === "franchise" ? 8 : 1,
   });
   warnings.push(...gWarn);
 

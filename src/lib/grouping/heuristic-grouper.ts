@@ -39,6 +39,10 @@ export function groupByHeuristic(entries: WatchOrderEntryV2[], rootAnilistId?: n
               arcName: arc.shortName || arc.name,
               episodeRange: `${start}-${end}`,
               episodeCount: count,
+              // Arcs inherit the parent's watchAfter (e.g. "Watch after Jump
+              // Festa 2005 Special") — meaningless on a sub-arc of the same
+              // series. Sequence position already conveys the ordering.
+              watchAfter: undefined,
             };
             
             expandedGroups.push({
