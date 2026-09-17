@@ -611,6 +611,13 @@ function buildWhyConfusing(shape: any, title: string, graph: RelationGraph): str
 // "FAIRY TAIL (2014)" matches root "Fairy Tail". Demotion (never deletion)
 // is the V6 soft-flag philosophy with teeth: crossover content stays
 // available, just never on the essential path.
+// Localization aliases: Western retitles sharing NO title stem with the original.
+// "Case Closed" IS Detective Conan (US dub name) — without this, every
+// "Case Closed:" special gets falsely demoted as crossover content.
+const FRANCHISE_TITLE_ALIASES: Record<string, string[]> = {
+  caseclosed: ["detectiveconan", "meitanteiconan"],
+};
+
 function normalizeStem(s?: string | null): string {
   return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -627,9 +634,17 @@ function sharesFranchiseStem(root: any, entry: any): boolean {
   ].filter((s: string) => s.length > 0);
   if (entryStems.length === 0) return true;
 
-  return rootStems.some((rs: string) =>
-    entryStems.some((es: string) => es.includes(rs) || rs.includes(es))
-  );
+  if (rootStems.some((rs: string) => entryStems.some((es: string) => es.includes(rs) || rs.includes(es)))) {
+    return true;
+  }
+  // Localization alias pass: entry carries a known retitle whose franchise
+  // stems include one of the root's stems.
+  for (const [alias, franchiseStems] of Object.entries(FRANCHISE_TITLE_ALIASES)) {
+    if (entryStems.some((es: string) => es.includes(alias)) && franchiseStems.some((fs: string) => rootStems.includes(fs))) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function applyCrossoverTierCap(
@@ -799,7 +814,10 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
           durationMinutes: duration, timeEstimate: timeEst,
           year: (allowed as any)?.year, position: entry.position || idx + 1, groupPosition: entry.groupPosition || idx + 1,
           prerequisites: entry.prerequisites || [], unlocks: [], watchAfter: entry.watchAfter,
-          contentTags: entry.contentTags || [], arcName: entry.arcName, episodeRange: rangeStr || entry.episodeRange,
+          contentTags: entry.contentTags || [],
+          // Guard: some models emit the entry ID as arcName (seen: "ani_6702")
+          arcName: entry.arcName && !/^ani_?\d+$/i.test(entry.arcName) ? entry.arcName : undefined,
+          episodeRange: rangeStr || entry.episodeRange,
           isFiller: entry.isFiller || false, fillerType: (entry.fillerType as any) || "none", fillerReason: entry.fillerReason,
           whyWatch: entry.whyWatch, skipWarning: entry.skipWarning, watchIf: entry.watchIf || [],
           imageUrl: entryImage, bannerUrl: undefined, coverImage: cover,

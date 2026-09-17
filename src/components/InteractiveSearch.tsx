@@ -360,6 +360,10 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
         setFinalData(res.data.dataV2);
         setProvider(res.data.provider);
         setLatency(Date.now() - startTime);
+        // Land at the top of the result. The Generate button sits deep below
+        // the preferences panel — preserving that scroll offset into the much
+        // taller timeline dropped users mid-result (the "scrolled to bottom" bug).
+        window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
         setError(res.error || "Generation execution failed");
       }
