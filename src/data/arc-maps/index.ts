@@ -6,6 +6,10 @@ import { dragonBallArcMap } from './dragon-ball';
 import { dragonBallZArcMap } from './dragon-ball-z';
 import { dragonBallGTArcMap } from './dragon-ball-gt';
 import { dragonBallSuperArcMap } from './dragon-ball-super';
+import { gintamaArcMap } from './gintama';
+import { gintamaPrimeArcMap } from './gintama-prime';
+import { gintamaDegreesArcMap } from './gintama-degrees';
+import { fairyTailArcMap } from './fairy-tail';
 import type { FranchiseArcMap } from '@/types/arc-map';
 
 const ARC_MAP_REGISTRY: Record<number, FranchiseArcMap> = {
@@ -17,6 +21,10 @@ const ARC_MAP_REGISTRY: Record<number, FranchiseArcMap> = {
   813: dragonBallZArcMap,
   225: dragonBallGTArcMap,
   21175: dragonBallSuperArcMap,
+  918: gintamaArcMap,
+  9969: gintamaPrimeArcMap,
+  20996: gintamaDegreesArcMap,
+  6702: fairyTailArcMap,
 };
 
 export function getCuratedArcMap(rootAnilistId: number): FranchiseArcMap | null {
