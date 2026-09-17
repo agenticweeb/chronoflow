@@ -377,13 +377,107 @@ export const CURATED_FRANCHISES: CuratedFranchise[] = [
             description: "Current final saga",
             timelineType: "main_timeline",
             entries: [
-              { id: "ani_21_egghead", title: "One Piece: Egghead Arc", format: "TV", episodes: 67, durationMinutes: 24, year: 2024, tier: "essential", tierReason: "Episodes 1086-1155 scheduled, Vegapunk, Kuma backstory, Final Saga begins", whyWatch: "Egghead Island, Bonney, Kuma flashback, Gorosei arrival. Current arc.", imageUrl: "" }
+              { id: "ani_21_egghead", title: "One Piece: Egghead Arc", format: "TV", episodes: 67, durationMinutes: 24, year: 2024, anilistId: 21, tier: "essential", tierReason: "Episodes 1086-1155 scheduled, Vegapunk, Kuma backstory, Final Saga begins", whyWatch: "Egghead Island, Bonney, Kuma flashback, Gorosei arrival. Current arc.", imageUrl: "" }
             ]
           }
         ]
       }
     ]
-  }
+  },
+  {
+    keywords: ["naruto", "shippuden", "boruto"],
+    franchise: "Naruto",
+    classification: "long_runner",
+    summary: "Naruto Uzumaki's journey from outcast child to Hokage across two series (220 + 500 episodes). The original series ends in a long filler stretch, Shippuden interleaves canon sagas with filler blocks, and The Last movie is the required canon bridge into the Boruto era.",
+    whyConfusing: "The original series has ~85 episodes of pure filler (136-219) and Shippuden hides large filler blocks mid-war. Of 11 movies, only The Last is canon — it covers the story's actual ending (Naruto and Hinata) that the anime skipped. Boruto then retells its own movie in anime form.",
+    totalEpisodes: 720,
+    paths: [
+      {
+        id: "naruto_recommended",
+        name: "Recommended Order (Canon + Filler Map + Movies)",
+        description: "Both series in broadcast order with filler blocks marked skippable, The Last as the required canon bridge, and optional movies slotted where they aired.",
+        bestFor: ["First time viewers", "Canon focused"],
+        isRecommended: true,
+        groups: [
+          {
+            id: "naruto_original",
+            name: "Naruto: Original Series (Episodes 1-220)",
+            description: "The foundation — Land of Waves through Sasuke's departure",
+            timelineType: "main_timeline",
+            orderNote: "Episodes 136-219 are almost entirely filler. Jump straight from 135 to 220.",
+            entries: [
+              { id: "ani_20_waves", title: "Naruto: Land of Waves Saga (Eps 1-19)", format: "TV", episodes: 19, durationMinutes: 23, year: 2002, anilistId: 20, malId: 20, tier: "essential", tierReason: "First real mission; establishes Team 7, Kakashi's philosophy, and Zabuza/Haku", whyWatch: "The emotional thesis of the entire series. Everything Naruto believes about bonds and pain starts here.", arcName: "Land of Waves" },
+              { id: "ani_20_chunin", title: "Naruto: Chunin Exam Saga (Eps 20-67)", format: "TV", episodes: 48, durationMinutes: 23, year: 2002, anilistId: 20, tier: "essential", tierReason: "Series' first tournament — Orochimaru, Gaara, the curse mark, Rock Lee vs Gaara", whyWatch: "Peak early Naruto. Introduces nearly every major character of the next decade and the Sasuke-retrieval motivation.", arcName: "Chunin Exams" },
+              { id: "ani_20_crush", title: "Naruto: Konoha Crush Saga (Eps 68-80)", format: "TV", episodes: 13, durationMinutes: 23, year: 2003, anilistId: 20, tier: "essential", tierReason: "Orochimaru's invasion and the Third Hokage's death", whyWatch: "The village pays its first true price. Consequences that echo into Shippuden.", arcName: "Konoha Crush" },
+              { id: "ani_20_tsunade", title: "Naruto: Search for Tsunade (Eps 81-100)", format: "TV", episodes: 20, durationMinutes: 23, year: 2003, anilistId: 20, tier: "essential", tierReason: "Tsunade's introduction, Sannin backstory, Itachi's first appearance", whyWatch: "The fifth Hokage arrives and Itachi shatters Sasuke's world — the direct setup for the finale.", arcName: "Tsunade Search" },
+              { id: "ani_20_tea", title: "Naruto: Land of Tea Race (Eps 101-106, Filler)", format: "TV", episodes: 6, durationMinutes: 23, year: 2003, anilistId: 20, tier: "skip", tierReason: "Filler: tea-country race with zero canon impact", whyWatch: "Only for completionists who want every second of Team 7.", skipWarning: "Nothing — no canon content whatsoever.", arcName: "Tea Country" },
+              { id: "ani_20_sasuke", title: "Naruto: Sasuke Retrieval Saga (Eps 107-135)", format: "TV", episodes: 29, durationMinutes: 23, year: 2004, anilistId: 20, tier: "essential", tierReason: "The retrieval squad, the Sound Four, and the Valley of the End", whyWatch: "The emotional climax of the original series. Naruto and Sasuke's first true clash — do not skip under any tier setting.", arcName: "Sasuke Retrieval" },
+              { id: "ani_20_filler_block", title: "Naruto: Filler Block (Eps 136-219, Filler)", format: "TV", episodes: 84, durationMinutes: 23, year: 2005, anilistId: 20, tier: "skip", tierReason: "~3 years of filler while the manga pulled ahead", whyWatch: "Skip entirely. Jump straight to episode 220.", skipWarning: "None — these episodes have no bearing on Shippuden.", arcName: "Filler Block" },
+              { id: "ani_220_departure", title: "Naruto: Departure (Episode 220)", format: "TV", episodes: 1, durationMinutes: 23, year: 2007, anilistId: 20, tier: "essential", tierReason: "The canon epilogue bridge into Shippuden", whyWatch: "Naruto leaves with Jiraiya. The single canon beat that hands off to Shippuden.", arcName: "Departure" }
+            ]
+          },
+          {
+            id: "naruto_shippuden",
+            name: "Naruto: Shippuden (Episodes 1-500)",
+            description: "The main story continues — Akatsuki, the war, and the ending",
+            timelineType: "main_timeline",
+            orderNote: "Filler blocks are marked skip; mixed arcs are 'recommended'. The war saga absorbs scattered filler interludes.",
+            entries: [
+              { id: "ani_1735_kazekage", title: "Shippuden: Kazekage Rescue Mission (Eps 1-32)", format: "TV", episodes: 32, durationMinutes: 23, year: 2007, anilistId: 1735, malId: 1735, tier: "essential", tierReason: "Gaara vs Deidara, Team Kakashi reformed, Chiyo's sacrifice", whyWatch: "The two-and-a-half-year timeskip payoff. Naruto's growth and the Akatsuki threat made real.", arcName: "Kazekage Rescue" },
+              { id: "ani_1735_tenchi", title: "Shippuden: Tenchi Bridge Reconnaissance (Eps 33-53)", format: "TV", episodes: 21, durationMinutes: 23, year: 2007, anilistId: 1735, tier: "essential", tierReason: "Nine-Tails four-tails, Orochimaru confrontation, Sai and Team Yamato", whyWatch: "Naruto loses control of the Nine-Tails for the first time — the cost of his power made visceral.", arcName: "Tenchi Bridge" },
+              { id: "ani_1735_sora", title: "Shippuden: Twelve Guardian Ninja (Eps 54-71, Filler)", format: "TV", episodes: 18, durationMinutes: 23, year: 2008, anilistId: 1735, tier: "skip", tierReason: "Filler: Sora and the Fire Temple monks", whyWatch: "Skippable monk-guardian storyline.", skipWarning: "None — Sora never appears again.", arcName: "Sora Filler" },
+              { id: "ani_1735_hidan", title: "Shippuden: Hidan & Kakuzu (Eps 72-88)", format: "TV", episodes: 17, durationMinutes: 23, year: 2008, anilistId: 1735, tier: "essential", tierReason: "Asuma's death and Shikamaru's revenge — the emotional anchor of early Shippuden", whyWatch: "The first Akatsuki pair to fall, and the arc that turns Shikamaru into an adult.", arcName: "Hidan & Kakuzu" },
+              { id: "ani_1735_three_tails", title: "Shippuden: Three-Tails Appearance (Eps 89-112, Mixed)", format: "TV", episodes: 24, durationMinutes: 23, year: 2008, anilistId: 1735, tier: "recommended", tierReason: "Canon/filler interleaved — Guren's storyline is filler wrapped around canon beats", whyWatch: "Canon material continues underneath; watch if you don't mind the filler wrapper.", arcName: "Three-Tails" },
+              { id: "ani_1735_itachi", title: "Shippuden: Itachi Pursuit (Eps 113-143)", format: "TV", episodes: 31, durationMinutes: 23, year: 2008, anilistId: 1735, tier: "essential", tierReason: "Jiraiya vs Pain, Sasuke vs Itachi, the truth about Itachi — incl. Kakashi Gaiden (~119-120)", whyWatch: "The trilogy of reveals the entire series was building toward. Jiraiya's last stand and the Uchiha truth.", arcName: "Itachi Pursuit" },
+              { id: "ani_1735_utakata", title: "Shippuden: Six-Tails Unleashed (Eps 144-151, Filler)", format: "TV", episodes: 8, durationMinutes: 23, year: 2009, anilistId: 1735, tier: "skip", tierReason: "Filler: Utakata the bubble jinchuriki", whyWatch: "Adds mild depth to a later war beat, but skippable.", skipWarning: "Utakata's war cameo lands slightly colder without it.", arcName: "Utakata Filler" },
+              { id: "ani_1735_pain", title: "Shippuden: Pain's Assault (Eps 152-175)", format: "TV", episodes: 24, durationMinutes: 23, year: 2009, anilistId: 1735, tier: "essential", tierReason: "The destruction of Konoha and Naruto's answer to the cycle of hatred", whyWatch: "Widely considered the series' peak. Pain's assault, Sage Mode, and the meeting with the Fourth.", arcName: "Pain's Assault" },
+              { id: "ani_1735_legacy", title: "Shippuden: Quest for the Fourth's Legacy (Eps 176-178, Filler)", format: "TV", episodes: 3, durationMinutes: 23, year: 2010, anilistId: 1735, tier: "skip", tierReason: "Filler bridge episode block", whyWatch: "Skippable transition filler.", skipWarning: "None.", arcName: "Legacy Filler" },
+              { id: "ani_1735_kage_summit", title: "Shippuden: Five Kage Summit (Eps 179-221)", format: "TV", episodes: 43, durationMinutes: 23, year: 2010, anilistId: 1735, tier: "essential", tierReason: "Danzo, Sasuke's descent at the summit, the war declaration", whyWatch: "The political turn — the five villages unite and Sasuke crosses a line he can't return from.", arcName: "Five Kage Summit" },
+              { id: "ani_1735_war_countdown", title: "Shippuden: War Countdown (Eps 222-257, Mixed)", format: "TV", episodes: 36, durationMinutes: 23, year: 2011, anilistId: 1735, tier: "recommended", tierReason: "Canon preparation interleaved with the 'Paradise Life on a Boat' filler stretch", whyWatch: "Canon beats set the war's chessboard; the island filler is the wrapper.", arcName: "War Countdown" },
+              { id: "ani_1735_war", title: "Shippuden: Fourth Shinobi World War (Eps 258-479)", format: "TV", episodes: 222, durationMinutes: 23, year: 2011, anilistId: 1735, tier: "essential", tierReason: "The war itself — Madara, Obito, the Ten-Tails, Kaguya, and the series' true finale", whyWatch: "The entire cast's payoff. Scattered filler interludes are absorbed here; the ending (479) is the real one.", arcName: "Fourth Shinobi War" },
+              { id: "ani_1735_new_era", title: "Shippuden: New Era Adaptations (Eps 480-500, Filler)", format: "TV", episodes: 21, durationMinutes: 23, year: 2017, anilistId: 1735, tier: "skip", tierReason: "Post-war novel adaptations — canon-adjacent character epilogues", whyWatch: "Nice character goodbyes (Shikamaru, Gaara, Jiraiya's book). Skip if heading straight to The Last.", skipWarning: "Skips character epilogues the movies don't cover.", arcName: "New Era" }
+            ]
+          },
+          {
+            id: "naruto_canon_bridge",
+            name: "The Canon Bridge — Required Movies",
+            description: "The two films that are actual story, not side content",
+            timelineType: "main_timeline",
+            orderNote: "The Last is the only required movie in the entire franchise.",
+            entries: [
+              { id: "ani_16870", title: "The Last: Naruto the Movie", format: "MOVIE", episodes: 1, durationMinutes: 112, year: 2014, anilistId: 16870, tier: "essential", tierReason: "Canon — covers Naruto and Hinata's romance and the story's actual ending", whyWatch: "The anime skipped straight from the war to the wedding; this film IS that missing ending. Skipping it loses the bridge into Boruto entirely.", watchAfter: "Watch after Shippuden Episode 500" },
+              { id: "ani_21220", title: "Boruto: Naruto the Movie", format: "MOVIE", episodes: 1, durationMinutes: 95, year: 2015, anilistId: 21220, tier: "recommended", tierReason: "Canon-ish next-generation introduction — later retold and expanded in the Boruto anime", whyWatch: "The Chunin Exams with the new generation and Naruto as Hokage. Watching it here makes the Boruto anime's retelling optional.", watchAfter: "Watch after The Last" }
+            ]
+          },
+          {
+            id: "naruto_movies_optional",
+            name: "Theatrical Movies (Optional)",
+            description: "Non-canon theatrical films in airing order — watch for spectacle, skip freely",
+            timelineType: "movie_collection",
+            orderNote: "None of these are canon. Road to Ninja is the most respected of the bunch.",
+            entries: [
+              { id: "ani_2472", title: "Naruto Shippuden the Movie", format: "MOVIE", episodes: 1, durationMinutes: 94, year: 2007, anilistId: 2472, tier: "optional", tierReason: "Non-canon demon-maiden storyline", whyWatch: "First Shippuden film; decent action.", watchAfter: "Slots around Shippuden Ep 28" },
+              { id: "ani_4437", title: "Naruto Shippuden: Bonds", format: "MOVIE", episodes: 1, durationMinutes: 95, year: 2008, anilistId: 4437, tier: "optional", tierReason: "Non-canon — Sasuke and Naruto's forced team-up", whyWatch: "The 'enemies forced to cooperate' classic.", watchAfter: "Slots around Shippuden Ep 70" },
+              { id: "ani_6325", title: "Naruto Shippuden: The Will of Fire", format: "MOVIE", episodes: 1, durationMinutes: 95, year: 2009, anilistId: 6325, tier: "optional", tierReason: "Non-canon Kakashi-centered plot", whyWatch: "Kakashi fans' pick.", watchAfter: "Slots around Shippuden Ep 120" },
+              { id: "ani_8246", title: "Naruto Shippuden: The Lost Tower", format: "MOVIE", episodes: 1, durationMinutes: 85, year: 2010, anilistId: 8246, tier: "optional", tierReason: "Non-canon time-travel to meet the Fourth Hokage", whyWatch: "Naruto meeting Minato before the story says he should.", watchAfter: "Slots around Shippuden Ep 170" },
+              { id: "ani_10589", title: "Naruto Shippuden: Blood Prison", format: "MOVIE", episodes: 1, durationMinutes: 102, year: 2011, anilistId: 10589, tier: "optional", tierReason: "Non-canon prison-escape thriller", whyWatch: "A darker, prison-set Naruto adventure.", watchAfter: "Slots around Shippuden Ep 215" },
+              { id: "ani_13667", title: "Naruto: Road to Ninja", format: "MOVIE", episodes: 1, durationMinutes: 109, year: 2012, anilistId: 13667, tier: "optional", tierReason: "Non-canon mirror-world story with Kishimoto's direct involvement — the fan-favorite film", whyWatch: "Genjutsu-world Naruto where everyone's personality is inverted. The best of the theatrical films.", watchAfter: "Slots around Shippuden Ep 280" }
+            ]
+          },
+          {
+            id: "naruto_boruto_era",
+            name: "Boruto Era (Sequel)",
+            description: "The next generation — optional continuation",
+            timelineType: "side_story",
+            orderNote: "Boruto's early episodes retell the Boruto movie, then diverge into its own arcs. Part 2 has been announced but not yet aired.",
+            entries: [
+              { id: "ani_97938", title: "Boruto: Naruto Next Generations", format: "TV", episodes: 293, durationMinutes: 23, year: 2017, anilistId: 97938, tier: "recommended", tierReason: "The direct sequel — heavy early anime-original, manga-canon arcs are the core", whyWatch: "The next generation's story. If you skipped the Boruto movie, its Chunin Exams retelling here covers the same ground and more. Part 2 is announced and pending.", watchAfter: "Watch after the Canon Bridge" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
 ];
 
 export function findCuratedFranchise(query: string): CuratedFranchise | null {
