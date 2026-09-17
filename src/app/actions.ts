@@ -8,6 +8,8 @@ import type { AnimeSearchResult } from "@/types";
 import type { WatchOrderResultV2 } from "@/types/intelligent";
 import { AniListUnavailableError } from "@/lib/knowledge/relation-graph";
 import { findCuratedFranchise, curatedToV2Result } from "@/lib/knowledge/curated-franchises";
+import { fetchShelfPage } from "@/lib/discover/shelf-service";
+import type { ShelfPageData } from "@/lib/discover/shelf-recipes";
 
 const SearchSchema = z
   .string()
