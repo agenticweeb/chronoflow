@@ -662,6 +662,13 @@ function enrichPaths(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], 
         const format = (node?.format || allowed?.format || "TV").toUpperCase() as any;
         
         let episodes = node?.episodes || (allowed as any)?.episodes || 12;
+        // Airing long-runners with unknown totals (AniList episodes: null —
+        // e.g. Detective Conan): aired-so-far IS the correct count. The old
+        // 12-ep fallback silently mis-counted every such entry.
+        if (!node?.episodes && !(allowed as any)?.episodes) {
+          const nextAiringEp = (node as any)?.nextAiringEpisode?.episode;
+          if (nextAiringEp && nextAiringEp > 1) episodes = nextAiringEp - 1;
+        }
 
         let rangeStr = entry.episodeRange;
         if (!rangeStr) {
@@ -896,7 +903,11 @@ function buildDeterministicPaths(
   const entries: WatchOrderEntryV2[] = sorted.map((t, idx) => {
     const node = nodeMap.get(t.anilistId);
     const format = (t.format || "TV").toUpperCase() as any;
-    const episodes = t.episodes || node?.episodes || (format === "MOVIE" ? 1 : 12);
+    let episodes = t.episodes || node?.episodes || (format === "MOVIE" ? 1 : 12);
+    if (!t.episodes && !node?.episodes) {
+      const nextAiringEp = (node as any)?.nextAiringEpisode?.episode || (t as any)?.nextAiringEpisode?.episode;
+      if (nextAiringEp && nextAiringEp > 1) episodes = nextAiringEp - 1;
+    }
     const duration = parseDuration(node?.duration || t.duration, format);
     const rel = (t.relationType || "").toLowerCase();
     const isMovieLike = format === "MOVIE" || format === "OVA";

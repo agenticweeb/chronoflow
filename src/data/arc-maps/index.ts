@@ -10,6 +10,7 @@ import { gintamaArcMap } from './gintama';
 import { gintamaPrimeArcMap } from './gintama-prime';
 import { gintamaDegreesArcMap } from './gintama-degrees';
 import { fairyTailArcMap } from './fairy-tail';
+import { detectiveConanArcMap } from './detective-conan';
 import type { FranchiseArcMap } from '@/types/arc-map';
 
 const ARC_MAP_REGISTRY: Record<number, FranchiseArcMap> = {
@@ -25,6 +26,7 @@ const ARC_MAP_REGISTRY: Record<number, FranchiseArcMap> = {
   9969: gintamaPrimeArcMap,
   20996: gintamaDegreesArcMap,
   6702: fairyTailArcMap,
+  235: detectiveConanArcMap, // VERIFIED via curl (episodes: null, RELEASING)
 };
 
 export function getCuratedArcMap(rootAnilistId: number): FranchiseArcMap | null {
