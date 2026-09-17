@@ -101,7 +101,11 @@ async function fetchWithRetry(body: any, retries = 3) {
       await sleep(350 * (a + 1));
     }
   }
-  throw new AniListUnavailableError(`unreachable after retries — ${lastError}`);
+  throw new AniListUnavailableError(
+    lastError.includes('rate limited')
+      ? `rate limited — this franchise's relation graph is very large. Please try again in a minute.`
+      : `unreachable after retries — ${lastError}`
+  );
 }
 
 async function fetchAniListMedia(id: number): Promise<any | null> {
@@ -148,6 +152,15 @@ const FRANCHISE_RELATIONS = [
   'SEQUEL', 'PREQUEL', 'PARENT', 'SIDE_STORY', 
   'SPIN_OFF', 'ALTERNATIVE', 'ADAPTATION'
 ];
+
+// Node budget for the BFS. Deep CHAINS (Gintama: 7-deep sequel line, ~25 nodes)
+// need maxDepth 8 — but DENSE graphs (Detective Conan: 20+ movies, Magic Kaito,
+// Lupin III crossover webs) explode combinatorially at that depth. Verified
+// working envelope: ~40-node graphs generate cleanly. 70 caps the worst case
+// inside it with margin, preventing the sequential fetch storm that trips
+// AniList's rate limit (sustained 429s -> retries exhausted -> false
+// "AniList unavailable" errors) and the Vercel function timeout.
+const MAX_GRAPH_NODES = 70;
 
 function computeLexicalScore(rootTitle: string, candidateTitle: string): number {
   const rootWords = rootTitle.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length >= 3);
@@ -238,6 +251,14 @@ export async function buildRelationGraph(params: BuildGraphParams) {
     
     if (visited.has(currentId) || depth >= maxDepth) continue;
     visited.add(currentId);
+
+    // Node budget: stop expanding once the graph is large enough. The root's
+    // core franchise (sequel chains + direct relations) always fits well
+    // inside this budget; only distant crossover webs get cut.
+    if (visited.size > MAX_GRAPH_NODES) {
+      warnings.push(`Graph capped at ${MAX_GRAPH_NODES} nodes — distant crossover relations skipped`);
+      break;
+    }
     
     const media = await fetchAniListMedia(currentId);
     if (!media) {
