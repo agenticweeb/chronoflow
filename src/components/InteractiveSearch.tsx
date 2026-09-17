@@ -581,7 +581,11 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
       {hasVisitedDiscover && (
         <div
           className={cn(
-            "space-y-6 max-w-5xl mx-auto relative z-50",
+            // z-index removed: this container used to share z-50 with the sticky
+            // site header and (being later in the DOM) painted ABOVE it — content
+            // slid over the header while scrolling, worst on mobile. Without it,
+            // the header (z-50) cleanly overlays all Discover content.
+            "space-y-6 max-w-5xl mx-auto relative",
             activeTab === "discover" && !selected && !finalData
               ? "block animate-fade-in"
               : "hidden"
