@@ -20,6 +20,7 @@ import {
   ValidationResult,
   RelationGraph,
   ShapeDetectionResult,
+  EntryTier,
 } from "@/types/intelligent";
 
 function cleanAndParseJSON(text: string): any {
@@ -452,7 +453,8 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
       whyConfusing
     );
     
-    let fallbackPaths = markAiringStatuses(det, graph as any);
+    let fallbackPaths = applyCrossoverTierCap(det, root as any).paths;
+    fallbackPaths = markAiringStatuses(fallbackPaths, graph as any);
     fallbackPaths = applyFiltersToPaths(fallbackPaths, params.preferences);
     fallbackPaths = applyPathPreference(fallbackPaths, params.preferences.preferredPath, params.preferences.mood);
     
@@ -540,6 +542,17 @@ export async function generateIntelligentWatchOrder(params: OrchestratorParams):
     enrichedPaths = interleaveMoviesIntoMainTimeline(enrichedPaths, det);
   }
 
+  // Crossover tier-cap: entries from OTHER franchises reached via crossover
+  // webs (Conan -> Lupin III, Yaiba) never belong on the essential path.
+  // Soft demotion — data preserved, ordering preserved, tier capped.
+  const capResult = applyCrossoverTierCap(enrichedPaths, root as any);
+  enrichedPaths = capResult.paths;
+  if (capResult.demoted.length > 0) {
+    warnings.push(
+      `Demoted ${capResult.demoted.length} crossover entries to optional (e.g. ${capResult.demoted.slice(0, 3).join(", ")})`
+    );
+  }
+
   enrichedPaths = markAiringStatuses(enrichedPaths, graph as any);
   let filteredPaths = applyFiltersToPaths(enrichedPaths, params.preferences);
   filteredPaths = applyPathPreference(filteredPaths, params.preferences.preferredPath, params.preferences.mood);
@@ -589,6 +602,63 @@ function buildWhyConfusing(shape: any, title: string, graph: RelationGraph): str
     case "remake_divergence": return `${title} has both original and remake versions`;
     default: return `${title} watch order has optional OVAs that confuse first timers`;
   }
+}
+
+// ── Crossover Tier-Cap ─────────────────────────────────────
+// Franchise-boundary detection by title stems. Matches against BOTH the
+// root's English and romaji titles AND the entry's English/romaji titles —
+// so "Meitantei Conan" specials match root "Detective Conan", and
+// "FAIRY TAIL (2014)" matches root "Fairy Tail". Demotion (never deletion)
+// is the V6 soft-flag philosophy with teeth: crossover content stays
+// available, just never on the essential path.
+function normalizeStem(s?: string | null): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function sharesFranchiseStem(root: any, entry: any): boolean {
+  const rootStems = [normalizeStem(root?.title), normalizeStem(root?.titleEnglish), normalizeStem(root?.titleRomaji)]
+    .filter((s: string) => s.length >= 4);
+  if (rootStems.length === 0) return true; // can't judge — don't demote
+
+  const entryStems = [
+    normalizeStem(entry?.title),
+    normalizeStem(entry?.titleEnglish),
+    normalizeStem(entry?.titleRomaji),
+  ].filter((s: string) => s.length > 0);
+  if (entryStems.length === 0) return true;
+
+  return rootStems.some((rs: string) =>
+    entryStems.some((es: string) => es.includes(rs) || rs.includes(es))
+  );
+}
+
+function applyCrossoverTierCap(
+  paths: WatchOrderPathV2[],
+  root: any
+): { paths: WatchOrderPathV2[]; demoted: string[] } {
+  const demoted: string[] = [];
+  const capped = paths.map((p) => ({
+    ...p,
+    groups: p.groups.map((g) => ({
+      ...g,
+      entries: g.entries.map((e) => {
+        if (
+          (e.tier === "essential" || e.tier === "recommended") &&
+          !sharesFranchiseStem(root, e)
+        ) {
+          demoted.push(e.title);
+          return {
+            ...e,
+            tier: "optional" as EntryTier,
+            tierReason:
+              "Crossover content from a related franchise — kept for completionists, excluded from the core path",
+          };
+        }
+        return e;
+      }),
+    })),
+  }));
+  return { paths: capped as any, demoted };
 }
 
 function validateAndFixAIResponse(aiData: AIGeneratedOrderV2, allowedTitles: AllowedTitle[], graph: RelationGraph): ValidationResult {
