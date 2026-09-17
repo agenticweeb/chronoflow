@@ -478,6 +478,72 @@ export const CURATED_FRANCHISES: CuratedFranchise[] = [
       }
     ]
   },
+  {
+    keywords: ["bleach", "tybw", "thousand year blood war", "thousand-year blood war", "sennen kessen"],
+    franchise: "Bleach",
+    classification: "long_runner",
+    summary: "Ichigo Kurosaki's decade-spanning run: 366 episodes of the original series interleaved with four large anime-original filler arcs, a 2022 return for the Thousand-Year Blood War — the manga's actual ending — and four theatrical films, one of which (Hell Verse) had Kubo's direct involvement.",
+    whyConfusing: "Four filler arcs (Bount, Amagai, Zanpakutō Rebellion, Reigai) sit spliced between canon sagas, so knowing what to skip requires a map. Critically, the original run's ending (Aizen's Fall) is NOT the story's ending — the manga's true finale only began airing in 2022 as TYBW. Movie canonicity is ambiguous.",
+    totalEpisodes: 416,
+    paths: [
+      {
+        id: "bleach_recommended",
+        name: "Recommended Order (Canon + Filler Map + TYBW)",
+        description: "The original run with filler arcs marked skippable, then the manga's true ending — the Thousand-Year Blood War.",
+        bestFor: ["First time viewers", "Canon focused"],
+        isRecommended: true,
+        groups: [
+          {
+            id: "bleach_original_run",
+            name: "Bleach: Original Run (Episodes 1-366)",
+            description: "Substitute shinigami to the Fullbring arc",
+            timelineType: "main_timeline",
+            orderNote: "Bount (64-91), Amagai (168-189), Zanpakutō Rebellion (230-265) and Reigai (317-342) are anime-original — skip all four without losing story.",
+            entries: [
+              { id: "ani_269_agent", title: "Bleach: Agent of the Shinigami (Eps 1-20)", format: "TV", episodes: 20, durationMinutes: 24, year: 2004, anilistId: 269, malId: 269, tier: "essential", tierReason: "Premise setup — Ichigo inherits Rukia's powers and the spirit world opens", whyWatch: "The foundation: Ichigo, Rukia, hollows, and the Substitute Shinigami badge. Short and tight.", arcName: "Agent of the Shinigami" },
+              { id: "ani_269_soul_society", title: "Bleach: Soul Society Arc (Eps 21-63)", format: "TV", episodes: 43, durationMinutes: 24, year: 2005, anilistId: 269, tier: "essential", tierReason: "The arc that made Bleach — rescue Rukia, the Gotei 13, and Aizen's masterstroke reveal", whyWatch: "Still one of the best arcs in shonen. Ichigo's bankai debut, Byakuya's reasons, and the betrayal that defines everything after.", arcName: "Soul Society" },
+              { id: "ani_269_bount", title: "Bleach: Bount Arc (Eps 64-91, Filler)", format: "TV", episodes: 28, durationMinutes: 24, year: 2006, anilistId: 269, tier: "skip", tierReason: "Anime-original vampire arc inserted after Soul Society", whyWatch: "For completionists only.", skipWarning: "None — anime-original with no manga bearing.", arcName: "Bount" },
+              { id: "ani_269_arrancar", title: "Bleach: Arrancar Arc — Hueco Mundo & the Espada (Eps 92-167)", format: "TV", episodes: 76, durationMinutes: 24, year: 2007, anilistId: 269, tier: "essential", tierReason: "Aizen's war begins — Grimmjow, Ulquiorra, Orihime's capture, the Espada reveal", whyWatch: "The longest canon stretch of the original run. Hueco Mundo infiltration and the march toward the winter war.", arcName: "Arrancar" },
+              { id: "ani_269_amagai", title: "Bleach: New Captain Amagai Arc (Eps 168-189, Filler)", format: "TV", episodes: 22, durationMinutes: 24, year: 2008, anilistId: 269, tier: "skip", tierReason: "Anime-original new-captain storyline", whyWatch: "For completionists only.", skipWarning: "None — Amagai never returns.", arcName: "Amagai Filler" },
+              { id: "ani_269_fake_karakura", title: "Bleach: Fake Karakura — The War Begins (Eps 190-204)", format: "TV", episodes: 15, durationMinutes: 24, year: 2009, anilistId: 269, tier: "essential", tierReason: "The Gotei 13 vs Aizen's forces in the fake Karakura Town", whyWatch: "The war everyone was waiting for finally opens.", arcName: "Fake Karakura" },
+              { id: "ani_269_tbtp", title: "Bleach: Turn Back the Pendulum (Eps 205-212)", format: "TV", episodes: 8, durationMinutes: 24, year: 2009, anilistId: 269, tier: "essential", tierReason: "Flashback 110 years back — the Visored's creation and Aizen's century of planning", whyWatch: "The context that re-frames the entire war. Urahara, Yoruichi, and how Aizen got away with it all.", arcName: "Turn Back the Pendulum" },
+              { id: "ani_269_dome", title: "Bleach: The Dome — Ichigo vs Ulquiorra (Eps 213-229)", format: "TV", episodes: 17, durationMinutes: 24, year: 2009, anilistId: 269, tier: "essential", tierReason: "The Hollowfication that defines Ichigo's darkness", whyWatch: "One of the most iconic fights in the series — and its most haunting aftermath.", arcName: "The Dome" },
+              { id: "ani_269_zanpakuto", title: "Bleach: Zanpakutō Rebellion (Eps 230-265, Filler)", format: "TV", episodes: 36, durationMinutes: 24, year: 2009, anilistId: 269, tier: "skip", tierReason: "Anime-original — the spirits of the zanpakutō turn against their wielders", whyWatch: "The longest filler arc; only for those who want more captain action.", skipWarning: "None — reset entirely afterward.", arcName: "Zanpakutō Filler" },
+              { id: "ani_269_aizens_fall", title: "Bleach: Aizen's Fall — Final Getsuga Tenshō (Eps 266-316)", format: "TV", episodes: 51, durationMinutes: 24, year: 2010, anilistId: 269, tier: "essential", tierReason: "The climactic war conclusion and the Final Getsuga Tenshō (~Eps 308-310)", whyWatch: "Where the original run truly ended — Aizen sealed, Ichigo's ultimate price, and the 17-month setup for what came next.", arcName: "Aizen's Fall" },
+              { id: "ani_269_reigai", title: "Bleach: Gotei 13 Invading Army (Eps 317-342, Filler)", format: "TV", episodes: 26, durationMinutes: 24, year: 2011, anilistId: 269, tier: "skip", tierReason: "Anime-original Reigai arc before the final canon stretch", whyWatch: "For completionists only.", skipWarning: "None.", arcName: "Reigai Filler" },
+              { id: "ani_269_fullbring", title: "Bleach: Fullbring — The Lost Agent Arc (Eps 343-366)", format: "TV", episodes: 24, durationMinutes: 24, year: 2011, anilistId: 269, tier: "essential", tierReason: "Post-Aizen powerless Ichigo, Ginjo, and regaining his powers — the direct hand-off into TYBW", whyWatch: "Do not skip: the arc that restores Ichigo and sets up the final war's entire cast.", arcName: "Fullbring" }
+            ]
+          },
+          {
+            id: "bleach_tybw",
+            name: "Thousand-Year Blood War — The True Ending",
+            description: "The manga's final arc, finally adapted",
+            timelineType: "main_timeline",
+            orderNote: "This IS the story's ending — the 2012 anime stopped before it. Watch all parts in order.",
+            entries: [
+              { id: "ani_116674", title: "Bleach: Thousand-Year Blood War", format: "TV", episodes: 13, durationMinutes: 24, year: 2022, anilistId: 116674, tier: "essential", tierReason: "Part 1 — the Quincy empire (Wandenreich) declares war on Soul Society", whyWatch: "Ten years after the original ended, the actual ending finally airs. The invasion that everything was building toward.", arcName: "TYBW Part 1" },
+              { id: "ani_159322", title: "Bleach: TYBW — The Separation", format: "TV", episodes: 13, durationMinutes: 24, year: 2023, anilistId: 159322, tier: "essential", tierReason: "Part 2 — Squad Zero, the Royal Realm, and Yhwach's next move", whyWatch: "The war escalates and the Royal Guard enters the picture.", arcName: "TYBW Part 2" },
+              { id: "ani_169755", title: "Bleach: TYBW — The Conflict", format: "TV", episodes: 14, durationMinutes: 24, year: 2024, anilistId: 169755, tier: "essential", tierReason: "Part 3 — the Wahrwelt and the final battles taking shape", whyWatch: "The endgame's board is set.", arcName: "TYBW Part 3" },
+              { id: "ani_185874", title: "Bleach: TYBW — The Calamity", format: "TV", episodes: 10, durationMinutes: 24, year: 2025, anilistId: 185874, tier: "essential", tierReason: "Part 4 — the current part carrying the story to its conclusion", whyWatch: "The conclusion of the entire 20+ year story.", arcName: "TYBW Part 4" }
+            ]
+          },
+          {
+            id: "bleach_movies_optional",
+            name: "Theatrical Movies (Optional)",
+            description: "Non-canon films in airing order",
+            timelineType: "movie_collection",
+            orderNote: "None are canon; Hell Verse is the closest — Kubo was directly involved.",
+            entries: [
+              { id: "ani_1686", title: "Bleach the Movie: Memories of Nobody", format: "MOVIE", episodes: 1, durationMinutes: 93, year: 2006, anilistId: 1686, tier: "optional", tierReason: "Non-canon — memory-wiped girl and the Valley of Screams", whyWatch: "The first film; solid standalone action.", watchAfter: "Slots after Episode 63" },
+              { id: "ani_2889", title: "Bleach the Movie: The DiamondDust Rebellion", format: "MOVIE", episodes: 1, durationMinutes: 92, year: 2007, anilistId: 2889, tier: "optional", tierReason: "Non-canon — Hitsugaya-centered mystery", whyWatch: "The captain-focused pick.", watchAfter: "Slots around Episode 132" },
+              { id: "ani_4835", title: "Bleach the Movie: Fade to Black", format: "MOVIE", episodes: 1, durationMinutes: 94, year: 2008, anilistId: 4835, tier: "optional", tierReason: "Non-canon — Rukia loses her memories", whyWatch: "For Rukia fans.", watchAfter: "Slots around Episode 190" },
+              { id: "ani_8247", title: "Bleach the Movie: Hell Verse", format: "MOVIE", episodes: 1, durationMinutes: 94, year: 2010, anilistId: 8247, tier: "optional", tierReason: "Closest to canon — Kubo was directly involved with the Hell setting", whyWatch: "The best of the four films and the only one with author involvement.", watchAfter: "Slots around Episode 299" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
 ];
 
 export function findCuratedFranchise(query: string): CuratedFranchise | null {
