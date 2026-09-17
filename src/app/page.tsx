@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { SEO_FRANCHISES } from "@/lib/seo/franchises";
-import { getMediaDetails } from "@/lib/anilist-client";
 import { Clock } from "lucide-react";
 import { CinematicHero } from "@/components/CinematicHero";
 import { InteractiveSearch } from "@/components/InteractiveSearch";
@@ -8,7 +7,6 @@ import { fetchCurrentlyAiring } from "@/app/actions";
 import { TopBanner } from "@/components/TopBanner";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ChronoCompanion } from "@/components/ChronoCompanion";
-import { searchAnimeAction } from "@/app/actions";
 import { getBatchMediaImages } from "@/lib/anilist-client";
 import { SEO_TIERS } from "@/lib/seo/tiers";
 import { HowItWorks } from "@/components/HowItWorks";
