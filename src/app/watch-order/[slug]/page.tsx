@@ -3,18 +3,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { SEO_FRANCHISES, getFranchiseBySlug } from "@/lib/seo/franchises";
+import { findCuratedFranchise, curatedToV2Result } from "@/lib/knowledge/curated-franchises";
 import { generateWatchOrderAction } from "@/app/actions";
 import FlowchartV2 from "@/components/FlowchartV2";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-export const revalidate = 3600; // Revalidate cache every hour
-export const dynamicParams = true; // Allow on-demand generation for non-prerendered slugs
-
-// ✅ FIX: Register the route in the build manifest by pre-rendering just ONE page.
-// This prevents the 404 error without triggering AniList rate limits or Vercel timeouts.
-export async function generateStaticParams() {
-  return [{ slug: 'fate-series' }];
-}
+// This route renders on demand by design: it reads the Redis-cached watch order
+// (sub-second on a hit) or the AniList pipeline per request. Static prerendering
+// was never possible here (no-store cache reads) — that was the source of the
+// build-log noise. Outage safety comes from the curated fallback below.
+export const dynamic = "force-dynamic";
+export const dynamicParams = true; // every SEO slug renders on demand
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -79,23 +78,34 @@ export default async function WatchOrderPage({ params }: { params: Promise<{ slu
     result = actionResult.data.dataV2;
   } catch (e) {
     console.error(`Failed to generate SEO page for ${franchise.name}:`, e);
-    return (
-      <main className="min-h-dvh relative flex flex-col">
-        {/* Sticky Back Button */}
-        <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-chrono-border/20">
-          <div className="max-w-5xl mx-auto w-full px-4 py-3">
-            <Link href="/" className="inline-flex items-center gap-2 text-xs font-semibold text-[#a8a3b8] hover:text-white transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              Back to MyAniWatchOrder
-            </Link>
+    // CURATED GROUND-TRUTH FALLBACK — curated franchises never show an error
+    // page: complete verified watch order, zero AniList dependency.
+    const curated = findCuratedFranchise(franchise.name);
+    if (curated) {
+      result = curatedToV2Result(curated);
+      result.warnings = [
+        "Served from curated ground truth — live data enrichment is temporarily unavailable.",
+      ];
+      console.log(`🛟 Curated fallback rendered for slug page: ${franchise.name}`);
+    } else {
+      return (
+        <main className="min-h-dvh relative flex flex-col">
+          {/* Sticky Back Button */}
+          <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-chrono-border/20">
+            <div className="max-w-5xl mx-auto w-full px-4 py-3">
+              <Link href="/" className="inline-flex items-center gap-2 text-xs font-semibold text-[#a8a3b8] hover:text-white transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                Back to MyAniWatchOrder
+              </Link>
+            </div>
           </div>
-        </div>
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-3xl font-extrabold mb-4">{franchise.h1}</h1>
-          <p className="text-chrono-text-muted">We're currently calculating the optimal path for this franchise. Please check back shortly.</p>
-        </div>
-      </main>
-    );
+          <div className="max-w-4xl mx-auto px-4 py-16 text-center">
+            <h1 className="text-3xl font-extrabold mb-4">{franchise.h1}</h1>
+            <p className="text-chrono-text-muted">We're currently calculating the optimal path for this franchise. Please check back shortly.</p>
+          </div>
+        </main>
+      );
+    }
   }
 
   // AI Optimization (AIO): FAQ Schema for LLM ingestion

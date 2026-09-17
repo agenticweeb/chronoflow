@@ -6,8 +6,8 @@ import { queryAniList, searchAniList } from "@/lib/anilist-client";
 import { redis } from "@/lib/redis";
 import type { AnimeSearchResult } from "@/types";
 import type { WatchOrderResultV2 } from "@/types/intelligent";
-import { fetchShelfPage } from "@/lib/discover/shelf-service";
-import type { ShelfPageData } from "@/lib/discover/shelf-recipes";
+import { AniListUnavailableError } from "@/lib/knowledge/relation-graph";
+import { findCuratedFranchise, curatedToV2Result } from "@/lib/knowledge/curated-franchises";
 
 const SearchSchema = z
   .string()
@@ -306,26 +306,55 @@ export async function generateWatchOrderAction(
       return { success: true, data: { dataV2: cached.result, provider: cached.provider, latency: 0, debug: { cached: true } } };
     }
 
-    const result = await generateIntelligentWatchOrder({
-      animeName: validated.animeName,
-      anilistId: validated.anilistId,
-      malId: validated.malId,
-      scope: validated.scope,
-      preferences: {
-        timeBudget: validated.preferences.timeBudget,
-        mood: validated.preferences.mood,
-        skipPreference: validated.preferences.skipPreference,
-        includeMovies: validated.preferences.includeMovies,
-        includeOVAs: validated.preferences.includeOVAs,
-        includeSpecials: validated.preferences.includeSpecials,
-        includeRecaps: validated.preferences.includeRecaps,
-        preferredPath: validated.preferences.preferredPath,
-        language: validated.preferences.language,
-        customSchedule: validated.preferences.customSchedule,
-        paceType: validated.preferences.paceType,
-        episodesPerDay: validated.preferences.episodesPerDay,
-      },
-    });
+    let result: Awaited<ReturnType<typeof generateIntelligentWatchOrder>>;
+    try {
+      result = await generateIntelligentWatchOrder({
+        animeName: validated.animeName,
+        anilistId: validated.anilistId,
+        malId: validated.malId,
+        scope: validated.scope,
+        preferences: {
+          timeBudget: validated.preferences.timeBudget,
+          mood: validated.preferences.mood,
+          skipPreference: validated.preferences.skipPreference,
+          includeMovies: validated.preferences.includeMovies,
+          includeOVAs: validated.preferences.includeOVAs,
+          includeSpecials: validated.preferences.includeSpecials,
+          includeRecaps: validated.preferences.includeRecaps,
+          preferredPath: validated.preferences.preferredPath,
+          language: validated.preferences.language,
+          customSchedule: validated.preferences.customSchedule,
+          paceType: validated.preferences.paceType,
+          episodesPerDay: validated.preferences.episodesPerDay,
+        },
+      });
+    } catch (genError) {
+      // OUTAGE FALLBACK — curated franchises never fail.
+      // If AniList is down but we hold curated ground truth for this title,
+      // serve the verified order without live enrichment (no images/scores/
+      // synopses). Deliberately NOT cached — the fully enriched version
+      // regenerates automatically once AniList recovers.
+      if (genError instanceof AniListUnavailableError) {
+        const curated = findCuratedFranchise(validated.animeName);
+        if (curated) {
+          const fallback = curatedToV2Result(curated);
+          fallback.warnings = [
+            "Served from curated ground truth — live AniList enrichment is temporarily unavailable.",
+          ];
+          console.log(`🛟 Curated outage fallback served for: ${validated.animeName}`);
+          return {
+            success: true,
+            data: {
+              dataV2: fallback,
+              provider: "curated-outage-fallback",
+              latency: 0,
+              debug: { curatedOutageFallback: true },
+            },
+          };
+        }
+      }
+      throw genError;
+    }
 
     await redis.set(cacheKey, { result: result.result, provider: result.provider, latency: result.latency }, { ex: 604800 });
 
