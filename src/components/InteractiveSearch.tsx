@@ -614,6 +614,9 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
         >
           {/* Zone 1 — Curated shelves (identical for every visitor; ignore the filter bar) */}
           <DiscoverShelves onSelect={handleSelectDiscoverCard} />
+
+          {/* Coming Soon — roadmap strip (static, visible immediately — its whole point) */}
+          <ComingSoon />
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-chrono-surface/30 p-4 rounded-2xl border border-chrono-border/10">
             <button
               type="button"
@@ -880,9 +883,6 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
               </p>
             ) : null}
           </div>
-
-          {/* Coming Soon — roadmap strip (static, no fetching) */}
-          <ComingSoon />
         </div>
       )}
 
