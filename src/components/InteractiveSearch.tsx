@@ -127,7 +127,14 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   }, [query]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
-  const [selectedId, setSelectedId] = useQueryState('id', parseAsInteger);
+  // history: 'push' — each selection becomes a REAL history entry, so browser
+  // Back steps back INSIDE the app (deselects, returns to the previous view)
+  // instead of exiting the site. nuqs' default ('replace') overwrites the
+  // current entry, so Back jumped straight past the site to the page before it.
+  const [selectedId, setSelectedId] = useQueryState(
+    'id',
+    parseAsInteger.withOptions({ history: 'push' })
+  );
 
 
   const [selected, setSelected] = useState<AnimeSearchResult | null>(null);
@@ -361,7 +368,9 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
 
   const handleReset = useCallback(() => {
     setSelected(null);
-    setSelectedId(null);
+    // 'replace': resetting is not a navigation step — must not stack a
+    // duplicate history entry for the state the user is already leaving.
+    setSelectedId(null, { history: "replace" });
     setFinalData(null);
     setQuery("");
     setError(null);
@@ -377,6 +386,18 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
     inputRef.current?.focus();
   }, [setSelectedId, hasVisitedDiscover, activeTab]);
 
+  // Browser Back support: when Back removes the ?id param, restore the
+  // previous in-app view instead of leaving the user stuck on the selection
+  // panel (which would make their SECOND Back press exit the site).
+  useEffect(() => {
+    if (selectedId === null && selected) {
+      setSelected(null);
+      setFinalData(null);
+      setError(null);
+      setProvider(null);
+      setLatency(null);
+    }
+  }, [selectedId, selected]);
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       setDropdownOpen(false);
