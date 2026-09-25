@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import nacl from "tweetnacl";
 import { searchAnimeAction, generateWatchOrderAction } from "@/app/actions";
+import { queryAniList } from "@/lib/anilist-client";
 export const runtime = "nodejs";
 
 interface DiscordInteraction {
@@ -45,6 +46,51 @@ async function patchOriginal(interactionToken: string, payload: unknown): Promis
   );
 }
 
+// Community recommendations — sorted by upvotes (RATING_DESC = most endorsed first)
+const RECOMMENDATIONS_QUERY = `
+  query Recs($id: Int) {
+    Media(id: $id, type: ANIME) {
+      id
+      title { english romaji }
+      coverImage { large }
+      recommendations(perPage: 8, sort: RATING_DESC) {
+        nodes {
+          mediaRecommendation {
+            id
+            title { english romaji }
+            coverImage { large }
+            episodes
+            averageScore
+            format
+            status
+          }
+        }
+      }
+    }
+  }
+`;
+
+// Shared resolution: user text -> the right anime (filters unreleased sequels)
+async function resolveAnime(
+  animeName: string
+): Promise<{ title: string; anilistId: number | undefined }> {
+  try {
+    const search = await searchAnimeAction(animeName);
+    if (search.success && search.data.length > 0) {
+      const released = search.data.filter(
+        (r: any) => r.status !== "NOT_YET_RELEASED" && (r.episodes ?? 0) > 0
+      );
+      const pool = released.length > 0 ? released : search.data;
+      const best = pool[0];
+      console.log(`[discord-bot] resolved "${animeName}" -> "${best.title}" (${best.anilistId})`);
+      return { title: best.title, anilistId: best.anilistId || undefined };
+    }
+  } catch {
+    // fall through to raw name
+  }
+  return { title: animeName, anilistId: undefined };
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("x-signature-ed25519") || "";
@@ -61,6 +107,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ type: 1 });
   }
 
+  // ── /watchorder ────────────────────────────────────────────────
   if (interaction.type === 2 && interaction.data?.name === "watchorder") {
     const animeName =
       interaction.data.options?.find((o) => o.name === "anime")?.value || "";
@@ -74,27 +121,11 @@ export async function POST(request: Request) {
 
     after(async () => {
       try {
-        let resolvedAnimeName = animeName;
-        let resolvedAnilistId: number | undefined;
-        try {
-          const search = await searchAnimeAction(animeName);
-          if (search.success && search.data.length > 0) {
-            const released = search.data.filter(
-              (r: any) => r.status !== "NOT_YET_RELEASED" && (r.episodes ?? 0) > 0
-            );
-            const pool = released.length > 0 ? released : search.data;
-            const best = pool[0];
-            resolvedAnimeName = best.title;
-            resolvedAnilistId = best.anilistId || undefined;
-            console.log(`[discord-bot] resolved "${animeName}" -> "${best.title}" (${best.anilistId})`);
-          }
-        } catch {
-          // Resolution failure falls through to the raw name
-        }
+        const resolved = await resolveAnime(animeName);
 
         const result = await generateWatchOrderAction({
-          animeName: resolvedAnimeName,
-          anilistId: resolvedAnilistId,
+          animeName: resolved.title,
+          anilistId: resolved.anilistId,
           scope: "franchise",
           preferences: {
             timeBudget: "regular",
@@ -162,6 +193,90 @@ export async function POST(request: Request) {
       } catch {
         await patchOriginal(interaction.token, {
           content: `An error occurred while generating the watch order for "${animeName}". Try https://aniwatchorder.cc/?q=${encodeURIComponent(animeName)} instead.`,
+        });
+      }
+    });
+
+    return NextResponse.json({ type: 5 });
+  }
+
+  // ── /recommend ─────────────────────────────────────────────────
+  if (interaction.type === 2 && interaction.data?.name === "recommend") {
+    const animeName =
+      interaction.data.options?.find((o) => o.name === "anime")?.value || "";
+
+    if (!animeName) {
+      return NextResponse.json({
+        type: 4,
+        data: { content: "Please provide an anime name! Usage: `/recommend anime:Steins;Gate`" },
+      });
+    }
+
+    after(async () => {
+      try {
+        const resolved = await resolveAnime(animeName);
+
+        if (!resolved.anilistId) {
+          await patchOriginal(interaction.token, {
+            content: `Couldn't find "${animeName}" on AniList. Double-check the spelling, or try https://aniwatchorder.cc/?q=${encodeURIComponent(animeName)}`,
+          });
+          return;
+        }
+
+        const data = await queryAniList(RECOMMENDATIONS_QUERY, { id: resolved.anilistId });
+        const media = data?.Media;
+        const sourceTitle =
+          media?.title?.english || media?.title?.romaji || resolved.title;
+        const sourceCover = media?.coverImage?.large || "";
+
+        // Filter: valid entries only, exclude the source itself and unreleased titles
+        const seenIds = new Set<number>([resolved.anilistId]);
+        const recs: any[] = [];
+        for (const node of media?.recommendations?.nodes || []) {
+          const rec = node?.mediaRecommendation;
+          if (!rec?.id || !rec?.title) continue;
+          const recTitle = rec.title?.english || rec.title?.romaji;
+          if (!recTitle || seenIds.has(rec.id)) continue;
+          if (rec.status === "NOT_YET_RELEASED") continue;
+          seenIds.add(rec.id);
+          recs.push(rec);
+          if (recs.length >= 3) break;
+        }
+
+        if (recs.length === 0) {
+          await patchOriginal(interaction.token, {
+            content: `The AniList community hasn't built up recommendations for **${sourceTitle}** yet. Try \`/watchorder anime:${sourceTitle}\` for its full watch order instead!`,
+          });
+          return;
+        }
+
+        await patchOriginal(interaction.token, {
+          embeds: [
+            {
+              title: `Because you watched ${sourceTitle}...`,
+              description: "What the AniList community suggests watching next:",
+              color: 0x6366f1,
+              url: `https://aniwatchorder.cc/?q=${encodeURIComponent(sourceTitle)}`,
+              ...(sourceCover ? { thumbnail: { url: sourceCover } } : {}),
+              fields: recs.map((rec) => {
+                const recTitle = rec.title?.english || rec.title?.romaji || "Unknown";
+                const score = rec.averageScore
+                  ? `${(rec.averageScore / 10).toFixed(1)}★`
+                  : "Unrated";
+                const eps = rec.episodes ? `${rec.episodes} eps` : "? eps";
+                const fmt = rec.format || "TV";
+                return {
+                  name: recTitle,
+                  value: `${score} · ${fmt} · ${eps}\n[Get its watch order →](https://aniwatchorder.cc/?q=${encodeURIComponent(recTitle)})`,
+                };
+              }),
+              footer: { text: "Community recommendations via AniList • MyAniWatchOrder" },
+            },
+          ],
+        });
+      } catch {
+        await patchOriginal(interaction.token, {
+          content: `Something went wrong fetching recommendations for "${animeName}". Try \`/watchorder\` instead!`,
         });
       }
     });
