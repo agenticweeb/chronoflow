@@ -1,36 +1,127 @@
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 import { queryAniList } from "@/lib/anilist-client";
+import { callAIWithFallback } from "@/lib/ai-providers";
 
 export const runtime = "nodejs";
 
-const CHANNEL_ID = "1552285051981402152";
-const PINNED_MESSAGE_KEY = "airing:pinned_message_id";
+const SPOTLIGHT_POOL: Array<{ anilistId: number; title: string; angle: string }> = [
+  { anilistId: 21, title: "One Piece", angle: "the long-runner everyone asks about" },
+  { anilistId: 20, title: "Naruto", angle: "the filler problem, solved" },
+  { anilistId: 269, title: "Bleach", angle: "the TYBW comeback story" },
+  { anilistId: 10087, title: "Fate Series", angle: "the multiverse entry-point question" },
+  { anilistId: 9253, title: "Steins;Gate", angle: "the time-loop masterpiece" },
+  { anilistId: 16498, title: "Attack on Titan", angle: "the watch-order debate" },
+  { anilistId: 14719, title: "JoJo's Bizarre Adventure", angle: "the generational saga" },
+  { anilistId: 223, title: "Dragon Ball", angle: "the decades-spanning OG" },
+  { anilistId: 918, title: "Gintama", angle: "the 'it gets good at episode 58' legend" },
+  { anilistId: 6702, title: "Fairy Tail", angle: "the comfort-watch guild" },
+  { anilistId: 1, title: "Cowboy Bebop", angle: "the perfect gateway" },
+  { anilistId: 30, title: "Neon Genesis Evangelion", angle: "the ending discourse" },
+  { anilistId: 9794, title: "Vinland Saga", angle: "the revenge-to-peace arc" },
+  { anilistId: 101922, title: "Demon Slayer", angle: "the animation spectacle" },
+  { anilistId: 21087, title: "Hunter x Hunter", angle: "the chimera ant conversation" },
+];
 
-const AIRING_QUERY = `
-  query {
-    Page(perPage: 12) {
-      media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false, format_in: [TV, TV_SHORT, ONA]) {
-        id
-        title { english romaji }
-        coverImage { large }
-        averageScore
-        episodes
-        format
-        genres
-        description(asHtml: false)
-        nextAiringEpisode { airingAt episode timeUntilAiring }
-      }
+const RECENT_KEY = "spotlight:recent";
+const LOOKBACK = 7;
+
+const FAN_VOICE_PROMPT = `You are an anime fan posting in a Discord server, not a company account.
+Write like you're texting a friend who just asked "what should I watch."
+
+Hard rules:
+- Zero spoilers past episode 1 of the first entry.
+- No corporate phrases: never "check it out," "don't miss out," "click below."
+- Mention one concrete, specific detail about what makes it worth watching.
+- NEVER state specific episode numbers, filler counts, or arc boundaries — those live on the website.
+- 2-3 sentences maximum.
+
+Write the post now for this anime:`;
+
+const MEDIA_DETAILS_QUERY = `
+  query($id: Int) {
+    Media(id: $id, type: ANIME) {
+      id
+      title { english romaji }
+      coverImage { large }
+      bannerImage
+      averageScore
+      episodes
+      duration
+      format
+      status
+      season
+      seasonYear
+      genres
+      nextAiringEpisode { airingAt episode timeUntilAiring }
+      studios(isMain: true) { nodes { name } }
     }
   }
 `;
 
-function daysUntil(airingAt: number): string {
-  const diff = airingAt * 1000 - Date.now();
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  if (days > 0) return `${days}d`;
-  return `${hours}h`;
+async function pickUnrepeated(): Promise<{ anilistId: number; title: string; angle: string }> {
+  const recent = await redis.lrange(RECENT_KEY, 0, LOOKBACK - 1).catch(() => [] as string[]);
+  const eligible = SPOTLIGHT_POOL.filter((p) => !recent.includes(String(p.anilistId)));
+  const pool = eligible.length > 0 ? eligible : SPOTLIGHT_POOL;
+  const chosen = pool[Math.floor(Math.random() * pool.length)];
+  await redis.lpush(RECENT_KEY, String(chosen.anilistId)).catch(() => {});
+  await redis.ltrim(RECENT_KEY, 0, LOOKBACK - 1).catch(() => {});
+  return chosen;
+}
+
+async function fetchMediaDetails(anilistId: number) {
+  try {
+    const data = await queryAniList(MEDIA_DETAILS_QUERY, { id: anilistId });
+    return data?.Media || null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeFanBlurb(title: string, angle: string): Promise<string> {
+  const fallback = `${title} — ${angle}. Worth every minute, and the watch order matters more than you'd think.`;
+  try {
+    const res = await callAIWithFallback(
+      `${FAN_VOICE_PROMPT} ${title} (known for: ${angle}).`,
+      1
+    );
+    return res.content?.trim()?.slice(0, 500) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatAiringStatus(media: any): string {
+  const status = (media?.status || "").toUpperCase();
+  if (status === "RELEASING") {
+    const next = media?.nextAiringEpisode;
+    if (next?.timeUntilAiring) {
+      const hours = Math.floor(next.timeUntilAiring / 3600);
+      const days = Math.floor(hours / 24);
+      const timeStr = days > 0 ? `${days} day${days > 1 ? "s" : ""}` : `${hours}h`;
+      return `🔴 AIRING — Ep ${next.episode} in ${timeStr}`;
+    }
+    return "🔴 AIRING NOW";
+  }
+  if (status === "FINISHED") return "✅ COMPLETE — binge-ready";
+  if (status === "NOT_YET_RELEASED") return "⏳ UPCOMING";
+  return "📺 " + (media?.status || "Unknown");
+}
+
+function formatScore(media: any): string {
+  const score = media?.averageScore;
+  if (score) return `${(score / 10).toFixed(1)}/10`;
+  return "Unrated";
+}
+
+async function postToDiscord(payload: unknown): Promise<boolean> {
+  const webhook = process.env.DISCORD_POST_WEBHOOK!;
+  const res = await fetch(webhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.ok;
 }
 
 export async function GET(request: Request) {
@@ -40,84 +131,67 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const botToken = process.env.DISCORD_BOT_TOKEN!;
-
   try {
-    const data = await queryAniList(AIRING_QUERY, {});
-    const airing = (data?.Page?.media || []).filter((m: any) => m?.nextAiringEpisode);
+    const pick = await pickUnrepeated();
+    const [blurb, media] = await Promise.all([
+      writeFanBlurb(pick.title, pick.angle),
+      fetchMediaDetails(pick.anilistId),
+    ]);
 
-    if (airing.length === 0) {
-      return NextResponse.json({ error: "No airing anime found" }, { status: 404 });
-    }
+    const title = media?.title?.english || media?.title?.romaji || pick.title;
+    const cover = media?.coverImage?.large || "";
+    const banner = media?.bannerImage || "";
+    const genres = (media?.genres || []).slice(0, 4);
+    const episodes = media?.episodes || "?";
+    const format = media?.format || "TV";
+    const studio = media?.studios?.nodes?.[0]?.name || "";
+    const season = media?.season ? `${media.season} ${media.seasonYear || ""}` : "";
+    const duration = media?.duration || 24;
+    const score = formatScore(media);
+    const airingStatus = formatAiringStatus(media);
 
-    // Build the embed
-    const now = new Date();
-    const weekLabel = now.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-
-    const fields = airing.slice(0, 10).map((m: any) => {
-      const title = m.title?.english || m.title?.romaji || "Unknown";
-      const score = m.averageScore ? `${(m.averageScore / 10).toFixed(1)}⭐` : "—";
-      const nextEp = m.nextAiringEpisode;
-      const countdown = daysUntil(nextEp.airingAt);
-      const genres = (m.genres || []).slice(0, 2).join(", ");
-      const desc = (m.description || "").replace(/<[^>]*>/g, "").slice(0, 120) + "...";
-      return {
-        name: `${title} — Ep ${nextEp.episode}`,
-        value: `${score} · ${countdown} until next ep · ${genres}\n${desc}`,
-      };
-    });
-
-    const embed = {
-      title: `📺 Currently Airing — Week of ${weekLabel}`,
-      description: `**${airing.length} shows airing right now.** Here are the top ${Math.min(10, airing.length)} by popularity.\n\n🎬 **For watch orders, visit [aniwatchorder.cc](https://aniwatchorder.cc)** — spoiler-safe paths, filler skipping, and real finish dates for any franchise.`,
+    const embed: any = {
+      title: ` spotlight: ${title}`,
+      description: blurb,
       color: 0x6366f1,
-      fields,
-      footer: { text: "Updated weekly • pinned for the week • MyAniWatchOrder" },
+      url: `https://aniwatchorder.cc/?q=${encodeURIComponent(title)}`,
+      ...(banner ? { image: { url: banner } } : cover ? { thumbnail: { url: cover } } : {}),
+      fields: [
+        {
+          name: "📊 Quick Stats",
+          value: [
+            `⭐ ${score}`,
+            `📺 ${format} · ${episodes} eps · ~${duration}min/ep`,
+            airingStatus,
+          ].join("\n"),
+          inline: true,
+        },
+        {
+          name: "🏷️ Details",
+          value: [
+            genres.length > 0 ? genres.join(" · ") : "",
+            studio ? `Studio: ${studio}` : "",
+            season ? season : "",
+          ].filter(Boolean).join("\n") || "—",
+          inline: true,
+        },
+        {
+          name: "🔗 Get the Full Watch Order",
+          value: `👉 [aniwatchorder.cc](https://aniwatchorder.cc/?q=${encodeURIComponent(title)}) — spoiler-safe, filler-skipping, real finish dates`,
+        },
+      ],
+      footer: { text: "Daily spotlight • MyAniWatchOrder • aniwatchorder.cc" },
       timestamp: new Date().toISOString(),
     };
 
-    // 1. Unpin the old message if one exists
-    const oldMessageId = await redis.get<string>(PINNED_MESSAGE_KEY);
-    if (oldMessageId) {
-      await fetch(
-        `https://discord.com/api/v10/channels/${CHANNEL_ID}/pins/${oldMessageId}`,
-        { method: "DELETE", headers: { Authorization: `Bot ${botToken}` } }
-      ).catch(() => {});
+    const ok = await postToDiscord({ embeds: [embed] });
+
+    if (!ok) {
+      return NextResponse.json({ error: "Discord webhook failed" }, { status: 502 });
     }
 
-    // 2. Post the new message
-    const postRes = await fetch(
-      `https://discord.com/api/v10/channels/${CHANNEL_ID}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bot ${botToken}`,
-        },
-        body: JSON.stringify({ embeds: [embed] }),
-      }
-    );
-
-    if (!postRes.ok) {
-      return NextResponse.json({ error: "Discord post failed" }, { status: 502 });
-    }
-
-    const posted = await postRes.json();
-    const messageId = posted?.id;
-
-    // 3. Pin the new message
-    if (messageId) {
-      await fetch(
-        `https://discord.com/api/v10/channels/${CHANNEL_ID}/pins/${messageId}`,
-        { method: "PUT", headers: { Authorization: `Bot ${botToken}` } }
-      ).catch(() => {});
-
-      // 4. Store the message ID for next week's unpin
-      await redis.set(PINNED_MESSAGE_KEY, messageId);
-    }
-
-    return NextResponse.json({ success: true, shows: airing.length, pinned: !!messageId });
+    return NextResponse.json({ success: true, spotlight: title });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Airing weekly failed" }, { status: 500 });
+    return NextResponse.json({ error: e?.message || "Spotlight failed" }, { status: 500 });
   }
 }
