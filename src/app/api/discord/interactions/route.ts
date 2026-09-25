@@ -132,6 +132,13 @@ export async function POST(request: Request) {
             .reduce((sum: number, e: any) => sum + (e.episodeCount || 0), 0);
           const savedHours = Math.round((skippedEpisodes * 24) / 60);
 
+          const ogCover =
+            (r as any).franchiseImage ||
+            r.allEntriesFlat?.[0]?.imageUrl ||
+            r.allEntriesFlat?.[0]?.coverImage?.large ||
+            "";
+          const ogCoverParam = ogCover ? `&cover=${encodeURIComponent(ogCover)}` : "";
+
           await patchOriginal(interaction.token, {
             embeds: [
               {
@@ -139,6 +146,10 @@ export async function POST(request: Request) {
                 description:
                   r.summary?.slice(0, 400) || `Complete watch order for ${r.franchise}`,
                 color: 0x6366f1,
+                url: `https://aniwatchorder.cc/?q=${encodeURIComponent(r.franchise)}`,
+                image: {
+                  url: `https://aniwatchorder.cc/api/og?franchise=${encodeURIComponent(r.franchise)}&entries=${r.totalEntries}&hours=${Math.round(r.totalDurationMinutes / 60)}&tier=Essential${ogCoverParam}`,
+                },
                 fields: [
                   { name: "Episodes", value: `${r.totalEpisodes} total`, inline: true },
                   { name: "Runtime", value: r.totalDuration || "Unknown", inline: true },
@@ -153,7 +164,7 @@ export async function POST(request: Request) {
                 // /api/og route. Discord renders embed images from URLs.
               url: `https://aniwatchorder.cc/?q=${encodeURIComponent(r.franchise)}`,
               image: {
-                url: `https://aniwatchorder.cc/api/og?franchise=${encodeURIComponent(r.franchise)}&entries=${r.totalEntries}&hours=${Math.round(r.totalDurationMinutes / 60)}&tier=Essential`,
+                url: `https://aniwatchorder.cc/api/og?franchise=${encodeURIComponent(r.franchise)}&entries=${r.totalEntries}&hours=${Math.round(r.totalDurationMinutes / 60)}&tier=Essential${ogCoverParam}`,
               },
               footer: {
                 text: `Powered by MyAniWatchOrder • ${result.data.provider} • ${result.data.latency}ms`,
