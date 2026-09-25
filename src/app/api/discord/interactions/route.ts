@@ -29,7 +29,6 @@ function verifyDiscordSignature(
   }
 }
 
-// PATCH the deferred original message with the final content
 async function patchOriginal(interactionToken: string, payload: unknown): Promise<void> {
   const appId = process.env.DISCORD_APPLICATION_ID!;
   const botToken = process.env.DISCORD_BOT_TOKEN!;
@@ -58,16 +57,10 @@ export async function POST(request: Request) {
 
   const interaction: DiscordInteraction = JSON.parse(rawBody);
 
-  // PING — Discord's endpoint verification handshake
   if (interaction.type === 1) {
     return NextResponse.json({ type: 1 });
   }
 
-  // APPLICATION_COMMAND — must answer within 3s or Discord shows
-  // "The application did not respond". Generation takes 5-30s, so we
-  // defer instantly (type 5 shows "Bot is thinking..."), run the real
-  // work in after() (guaranteed post-response execution), then PATCH
-  // the result into the original message.
   if (interaction.type === 2 && interaction.data?.name === "watchorder") {
     const animeName =
       interaction.data.options?.find((o) => o.name === "anime")?.value || "";
@@ -81,10 +74,6 @@ export async function POST(request: Request) {
 
     after(async () => {
       try {
-        // RESOLUTION STEP: match the user's text to the right anime BEFORE
-        // generating — same discipline as the site's search flow. Without
-        // this, "Cyberpunk" fuzzy-matched to the unreleased 2026 sequel
-        // (0 episodes, 1 entry, broken embed).
         let resolvedAnimeName = animeName;
         let resolvedAnilistId: number | undefined;
         try {
@@ -94,14 +83,13 @@ export async function POST(request: Request) {
               (r: any) => r.status !== "NOT_YET_RELEASED" && (r.episodes ?? 0) > 0
             );
             const pool = released.length > 0 ? released : search.data;
-            const best = pool[0]; // AniList's SEARCH_MATCH ordering is already relevance-ranked
+            const best = pool[0];
             resolvedAnimeName = best.title;
             resolvedAnilistId = best.anilistId || undefined;
-            console.log(`[discord-bot] resolved "${animeName}" → "${best.title}" (${best.anilistId})`);
+            console.log(`[discord-bot] resolved "${animeName}" -> "${best.title}" (${best.anilistId})`);
           }
         } catch {
-          // Resolution failure falls through to the raw name — generation
-          // will use its internal search as before
+          // Resolution failure falls through to the raw name
         }
 
         const result = await generateWatchOrderAction({
@@ -160,15 +148,9 @@ export async function POST(request: Request) {
                     ? [{ name: "Time Saved", value: `${skippedEpisodes} eps / ${savedHours}h`, inline: true }]
                     : []),
                 ],
-                // Dynamic OG image — the branded card, served by the existing
-                // /api/og route. Discord renders embed images from URLs.
-              url: `https://aniwatchorder.cc/?q=${encodeURIComponent(r.franchise)}`,
-              image: {
-                url: `https://aniwatchorder.cc/api/og?franchise=${encodeURIComponent(r.franchise)}&entries=${r.totalEntries}&hours=${Math.round(r.totalDurationMinutes / 60)}&tier=Essential${ogCoverParam}`,
-              },
-              footer: {
-                text: `Powered by MyAniWatchOrder • ${result.data.provider} • ${result.data.latency}ms`,
-              },
+                footer: {
+                  text: `Powered by MyAniWatchOrder • ${result.data.provider} • ${result.data.latency}ms`,
+                },
               },
             ],
           });
@@ -184,7 +166,6 @@ export async function POST(request: Request) {
       }
     });
 
-    // Instant response: "Bot is thinking..."
     return NextResponse.json({ type: 5 });
   }
 
