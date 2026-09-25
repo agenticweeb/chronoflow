@@ -19,7 +19,6 @@ const SPOTLIGHT_POOL: Array<{ anilistId: number; title: string; angle: string }>
   { anilistId: 223, title: "Dragon Ball", angle: "the decades-spanning OG" },
   { anilistId: 918, title: "Gintama", angle: "the 'it gets good at episode 58' legend" },
   { anilistId: 6702, title: "Fairy Tail", angle: "the comfort-watch guild" },
-  { anilistId: 11, title: "Cowboy Bebop", angle: "the perfect gateway" },
   { anilistId: 1, title: "Cowboy Bebop", angle: "the perfect gateway" },
   { anilistId: 30, title: "Neon Genesis Evangelion", angle: "the ending discourse" },
   { anilistId: 9794, title: "Vinland Saga", angle: "the revenge-to-peace arc" },
