@@ -5,9 +5,6 @@ import { callAIWithFallback } from "@/lib/ai-providers";
 
 export const runtime = "nodejs";
 
-// ── The rotation pool: franchise seeds with verified AniList IDs ──
-// Mix of shapes: mega-franchises, gateway picks, underrated gems.
-// All IDs previously verified in this project's data layer.
 const SPOTLIGHT_POOL: Array<{ anilistId: number; title: string; angle: string }> = [
   { anilistId: 21, title: "One Piece", angle: "the long-runner everyone asks about" },
   { anilistId: 20, title: "Naruto", angle: "the filler problem, solved" },
@@ -84,7 +81,6 @@ async function postToDiscord(payload: unknown): Promise<boolean> {
 }
 
 export async function GET(request: Request) {
-  // Cron authentication — same secret pattern as the evergreen-shelf cron
   const auth = request.headers.get("authorization");
   const expected = `Bearer ${process.env.CRON_SECRET}`;
   if (auth !== expected) {
