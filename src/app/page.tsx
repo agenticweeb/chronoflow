@@ -9,7 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { getBatchMediaImages } from "@/lib/anilist-client";
 import { SEO_TIERS } from "@/lib/seo/tiers";
 import { HowItWorks } from "@/components/HowItWorks";
-import { HeaderActions } from "@/components/HeaderActions"; // Import the client wrapper
+import { getCurrentSeasonSlug } from "@/lib/anilist/get-season-anime";
 
 export const dynamic = "force-dynamic";
 
@@ -160,10 +160,10 @@ export default async function Page() {
               </li>
               <li>
                 <Link
-                  href="/season/fall-2026"
+                  href={`/season/${getCurrentSeasonSlug()}`}
                   className="hover:text-chrono-primary transition-colors"
                 >
-                  Fall 2026 Anime — Watch Orders
+                  This Season's Anime — Watch Orders
                 </Link>
               </li>
             </ul>

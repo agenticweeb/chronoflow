@@ -1,6 +1,5 @@
 import { queryAniList } from "@/lib/anilist-client";
 import { getCurrentSeason } from "@/lib/discover/shelf-recipes";
-import { getCurrentSeason } from "@/lib/discover/shelf-recipes";
 export interface SeasonAnime {
   anilistId: number;
   title: string;
