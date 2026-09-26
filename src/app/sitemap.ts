@@ -1,11 +1,17 @@
 import type { MetadataRoute } from 'next';
 import { SEO_FRANCHISES } from '@/lib/seo/franchises';
+import { redis } from '@/lib/redis';
+import { getCurrentSeasonSlug, getPreviousSeasonSlug } from '@/lib/anilist/get-season-anime';
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://myaniwatchorder-zeta.vercel.app';
-  
+// Revalidate every hour — reads fresh Redis data (airing titles) without a deploy.
+// Without this, Next treats the sitemap as static and freezes it at build time.
+export const revalidate = 3600;
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniwatchorder.cc';
+
   // 1. Core static pages
-  const staticPages = [
+  const staticPages: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,
       lastModified: new Date(),
@@ -18,15 +24,58 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     },
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly' as const,
+      priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/terms`,
+      lastModified: new Date(),
+      changeFrequency: 'yearly' as const,
+      priority: 0.3,
+    },
   ];
 
   // 2. The 20 Programmatic SEO Franchise Pages
-  const franchisePages = SEO_FRANCHISES.map(franchise => ({
+  const franchisePages: MetadataRoute.Sitemap = SEO_FRANCHISES.map(franchise => ({
     url: `${baseUrl}/watch-order/${franchise.slug}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.9,
   }));
 
-  return [...staticPages, ...franchisePages];
+  // 3. Season pages (current + previous) — content pages targeting
+  //    "fall 2026 anime" style queries, self-refreshing via ISR
+  const seasonPages: MetadataRoute.Sitemap = [
+    getCurrentSeasonSlug(),
+    getPreviousSeasonSlug(),
+  ].map(slug => ({
+    url: `${baseUrl}/season/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily' as const,
+    priority: 0.8,
+  }));
+
+  // 4. Airing + trending deep-links — from Redis (written by the
+  //    refresh-airing-sitemap cron). One entry per currently-airing or
+  //    trending show this season. Falls back to empty if cron hasn't run.
+  let airingEntries: MetadataRoute.Sitemap = [];
+  try {
+    const raw = await redis.get<string>('sitemap:airing-titles');
+    if (raw) {
+      const titles: string[] = JSON.parse(raw);
+      airingEntries = titles.map(title => ({
+        url: `${baseUrl}/?q=${encodeURIComponent(title)}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.6,
+      }));
+    }
+  } catch {
+    // Redis unavailable — sitemap still serves the static + franchise + season entries
+  }
+
+  return [...staticPages, ...franchisePages, ...seasonPages, ...airingEntries];
 }
