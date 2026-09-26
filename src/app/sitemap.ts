@@ -63,17 +63,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   //    trending show this season. Falls back to empty if cron hasn't run.
   let airingEntries: MetadataRoute.Sitemap = [];
   try {
-    const raw = await redis.get<string>('sitemap:airing-titles');
-    if (raw) {
-      const titles: string[] = JSON.parse(raw);
-      airingEntries = titles.map(title => ({
-        url: `${baseUrl}/?q=${encodeURIComponent(title)}`,
-        lastModified: new Date(),
-        changeFrequency: 'weekly' as const,
-        priority: 0.6,
-      }));
+    const raw = await redis.get('sitemap:airing-titles');
+    console.log('[sitemap] Redis raw type:', typeof raw, '| value preview:', JSON.stringify(raw)?.slice(0, 100));
+
+    // The Upstash SDK may auto-deserialize on read — handle BOTH shapes:
+    // a raw JSON string (needs parsing) or an already-parsed array
+    let titles: string[] = [];
+    if (typeof raw === 'string') {
+      titles = JSON.parse(raw);
+    } else if (Array.isArray(raw)) {
+      titles = raw as string[];
     }
-  } catch {
+
+    console.log('[sitemap] Airing titles found:', titles.length);
+
+    airingEntries = titles.map(title => ({
+      url: `${baseUrl}/?q=${encodeURIComponent(title)}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
+    }));
+  } catch (e) {
+    console.error('[sitemap] Redis read failed:', e);
     // Redis unavailable — sitemap still serves the static + franchise + season entries
   }
 
