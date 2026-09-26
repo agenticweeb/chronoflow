@@ -66,7 +66,7 @@ const SEASON_QUERY = `
 // season tag (which reflects premiere season, not current airing status)
 const AIRING_NOW_QUERY = `
   query AiringNow {
-    Page(perPage: 24) {
+    Page(perPage: 50) {
       media(
         type: ANIME
         status: RELEASING
