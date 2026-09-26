@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     }
     titles.delete("");
 
-    const list = [...titles].slice(0, 25);
+    const list = [...titles].slice(0, 60);
     await redis.set(AIRING_SITEMAP_KEY, JSON.stringify(list));
 
     return NextResponse.json({ success: true, count: list.length });
