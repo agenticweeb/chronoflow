@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { redis } from "@/lib/redis";
 import { queryAniList } from "@/lib/anilist-client";
-import { getCurrentSeason } from "@/lib/discover/shelf-recipes";
+// remove: import { getCurrentSeason } from "@/lib/discover/shelf-recipes";
 
 export const runtime = "nodejs";
 
 const AIRING_SITEMAP_KEY = "sitemap:airing-titles";
 
 const AIRING_QUERY = `
-  query Trending($season: MediaSeason, $seasonYear: Int) {
+  query Trending {
     airing: Page(perPage: 15) {
       media(
         type: ANIME
@@ -24,8 +24,6 @@ const AIRING_QUERY = `
     trending: Page(perPage: 15) {
       media(
         type: ANIME
-        season: $season
-        seasonYear: $seasonYear
         sort: TRENDING_DESC
         isAdult: false
       ) {
@@ -43,8 +41,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { season, seasonYear } = getCurrentSeason();
-    const data = await queryAniList(AIRING_QUERY, { season, seasonYear });
+    const data = await queryAniList(AIRING_QUERY, {});
 
     const titles = new Set<string>();
     for (const m of data?.airing?.Page?.media || []) {
@@ -58,7 +55,7 @@ export async function GET(request: Request) {
     const list = [...titles].slice(0, 25);
     await redis.set(AIRING_SITEMAP_KEY, JSON.stringify(list));
 
-    return NextResponse.json({ success: true, count: list.length, season, seasonYear });
+    return NextResponse.json({ success: true, count: list.length });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Airing sitemap refresh failed" }, { status: 500 });
   }
