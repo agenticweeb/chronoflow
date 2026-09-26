@@ -19,13 +19,6 @@ interface CardProgressState {
   pct: number;
 }
 
-/**
- * Progress-aware badge lookup (client-side, zero fetches).
- * Scans the Zustand progressMap for an entry matching this card's anilistId.
- * Entry keys follow the documented AllowedTitle id contract in
- * types/intelligent.ts ("ani_12345"); the bare-id fallback covers alternate
- * keying. If nothing matches, the card renders badge-free — a safe no-op.
- */
 function useCardProgress(anilistId: number): CardProgressState | null {
   const progressMap = useWatchStore((state) => state.progressMap);
   return useMemo(() => {
@@ -58,9 +51,9 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
     <button
       type="button"
       onClick={() => onSelect(card)}
-      className="group relative w-[140px] sm:w-[160px] shrink-0 snap-start text-left cursor-pointer
+      className="group relative flex w-[140px] shrink-0 snap-start flex-col text-left cursor-pointer
                  transition-transform duration-300 ease-out
-                 hover:z-20 hover:scale-[1.05] focus-visible:z-20 focus-visible:scale-[1.05]"
+                 hover:z-20 hover:scale-[1.05] focus-visible:z-20 focus-visible:scale-[1.05] sm:w-[160px]"
       aria-label={`Select ${card.title}`}
     >
       <div
@@ -75,7 +68,7 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
           className="w-full h-full object-cover"
         />
 
-        {/* Top-left badge stack — user state and curation can coexist */}
+        {/* Top-left badge stack */}
         <div className="absolute top-2 left-2 z-10 flex flex-col items-start gap-1">
           {card.isEditorsPick && (
             <span className="rounded-full bg-chrono-accent/90 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-white shadow-lg">
@@ -95,7 +88,7 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
           )}
         </div>
 
-        {/* Airing countdown (Airing Now shelf) — self-positioning top-right */}
+        {/* Airing countdown */}
         {card.nextAiringEpisode && (
           <CountdownBadge
             airingAt={card.nextAiringEpisode.airingAt}
@@ -103,7 +96,7 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
           />
         )}
 
-        {/* Score badge */}
+        {/* Score badge — always visible, all breakpoints */}
         {card.score ? (
           <span className="absolute bottom-2 left-2 z-10 flex items-center gap-0.5 rounded-full bg-chrono-primary/80 px-2 py-0.5 text-[10px] font-bold text-white shadow-lg">
             <Star className="h-2.5 w-2.5 fill-current" />
@@ -111,7 +104,7 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
           </span>
         ) : null}
 
-        {/* Episode-level progress bar along the bottom edge */}
+        {/* Progress bar */}
         {progress && (
           <div className="absolute inset-x-0 bottom-0 z-10 h-[3px] bg-black/50">
             <div
@@ -121,8 +114,10 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
           </div>
         )}
 
-        {/* Hover reveal — title, meta, action hint */}
-        <div className="absolute inset-x-0 bottom-0 translate-y-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2.5 pt-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        {/* HOVER REVEAL — desktop only (hidden on touch/mobile via sm: breakpoint).
+            On mobile there is no hover state; tapping navigates instead of peeking.
+            The mobile equivalent is the always-visible title bar below. */}
+        <div className="absolute inset-x-0 bottom-0 hidden translate-y-2 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-2.5 pt-8 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 sm:block">
           <p className="line-clamp-2 text-xs font-bold leading-tight text-white">{card.title}</p>
           <p className="mt-1 text-[10px] font-medium text-white/70">
             {card.type || "?"} · {eps}
@@ -133,6 +128,18 @@ export function DiscoverCard({ card, onSelect }: DiscoverCardProps) {
             <ChevronRight className="h-3 w-3" />
           </span>
         </div>
+      </div>
+
+      {/* MOBILE TITLE BAR — always visible below the image, sm and up only.
+          Replaces the hover overlay on touch devices where hover doesn't exist.
+          Compact: title + format, single line, truncates gracefully. */}
+      <div className="mt-1.5 px-0.5 sm:hidden">
+        <p className="truncate text-[11px] font-bold leading-tight text-chrono-text">
+          {card.title}
+        </p>
+        <p className="text-[9px] text-chrono-text-dim">
+          {card.type || "?"} · {eps}
+        </p>
       </div>
     </button>
   );
