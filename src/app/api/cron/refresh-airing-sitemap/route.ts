@@ -43,11 +43,13 @@ export async function GET(request: Request) {
   try {
     const data = await queryAniList(AIRING_QUERY, {});
 
+    // Aliased Page fields REPLACE the Page wrapper in the response:
+    // the data lives at data.airing.media, NOT data.airing.Page.media
     const titles = new Set<string>();
-    for (const m of data?.airing?.Page?.media || []) {
+    for (const m of data?.airing?.media || []) {
       titles.add(m.title?.english || m.title?.romaji || "");
     }
-    for (const m of data?.trending?.Page?.media || []) {
+    for (const m of data?.trending?.media || []) {
       titles.add(m.title?.english || m.title?.romaji || "");
     }
     titles.delete("");
