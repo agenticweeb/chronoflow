@@ -203,7 +203,8 @@ export function InteractiveSearch({ initialSuggestions, airingAnime = [] }: Inte
   const [latency, setLatency] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [discoverLayout, setDiscoverLayout] = useState<"grid" | "list">("grid");
+  // Default to list view — cleaner scan-ability; grid remains one toggle away
+  const [discoverLayout, setDiscoverLayout] = useState<"grid" | "list">("list");
   const [sortBy, setSortBy] = useState<"popularity" | "score" | "title" | "underrated">("popularity");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<number>(0);
