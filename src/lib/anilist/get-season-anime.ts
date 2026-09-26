@@ -1,6 +1,6 @@
 import { queryAniList } from "@/lib/anilist-client";
 import { getCurrentSeason } from "@/lib/discover/shelf-recipes";
-
+import { getCurrentSeason } from "@/lib/discover/shelf-recipes";
 export interface SeasonAnime {
   anilistId: number;
   title: string;
@@ -63,9 +63,45 @@ const SEASON_QUERY = `
   }
 `;
 
+// For the CURRENT season page: show what's airing NOW, regardless of AniList's
+// season tag (which reflects premiere season, not current airing status)
+const AIRING_NOW_QUERY = `
+  query AiringNow {
+    Page(perPage: 24) {
+      media(
+        type: ANIME
+        status: RELEASING
+        sort: POPULARITY_DESC
+        isAdult: false
+      ) {
+        id
+        title { english romaji }
+        coverImage { large }
+        bannerImage
+        averageScore
+        episodes
+        format
+        genres
+        description(asHtml: false)
+        status
+        nextAiringEpisode { episode timeUntilAiring }
+      }
+    }
+  }
+`;
 export async function getSeasonAnime(season: string, year: number): Promise<SeasonAnime[]> {
   const seasonEnum = season.toUpperCase();
-  const data = await queryAniList(SEASON_QUERY, { season: seasonEnum, seasonYear: year });
+  
+  // Determine if this is the CURRENT season (in which case we want what's
+  // RELEASING now, not what's tagged with this season — AniList's season tags
+  // reflect premiere season, so currently-airing shows carry the previous
+  // season's tag)
+  const { season: currentSeason, seasonYear: currentYear } = getCurrentSeason();
+  const isCurrentSeason = seasonEnum === currentSeason && year === currentYear;
+  
+  const query = isCurrentSeason ? AIRING_NOW_QUERY : SEASON_QUERY;
+  const variables = isCurrentSeason ? {} : { season: seasonEnum, seasonYear: year };
+  const data = await queryAniList(query, variables);
   return (data?.Page?.media || []).map((m: any) => ({
     anilistId: m.id,
     title: m.title?.english || m.title?.romaji || "Unknown",

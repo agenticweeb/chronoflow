@@ -158,6 +158,14 @@ export default async function Page() {
                   GitHub Repository
                 </a>
               </li>
+              <li>
+                <Link
+                  href="/season/fall-2026"
+                  className="hover:text-chrono-primary transition-colors"
+                >
+                  Fall 2026 Anime — Watch Orders
+                </Link>
+              </li>
             </ul>
           </div>
           <div>
