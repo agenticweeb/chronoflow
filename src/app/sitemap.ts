@@ -6,6 +6,7 @@ import { getCurrentSeasonSlug, getPreviousSeasonSlug } from '@/lib/anilist/get-s
 // Revalidate every hour — reads fresh Redis data (airing titles) without a deploy.
 // Without this, Next treats the sitemap as static and freezes it at build time.
 export const revalidate = 3600;
+export const dynamic = 'force-dynamic';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://aniwatchorder.cc';
