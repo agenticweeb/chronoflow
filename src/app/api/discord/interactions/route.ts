@@ -46,7 +46,6 @@ async function patchOriginal(interactionToken: string, payload: unknown): Promis
   );
 }
 
-// Community recommendations — sorted by upvotes (RATING_DESC = most endorsed first)
 const RECOMMENDATIONS_QUERY = `
   query Recs($id: Int) {
     Media(id: $id, type: ANIME) {
@@ -70,7 +69,23 @@ const RECOMMENDATIONS_QUERY = `
   }
 `;
 
-// Shared resolution: user text -> the right anime (filters unreleased sequels)
+const AIRING_QUERY = `
+  query {
+    Page(perPage: 6) {
+      media(type: ANIME, status: RELEASING, sort: POPULARITY_DESC, isAdult: false, format_in: [TV, TV_SHORT, ONA]) {
+        id
+        title { english romaji }
+        coverImage { large }
+        averageScore
+        episodes
+        format
+        genres
+        nextAiringEpisode { airingAt episode timeUntilAiring }
+      }
+    }
+  }
+`;
+
 async function resolveAnime(
   animeName: string
 ): Promise<{ title: string; anilistId: number | undefined }> {
@@ -89,6 +104,14 @@ async function resolveAnime(
     // fall through to raw name
   }
   return { title: animeName, anilistId: undefined };
+}
+
+function countdownLabel(timeUntilAiring: number): string {
+  const hours = Math.floor(timeUntilAiring / 3600);
+  const days = Math.floor(hours / 24);
+  if (days > 0) return `${days}d`;
+  if (hours > 0) return `${hours}h`;
+  return `${Math.floor(timeUntilAiring / 60)}m`;
 }
 
 export async function POST(request: Request) {
@@ -229,7 +252,6 @@ export async function POST(request: Request) {
           media?.title?.english || media?.title?.romaji || resolved.title;
         const sourceCover = media?.coverImage?.large || "";
 
-        // Filter: valid entries only, exclude the source itself and unreleased titles
         const seenIds = new Set<number>([resolved.anilistId]);
         const recs: any[] = [];
         for (const node of media?.recommendations?.nodes || []) {
@@ -277,6 +299,55 @@ export async function POST(request: Request) {
       } catch {
         await patchOriginal(interaction.token, {
           content: `Something went wrong fetching recommendations for "${animeName}". Try \`/watchorder\` instead!`,
+        });
+      }
+    });
+
+    return NextResponse.json({ type: 5 });
+  }
+
+  // ── /airing ────────────────────────────────────────────────────
+  if (interaction.type === 2 && interaction.data?.name === "airing") {
+    after(async () => {
+      try {
+        const data = await queryAniList(AIRING_QUERY, {});
+        const airing = (data?.Page?.media || []).filter((m: any) => m?.nextAiringEpisode);
+
+        if (airing.length === 0) {
+          await patchOriginal(interaction.token, {
+            content: "Nothing's airing right now (or AniList hiccuped). Check the pinned weekly guide in #watch-orders, or visit [aniwatchorder.cc](https://aniwatchorder.cc)!",
+          });
+          return;
+        }
+
+        const fields = airing.map((m: any) => {
+          const title = m.title?.english || m.title?.romaji || "Unknown";
+          const score = m.averageScore ? `${(m.averageScore / 10).toFixed(1)}⭐` : "—";
+          const next = m.nextAiringEpisode;
+          const countdown = countdownLabel(next.timeUntilAiring);
+          const genres = (m.genres || []).slice(0, 2).join(", ") || "—";
+          return {
+            name: `${title}`,
+            value: `${score} · **Ep ${next.episode}** in ${countdown} · ${genres}`,
+            inline: false,
+          };
+        });
+
+        await patchOriginal(interaction.token, {
+          embeds: [
+            {
+              title: "📺 Airing Right Now",
+              description: `Top ${airing.length} shows currently airing, live from AniList.\n\n🎬 **Want a watch order for any of these?** Use \`/watchorder anime:<name>\` or visit [aniwatchorder.cc](https://aniwatchorder.cc)`,
+              color: 0x6366f1,
+              url: "https://aniwatchorder.cc/?tab=discover",
+              fields,
+              footer: { text: "Live data from AniList • MyAniWatchOrder • aniwatchorder.cc" },
+            },
+          ],
+        });
+      } catch {
+        await patchOriginal(interaction.token, {
+          content: "Couldn't reach AniList right now. Try again in a minute, or check the pinned weekly guide!",
         });
       }
     });
