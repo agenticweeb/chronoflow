@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { getBatchMediaImages } from "@/lib/anilist-client";
 import { SEO_TIERS } from "@/lib/seo/tiers";
 import { HowItWorks } from "@/components/HowItWorks";
+import { HeaderActions } from "@/components/HeaderActions";
 import { getCurrentSeasonSlug } from "@/lib/anilist/get-season-anime";
 
 export const dynamic = "force-dynamic";
